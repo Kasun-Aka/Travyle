@@ -1,0 +1,27 @@
+# ASP.NET Core
+backend/bin/
+backend/obj/
+backend/appsettings.Development.json
+backend/appsettings.Local.json
+
+# Node / React
+web-admin/node_modules/
+web-admin/dist/
+web-admin/.env
+web-admin/.env.local
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/ios/Flutter/Generated.xcconfig
+mobile/android/local.properties
+mobile/**/GeneratedPluginRegistrant.*
+mobile/lib/firebase_options.dart
+
+# General
+.DS_Store
+*.log
+.vscode/
+.idea/
