@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "319164409341",
+    "project_id": "travyle",
+    "storage_bucket": "travyle.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:319164409341:android:e95203769a7fa52ffc2594",
+        "android_client_info": {
+          "package_name": "com.travyle.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAn725ADG0iJ7igpMG1k3eZn4kDxLSS3ao"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
