@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Travyle.Api.Data;
@@ -11,9 +12,11 @@ using Travyle.Api.Data;
 namespace Travyle.Api.Migrations
 {
     [DbContext(typeof(TravyleDbContext))]
-    partial class TravyleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920125903_AddBookingVertical")]
+    partial class AddBookingVertical
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,14 +35,14 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime>("BookingDate")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("BookingReference")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DestinationTitle")
                         .IsRequired()
@@ -49,7 +52,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime?>("EscrowReleaseDate")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Guests")
                         .HasColumnType("integer");
@@ -61,15 +64,8 @@ namespace Travyle.Api.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ReceiptReference")
                         .HasColumnType("text");
 
                     b.Property<Guid>("ScheduleId")
@@ -104,7 +100,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -120,7 +116,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("DestinationId")
                         .HasColumnType("uuid");
@@ -167,7 +163,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("OriginalPrice")
                         .HasColumnType("numeric(18,2)");
@@ -190,7 +186,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -213,16 +209,13 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("EscrowReleaseDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<decimal>("RefundedAmount")
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ReleasedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -250,7 +243,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("Date")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -286,7 +279,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()

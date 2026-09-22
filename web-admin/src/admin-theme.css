@@ -1,0 +1,34 @@
+:root{font-size:16px;color:#17324d;background:#f3f8fc}
+body{background:#f3f8fc;color:#17324d;font-size:1rem;line-height:1.55}
+.sidebar{background:#123b66;color:#e5f1fa}
+.brand-mark{background:#d8edf9;color:#123b66}
+.brand b,.sidebar-bottom b{color:#fff}
+.brand small,.sidebar-bottom small{color:#a8c8df}
+.workspace-label,.eyebrow{color:#6e9fc1}
+.nav-item{color:#b8d1e2;font-size:.875rem}
+.nav-item:hover,.nav-item.active{background:#1d5d93;color:#fff}
+.nav-item.active .nav-dot{background:#8bd0ef;box-shadow:0 0 0 4px #8bd0ef33}
+.nav-dot{background:#6e9fc1}
+.nav-item em{background:#b8e3f5;color:#123b66}
+.sidebar-bottom{border-color:#2b6593}
+.admin-avatar,.person-avatar{background:#d8edf9;color:#1d5d93}
+.logout{color:#a8c8df}
+.topbar h1{font-size:2rem;line-height:1.15;color:#123b66}
+.topbar h2,.hero-strip h2{color:#123b66}
+.panel,.table-panel,.request-card,.metric-card{border-color:#d2e3ef;background:#fff}
+.metric-card.green,.metric-card.blue{background:#e2f1fa;color:#17324d}
+.metric-card.amber{background:#fff4da}
+.metric-card.coral{background:#e6f0fb}
+.primary-button,.approve-button{background:#1d6fa8;color:#fff}
+.secondary-button,.filter{border-color:#b7d2e3;color:#1d5d93;background:#fff}
+.filter.active{background:#1d5d93;color:#fff;border-color:#1d5d93}
+.verify-button{background:#d8edf9;color:#14547f}
+.text-action{color:#1d6fa8}
+input,select,textarea{border-color:#c5dce9;color:#17324d;background:#fbfdff}
+input:focus,select:focus,textarea:focus{border-color:#3b91c4;box-shadow:0 0 0 3px #3b91c426;outline:0}
+table th{color:#5e85a0}
+.dark-panel{background:#123b66;color:#e5f1fa}
+.receipt-modal-backdrop{background:#102f4d99}
+.receipt-modal{border:1px solid #d2e3ef}
+@media (max-width:700px){body{font-size:.9375rem}.main-content{padding:22px 16px}.topbar h1{font-size:1.625rem}.hero-strip h2{font-size:2rem}.panel-heading h3,.request-card h3{font-size:1.0625rem}.table-panel{overflow-x:auto}table{min-width:760px}}
+@media (max-width:480px){.main-content{padding:18px 12px}.topbar h1{font-size:1.375rem}.hero-strip h2{font-size:1.75rem}.panel,.request-card,.metric-card{padding:18px}.receipt-modal-backdrop{padding:12px}.receipt-modal{padding:18px}}

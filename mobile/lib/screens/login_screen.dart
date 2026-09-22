@@ -162,7 +162,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/schedules');
+                  },
                   child: const Text(
                     'SIGN IN',
                     style: TextStyle(
