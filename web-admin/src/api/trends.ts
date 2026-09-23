@@ -57,5 +57,5 @@ export interface TrendsData {
 }
 
 export const trendsApi = {
-  get: () => api.get<TrendsData>('/destinations/trends'),
+  get: (months: number = 6) => api.get<TrendsData>(`/destinations/trends?months=${months}`),
 };

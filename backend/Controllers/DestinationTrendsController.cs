@@ -15,9 +15,9 @@ public class DestinationTrendsController : ControllerBase
         _db = db;
     }
 
-    // GET /api/destinations/trends
+    // GET /api/destinations/trends?months=6
     [HttpGet]
-    public async Task<IActionResult> GetTrends()
+    public async Task<IActionResult> GetTrends([FromQuery] int months = 6)
     {
         var destinations = await _db.Destinations
             .OrderByDescending(d => d.CreatedAt)
@@ -56,17 +56,19 @@ public class DestinationTrendsController : ControllerBase
             .Take(10)
             .ToList();
 
-        // ── 3. Packages added per month (last 6 months, real) 
-        var sixMonthsAgo = now.AddMonths(-5);
+        // ── 3. Packages added per month (real, based on months param) 
+        var startDate = now.AddMonths(-(months - 1));
         var addedByMonth = destinations
-            .Where(d => d.CreatedAt >= sixMonthsAgo)
+            .Where(d => d.CreatedAt >= new DateTime(startDate.Year, startDate.Month, 1))
             .GroupBy(d => new { d.CreatedAt.Year, d.CreatedAt.Month })
             .Select(g => new
             {
-                month = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
-                count = g.Count()
+                month = new DateTime(g.Key.Year, g.Key.Month, 1).ToString(months > 12 ? "MMM yy" : "MMM yyyy"),
+                count = g.Count(),
+                date = new DateTime(g.Key.Year, g.Key.Month, 1)
             })
-            .OrderBy(m => m.month)
+            .OrderBy(m => m.date)
+            .Select(m => new { m.month, m.count })
             .ToList();
 
         // ── 4. Newest packages (real, last 5) ────────────────
@@ -95,17 +97,16 @@ public class DestinationTrendsController : ControllerBase
         var coverageScore = Math.Min(100, (distinctRegions * 8) + (distinctTags * 3) + (total * 2));
 
         // ── 7. Simulated demand curve (seeded, consistent) ───
-        // Booking data belongs to Student 2's scope; seeded random
-        // keeps numbers stable between refreshes
-        var demandCurve = Enumerable.Range(0, 8)
+        var demandCurve = Enumerable.Range(0, Math.Min(months, 12)) // Max 12 bars for UI limits
             .Select(i =>
             {
-                var m = now.AddMonths(-(7 - i));
+                var barCount = Math.Min(months, 12);
+                var m = now.AddMonths(-(barCount - 1 - i));
                 var seed = m.Year * 100 + m.Month;
                 var rng = new Random(seed);
                 return new
                 {
-                    month = m.ToString("MMM"),
+                    month = m.ToString(months > 12 ? "MMM yy" : "MMM"),
                     bookings = 38 + rng.Next(8, 62),
                     isCurrent = m.Month == now.Month && m.Year == now.Year
                 };
