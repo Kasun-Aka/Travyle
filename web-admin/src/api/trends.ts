@@ -1,15 +1,43 @@
 import api from './client';
 
 export interface TrendSummary {
-  totalDestinations: number;
-  catalogSearches: number;
-  catalogSearchesGrowth: number;
-  searchToBookingRate: number;
-  searchToBookingGrowth: number;
-  avgTripBudget: number;
-  avgTripBudgetGrowth: number;
+  totalPackages: number;
+  totalRegions: number;
+  totalUniqueTags: number;
   underSuppliedCount: number;
   underSuppliedRegions: string[];
+  coverageScore: number;
+  avgRatingOverall: number;
+  catalogSearches: number;
+  searchToBookingRate: number;
+  avgTripBudget: number;
+}
+
+export interface RegionStat {
+  region: string;
+  count: number;
+  avgRating: number;
+  percentage: number;
+}
+
+export interface TagStat {
+  tag: string;
+  count: number;
+  percentage: number;
+}
+
+export interface MonthlyAdded {
+  month: string;
+  count: number;
+}
+
+export interface NewestPackage {
+  id: string;
+  name: string;
+  region: string;
+  tags: string[];
+  averageRating: number;
+  addedAgo: string;
 }
 
 export interface DemandPoint {
@@ -18,25 +46,14 @@ export interface DemandPoint {
   isCurrent: boolean;
 }
 
-export interface PreferenceShare {
-  tag: string;
-  percentage: number;
-}
-
-export interface RegionalPerformance {
-  region: string;
-  count: number;
-  destinationSearches: number;
-  bookings: number;
-  conversion: number;
-  wowChange: number;
-}
-
 export interface TrendsData {
+  generatedAt: string;
   summary: TrendSummary;
+  byRegion: RegionStat[];
+  tagFrequency: TagStat[];
+  addedByMonth: MonthlyAdded[];
+  newestPackages: NewestPackage[];
   demandCurve: DemandPoint[];
-  preferenceShare: PreferenceShare[];
-  regionalPerformance: RegionalPerformance[];
 }
 
 export const trendsApi = {

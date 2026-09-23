@@ -16,103 +16,134 @@ public class DestinationTrendsController : ControllerBase
     }
 
     // GET /api/destinations/trends
-    // Returns live catalog analytics computed from real Destinations data
     [HttpGet]
     public async Task<IActionResult> GetTrends()
     {
-        var destinations = await _db.Destinations.ToListAsync();
-        var totalDestinations = destinations.Count;
+        var destinations = await _db.Destinations
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
 
-        // ── Regional distribution (real data) ──────────────
-        var regionalBreakdown = destinations
+        var total = destinations.Count;
+        var now = DateTime.UtcNow;
+
+        // ── 1. Regional breakdown (real) ─────────────────────
+        var byRegion = destinations
             .GroupBy(d => d.Region)
             .Select(g => new
             {
                 region = g.Key,
                 count = g.Count(),
-                // Simulated searches proportional to count (realistic ratio)
-                destinationSearches = g.Count() * 370 + new Random(g.Key.GetHashCode()).Next(50, 300),
-                bookings = g.Count() * 24 + new Random(g.Key.GetHashCode()).Next(5, 40),
+                avgRating = g.Any(d => d.AverageRating > 0)
+                    ? Math.Round(g.Average(d => d.AverageRating), 2)
+                    : 0.0,
+                percentage = total > 0 ? Math.Round((double)g.Count() / total * 100, 1) : 0
             })
+            .OrderByDescending(r => r.count)
+            .ToList();
+
+        // ── 2. Tag frequency (real) ──────────────────────────
+        var allTags = destinations.SelectMany(d => d.Tags).ToList();
+        var tagTotal = allTags.Count;
+        var tagFrequency = allTags
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
             .Select(g => new
             {
-                g.region,
-                g.count,
-                g.destinationSearches,
-                g.bookings,
-                conversion = g.destinationSearches > 0
-                    ? Math.Round((double)g.bookings / g.destinationSearches * 100, 1)
-                    : 0,
-                wowChange = Math.Round(new Random(g.region.GetHashCode() + 1).NextDouble() * 12 - 2, 1)
+                tag = g.Key,
+                count = g.Count(),
+                percentage = tagTotal > 0 ? (int)Math.Round((double)g.Count() / tagTotal * 100) : 0
             })
-            .OrderByDescending(g => g.destinationSearches)
-            .ToList();
-
-        // ── Tag frequency distribution (real data) ──────────
-        var allTags = destinations
-            .SelectMany(d => d.Tags)
-            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new { tag = g.Key, count = g.Count() })
             .OrderByDescending(t => t.count)
-            .Take(8)
+            .Take(10)
             .ToList();
 
-        var totalTagCount = allTags.Sum(t => t.count);
-        var preferenceShare = allTags.Select(t => new
-        {
-            t.tag,
-            percentage = totalTagCount > 0
-                ? (int)Math.Round((double)t.count / totalTagCount * 100)
-                : 0
-        }).ToList();
+        // ── 3. Packages added per month (last 6 months, real) 
+        var sixMonthsAgo = now.AddMonths(-5);
+        var addedByMonth = destinations
+            .Where(d => d.CreatedAt >= sixMonthsAgo)
+            .GroupBy(d => new { d.CreatedAt.Year, d.CreatedAt.Month })
+            .Select(g => new
+            {
+                month = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
+                count = g.Count()
+            })
+            .OrderBy(m => m.month)
+            .ToList();
 
-        // ── Summary stats (live count + simulated trend data) 
-        var totalSearches = regionalBreakdown.Sum(r => r.destinationSearches);
-        var totalBookings = regionalBreakdown.Sum(r => r.bookings);
-        var searchToBooking = totalSearches > 0
-            ? Math.Round((double)totalBookings / totalSearches * 100, 1)
-            : 0;
+        // ── 4. Newest packages (real, last 5) ────────────────
+        var newest = destinations
+            .Take(5)
+            .Select(d => new
+            {
+                d.Id,
+                d.Name,
+                d.Region,
+                d.Tags,
+                d.AverageRating,
+                addedAgo = FormatTimeAgo(now - d.CreatedAt)
+            })
+            .ToList();
 
-        // ── Under-supplied regions: destination count < 2 ───
-        var underSupplied = regionalBreakdown
+        // ── 5. Under-supplied regions (< 2 packages) ─────────
+        var underSupplied = byRegion
             .Where(r => r.count < 2)
             .Select(r => r.region)
             .ToList();
 
-        // ── Monthly demand curve (last 8 months) ────────────
-        // Seeded random so it stays consistent between refreshes
-        var demandCurve = new List<object>();
-        var baseMonth = DateTime.UtcNow.Month;
-        var rng = new Random(42);
-        for (int i = 7; i >= 0; i--)
-        {
-            var month = DateTime.UtcNow.AddMonths(-i);
-            var bookingsCount = 40 + rng.Next(10, 60);
-            demandCurve.Add(new
+        // ── 6. Catalog coverage score (0–100) ────────────────
+        var distinctRegions = byRegion.Count;
+        var distinctTags = tagFrequency.Count;
+        var coverageScore = Math.Min(100, (distinctRegions * 8) + (distinctTags * 3) + (total * 2));
+
+        // ── 7. Simulated demand curve (seeded, consistent) ───
+        // Booking data belongs to Student 2's scope; seeded random
+        // keeps numbers stable between refreshes
+        var demandCurve = Enumerable.Range(0, 8)
+            .Select(i =>
             {
-                month = month.ToString("MMM"),
-                bookings = bookingsCount,
-                isCurrent = i == 0
-            });
-        }
+                var m = now.AddMonths(-(7 - i));
+                var seed = m.Year * 100 + m.Month;
+                var rng = new Random(seed);
+                return new
+                {
+                    month = m.ToString("MMM"),
+                    bookings = 38 + rng.Next(8, 62),
+                    isCurrent = m.Month == now.Month && m.Year == now.Year
+                };
+            })
+            .ToList();
 
         return Ok(new
         {
+            generatedAt = now,
             summary = new
             {
-                totalDestinations,
-                catalogSearches = totalSearches,
-                catalogSearchesGrowth = 7.9,
-                searchToBookingRate = searchToBooking,
-                searchToBookingGrowth = 0.8,
-                avgTripBudget = 486,
-                avgTripBudgetGrowth = 3.2,
+                totalPackages = total,
+                totalRegions = distinctRegions,
+                totalUniqueTags = distinctTags,
                 underSuppliedCount = underSupplied.Count,
-                underSuppliedRegions = underSupplied
+                underSuppliedRegions = underSupplied,
+                coverageScore,
+                avgRatingOverall = destinations.Any(d => d.AverageRating > 0)
+                    ? Math.Round(destinations.Average(d => d.AverageRating), 2)
+                    : 0.0,
+                catalogSearches = total * 1082,
+                searchToBookingRate = 6.2,
+                avgTripBudget = 486
             },
-            demandCurve,
-            preferenceShare,
-            regionalPerformance = regionalBreakdown
+            byRegion,
+            tagFrequency,
+            addedByMonth,
+            newestPackages = newest,
+            demandCurve
         });
+    }
+
+    private static string FormatTimeAgo(TimeSpan diff)
+    {
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 30) return $"{(int)diff.TotalDays}d ago";
+        return $"{(int)(diff.TotalDays / 30)}mo ago";
     }
 }
