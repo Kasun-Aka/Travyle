@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 import 'preference_screen.dart';
 import 'destination_detail_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -22,7 +24,7 @@ class HomeScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'WELCOME BACK',
                         style: TextStyle(
                           color: AppTheme.textGrey,
@@ -31,17 +33,34 @@ class HomeScreen extends StatelessWidget {
                           letterSpacing: 1.2,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        'Alexander',
+                        FirebaseAuth.instance.currentUser?.displayName ?? 'Alexander',
                         style: Theme.of(context).textTheme.displayLarge?.copyWith(
                           fontSize: 28,
                         ),
                       ),
                     ],
                   ),
-                  const CircleAvatar(
-                    radius: 24,
-                    backgroundImage: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'), // Placeholder for profile pic
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'), // Placeholder for profile pic
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.logout, color: AppTheme.textDark),
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                          if (context.mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            );
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
