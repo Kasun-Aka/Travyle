@@ -98,7 +98,7 @@ export default function MasterTourPackages() {
         setSelected(response.data.items[0]);
       }
     } catch {
-      setFetchError('Could not connect to the backend. Make sure the API server is running on port 5285.');
+      setFetchError('Could not connect to the backend. Make sure the API server is running on port 5085.');
     } finally {
       setLoading(false);
     }
@@ -108,11 +108,19 @@ export default function MasterTourPackages() {
     fetchDestinations();
   }, [fetchDestinations]);
 
-  // ── Search handler (debounced on Enter / blur) ──────────
+  // ── Debounced search: fires 400ms after user stops typing ──
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearch(searchInput);
+    setSearch(searchInput); // also fires immediately on Enter
   };
+
 
   // ── Create / Edit handlers ──────────────────────────────
   const openCreate = () => {
