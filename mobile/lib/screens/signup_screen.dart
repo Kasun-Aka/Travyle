@@ -17,6 +17,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
+  String _selectedRole = 'Traveler';
   bool _isLoading = false;
   String _errorMessage = '';
 
@@ -53,7 +54,7 @@ class _SignupScreenState extends State<SignupScreen> {
             'firebaseUid': user.uid,
             'email': email,
             'fullName': fullName,
-            'role': 'Traveler',
+            'role': _selectedRole,
           });
         } catch (apiError) {
           debugPrint('Failed to sync user with DB: $apiError');
@@ -162,6 +163,29 @@ class _SignupScreenState extends State<SignupScreen> {
                 decoration: const InputDecoration(
                   hintText: 'Create a password',
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              const Text('I AM A...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                items: ['Traveler', 'Local Guide', 'Tour Operator']
+                    .map((role) => DropdownMenuItem(
+                          value: role,
+                          child: Text(role),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedRole = value;
+                    });
+                  }
+                },
               ),
               const SizedBox(height: 32),
               
