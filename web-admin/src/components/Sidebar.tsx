@@ -1,5 +1,6 @@
 
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -15,6 +16,7 @@ const activeClass = 'bg-white text-sidebar font-bold';
 const inactiveClass = 'text-gray-300 hover:text-white hover:bg-white/10';
 
 export default function Sidebar() {
+  const { currentUser, logout } = useAuth();
   return (
     <div className="w-64 bg-sidebar h-screen text-white flex flex-col">
       {/* Brand Header */}
@@ -133,21 +135,29 @@ export default function Sidebar() {
       {/* User Profile */}
       <div className="p-4 mt-auto border-t border-white/10">
         <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg mb-4">
-          <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center font-bold text-sm">
-            AD
+          <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center font-bold text-sm uppercase">
+            {currentUser?.email?.substring(0, 2) || 'AD'}
           </div>
-          <div>
-            <p className="text-sm font-bold leading-tight">Amara De Silva</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold leading-tight truncate">{currentUser?.displayName || currentUser?.email || 'Amara De Silva'}</p>
             <p className="text-xs text-gray-400">System administrator</p>
           </div>
         </div>
         
-        <div className="flex items-center justify-between text-xs px-2">
-          <span className="text-gray-400">Platform</span>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="font-medium text-gray-200">All systems live</span>
+        <div className="flex flex-col gap-3 text-xs px-2 mb-2">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">Platform</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="font-medium text-gray-200">All systems live</span>
+            </div>
           </div>
+          <button 
+            onClick={logout}
+            className="text-left text-gray-400 hover:text-white transition-colors py-1 w-fit font-medium"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     </div>
