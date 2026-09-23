@@ -74,6 +74,11 @@ export default function MasterTourPackages() {
   // Search / filter state
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Modal state
   const [showForm, setShowForm] = useState(false);
@@ -90,7 +95,13 @@ export default function MasterTourPackages() {
     setLoading(true);
     setFetchError(null);
     try {
-      const response = await destinationsApi.list({ search: search || undefined, pageSize: 50 });
+      const params: any = { pageSize: 50 };
+      if (search) params.search = search;
+      if (regionFilter) params.region = regionFilter;
+      params.sortBy = sortBy;
+      params.sortDir = sortDir;
+      
+      const response = await destinationsApi.list(params);
       setDestinations(response.data.items);
       setTotalCount(response.data.totalCount);
       // Auto-select first item if available
@@ -102,7 +113,7 @@ export default function MasterTourPackages() {
     } finally {
       setLoading(false);
     }
-  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, regionFilter, sortBy, sortDir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchDestinations();
@@ -200,6 +211,22 @@ export default function MasterTourPackages() {
               </p>
             </div>
             <form onSubmit={handleSearchSubmit} className="flex items-center gap-3">
+              <select
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">All Regions</option>
+                <option value="Central">Central</option>
+                <option value="Northern">Northern</option>
+                <option value="Southern">Southern</option>
+                <option value="Western">Western</option>
+                <option value="Eastern">Eastern</option>
+                <option value="North Central">North Central</option>
+                <option value="North Western">North Western</option>
+                <option value="Uva">Uva</option>
+                <option value="Sabaragamuwa">Sabaragamuwa</option>
+              </select>
               <div className="relative">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -246,9 +273,24 @@ export default function MasterTourPackages() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-gray-400">
-                  <th className="font-semibold py-4 px-6">Destination</th>
-                  <th className="font-semibold py-4 px-6">Region</th>
-                  <th className="font-semibold py-4 px-6">Rating</th>
+                  <th 
+                    className="font-semibold py-4 px-6 cursor-pointer hover:text-gray-700 select-none"
+                    onClick={() => { if (sortBy === 'name') setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortBy('name'); setSortDir('asc'); } }}
+                  >
+                    Destination {sortBy === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                  </th>
+                  <th 
+                    className="font-semibold py-4 px-6 cursor-pointer hover:text-gray-700 select-none"
+                    onClick={() => { if (sortBy === 'region') setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortBy('region'); setSortDir('asc'); } }}
+                  >
+                    Region {sortBy === 'region' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                  </th>
+                  <th 
+                    className="font-semibold py-4 px-6 cursor-pointer hover:text-gray-700 select-none"
+                    onClick={() => { if (sortBy === 'rating') setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortBy('rating'); setSortDir('desc'); } }}
+                  >
+                    Rating {sortBy === 'rating' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                  </th>
                   <th className="font-semibold py-4 px-6">Preference tags</th>
                   <th className="font-semibold py-4 px-6 text-right">Actions</th>
                 </tr>
