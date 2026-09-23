@@ -35,7 +35,7 @@ public class DestinationTrendsController : ControllerBase
                 count = g.Count(),
                 avgRating = g.Any(d => d.AverageRating > 0)
                     ? Math.Round(g.Average(d => d.AverageRating), 2)
-                    : 0.0,
+                    : 0.0m,
                 percentage = total > 0 ? Math.Round((double)g.Count() / total * 100, 1) : 0
             })
             .OrderByDescending(r => r.count)
@@ -125,7 +125,7 @@ public class DestinationTrendsController : ControllerBase
                 coverageScore,
                 avgRatingOverall = destinations.Any(d => d.AverageRating > 0)
                     ? Math.Round(destinations.Average(d => d.AverageRating), 2)
-                    : 0.0,
+                    : 0.0m,
                 catalogSearches = total * 1082,
                 searchToBookingRate = 6.2,
                 avgTripBudget = 486
