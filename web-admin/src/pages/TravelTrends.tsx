@@ -80,19 +80,28 @@ function DemandBar({ month, bookings, pct, isCurrent }: { month: string; booking
   );
 }
 
+const periodToMonths: Record<string, number> = {
+  'Last 30 days': 1,
+  'Last 90 days': 3,
+  'Last 6 months': 6,
+  'Last year': 12,
+  'All time': 60
+};
+
 // ── Page ─────────────────────────────────────────────────
 export default function TravelTrends() {
   const [data, setData] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState('Last 90 days');
+  const [period, setPeriod] = useState('Last 6 months');
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function load(silent: boolean) {
+  async function load(silent: boolean, selectedPeriod: string) {
     if (silent) setRefreshing(true); else { setLoading(true); setError(null); }
     try {
-      const res = await trendsApi.get();
+      const months = periodToMonths[selectedPeriod] || 6;
+      const res = await trendsApi.get(months);
       setData(res.data);
     } catch {
       if (!silent) setError('Could not connect to API. Make sure the backend is running on port 5085.');
@@ -103,16 +112,67 @@ export default function TravelTrends() {
   }
 
   useEffect(() => {
-    load(false);
-    timer.current = setInterval(() => load(true), POLL_MS);
+    load(false, period);
+    if (timer.current) clearInterval(timer.current);
+    timer.current = setInterval(() => load(true, period), POLL_MS);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period]);
+
+  const handleExportCsv = () => {
+    if (!data) return;
+
+    const lines = [];
+    
+    // Summary
+    lines.push('--- SUMMARY ---');
+    lines.push('Metric,Value');
+    lines.push(`Total Packages,${data.summary.totalPackages}`);
+    lines.push(`Regions Covered,${data.summary.totalRegions}`);
+    lines.push(`Unique Tags,${data.summary.totalUniqueTags}`);
+    lines.push(`Coverage Score,${data.summary.coverageScore}`);
+    lines.push(`Under Supplied Regions,"${data.summary.underSuppliedRegions.join(', ')}"`);
+    lines.push('');
+
+    // Regional Breakdown
+    lines.push('--- REGIONAL BREAKDOWN ---');
+    lines.push('Region,Count,Percentage');
+    data.byRegion.forEach(r => {
+      lines.push(`"${r.region}",${r.count},${r.percentage}%`);
+    });
+    lines.push('');
+
+    // Top Tags
+    lines.push('--- TOP PREFERENCE TAGS ---');
+    lines.push('Tag,Count,Percentage');
+    data.tagFrequency.forEach(t => {
+      lines.push(`"${t.tag}",${t.count},${t.percentage}%`);
+    });
+    lines.push('');
+
+    // Demand Curve
+    lines.push('--- DEMAND CURVE (BOOKINGS) ---');
+    lines.push('Month,Bookings');
+    data.demandCurve.forEach(d => {
+      lines.push(`"${d.month}",${d.bookings}`);
+    });
+
+    const csvContent = lines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `travel-trends-${period.replace(/ /g, '-').toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Derived
   const maxRegion = data?.byRegion[0]?.count ?? 1;
   const maxTag    = data?.tagFrequency[0]?.count ?? 1;
-  const maxDemand = data ? Math.max(...data.demandCurve.map(d => d.bookings), 1) : 1;
-  const maxAdded  = data ? Math.max(...data.addedByMonth.map(m => m.count), 1) : 1;
+  const maxDemand = data && data.demandCurve.length > 0 ? Math.max(...data.demandCurve.map(d => d.bookings), 1) : 1;
+  const maxAdded  = data && data.addedByMonth.length > 0 ? Math.max(...data.addedByMonth.map(m => m.count), 1) : 1;
 
   return (
     <Layout>
@@ -138,14 +198,19 @@ export default function TravelTrends() {
         <div className="flex items-center gap-3">
           <select value={period} onChange={e => setPeriod(e.target.value)}
             className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            {['Last 30 days', 'Last 90 days', 'Last 6 months', 'Last year'].map(p => <option key={p}>{p}</option>)}
+            {['Last 30 days', 'Last 90 days', 'Last 6 months', 'Last year', 'All time'].map(p => <option key={p}>{p}</option>)}
           </select>
-          <button onClick={() => load(true)} disabled={refreshing}
+          <button onClick={() => load(true, period)} disabled={refreshing}
             className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors">
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             Refresh now
           </button>
-          <button className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 shadow-sm transition-colors">
+
+          <button 
+            onClick={handleExportCsv}
+            disabled={!data}
+            className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
+          >
             <Download size={14} /> Export CSV
           </button>
         </div>
