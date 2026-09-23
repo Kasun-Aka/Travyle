@@ -118,50 +118,76 @@ export default function TravelTrends() {
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [period]);
 
-  const handleExportCsv = () => {
+  const handleExportExcel = async () => {
     if (!data) return;
-
-    const lines = [];
     
-    // Summary
-    lines.push('--- SUMMARY ---');
-    lines.push('Metric,Value');
-    lines.push(`Total Packages,${data.summary.totalPackages}`);
-    lines.push(`Regions Covered,${data.summary.totalRegions}`);
-    lines.push(`Unique Tags,${data.summary.totalUniqueTags}`);
-    lines.push(`Coverage Score,${data.summary.coverageScore}`);
-    lines.push(`Under Supplied Regions,"${data.summary.underSuppliedRegions.join(', ')}"`);
-    lines.push('');
+    // Dynamically import to save bundle size if never clicked
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Travyle';
 
-    // Regional Breakdown
-    lines.push('--- REGIONAL BREAKDOWN ---');
-    lines.push('Region,Count,Percentage');
+    // Helper to style headers
+    const styleHeader = (sheet: any, row: number, title: string) => {
+      sheet.mergeCells(`A${row}:B${row}`);
+      const cell = sheet.getCell(`A${row}`);
+      cell.value = title;
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }; // Brand indigo
+      cell.alignment = { horizontal: 'center' };
+    };
+
+    const sheet = workbook.addWorksheet('Trend Analytics');
+    sheet.columns = [
+      { header: '', key: 'metric', width: 25 },
+      { header: '', key: 'value', width: 20 },
+      { header: '', key: 'pct', width: 15 }
+    ];
+
+    let row = 1;
+
+    // --- SUMMARY ---
+    styleHeader(sheet, row, 'SUMMARY METRICS');
+    row++;
+    sheet.addRow({ metric: 'Total Packages', value: data.summary.totalPackages });
+    sheet.addRow({ metric: 'Regions Covered', value: data.summary.totalRegions });
+    sheet.addRow({ metric: 'Unique Tags', value: data.summary.totalUniqueTags });
+    sheet.addRow({ metric: 'Coverage Score', value: `${data.summary.coverageScore}/100` });
+    sheet.addRow({ metric: 'Under Supplied', value: data.summary.underSuppliedRegions.join(', ') || 'None' });
+    row += 6;
+
+    // --- REGIONAL BREAKDOWN ---
+    styleHeader(sheet, row, 'REGIONAL BREAKDOWN');
+    row++;
+    sheet.addRow({ metric: 'Region', value: 'Count', pct: 'Percentage' }).font = { bold: true, color: { argb: 'FF4B5563' } };
     data.byRegion.forEach(r => {
-      lines.push(`"${r.region}",${r.count},${r.percentage}%`);
+      sheet.addRow({ metric: r.region, value: r.count, pct: `${r.percentage}%` });
     });
-    lines.push('');
+    row += data.byRegion.length + 2;
 
-    // Top Tags
-    lines.push('--- TOP PREFERENCE TAGS ---');
-    lines.push('Tag,Count,Percentage');
+    // --- TOP TAGS ---
+    styleHeader(sheet, row, 'TOP PREFERENCE TAGS');
+    row++;
+    sheet.addRow({ metric: 'Tag', value: 'Count', pct: 'Percentage' }).font = { bold: true, color: { argb: 'FF4B5563' } };
     data.tagFrequency.forEach(t => {
-      lines.push(`"${t.tag}",${t.count},${t.percentage}%`);
+      sheet.addRow({ metric: t.tag, value: t.count, pct: `${t.percentage}%` });
     });
-    lines.push('');
+    row += data.tagFrequency.length + 2;
 
-    // Demand Curve
-    lines.push('--- DEMAND CURVE (BOOKINGS) ---');
-    lines.push('Month,Bookings');
+    // --- DEMAND CURVE ---
+    styleHeader(sheet, row, 'DEMAND CURVE (BOOKINGS)');
+    row++;
+    sheet.addRow({ metric: 'Month', value: 'Bookings' }).font = { bold: true, color: { argb: 'FF4B5563' } };
     data.demandCurve.forEach(d => {
-      lines.push(`"${d.month}",${d.bookings}`);
+      sheet.addRow({ metric: d.month, value: d.bookings });
     });
 
-    const csvContent = lines.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Generate and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `travel-trends-${period.replace(/ /g, '-').toLowerCase()}.csv`);
+    link.setAttribute('download', `travel-trends-${period.replace(/ /g, '-').toLowerCase()}.xlsx`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -207,11 +233,11 @@ export default function TravelTrends() {
           </button>
 
           <button 
-            onClick={handleExportCsv}
+            onClick={handleExportExcel}
             disabled={!data}
             className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} /> Export Excel
           </button>
         </div>
 
