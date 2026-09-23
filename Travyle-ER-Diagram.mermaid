@@ -1,0 +1,189 @@
+erDiagram
+    USERS ||--o| TRAVELER_PROFILES : "has profile"
+    USERS ||--o{ PERSONALIZED_ITINERARIES : creates
+    USERS ||--o{ BOOKINGS : makes
+    USERS ||--o{ DISCOUNT_REQUESTS : "requests / reviews"
+    USERS ||--o{ GUIDE_ASSIGNMENTS : "assigned as guide"
+    USERS ||--o{ ROUTE_LOGS : records
+    USERS ||--o{ SUPPORT_TICKETS : submits
+    USERS ||--o{ VOUCHERS : "receives / approves"
+    USERS ||--o{ CUSTOMER_REVIEWS : writes
+    USERS ||--o{ AUDIT_LOGS : "acted by"
+
+    DESTINATIONS ||--o{ PERSONALIZED_ITINERARIES : "featured in"
+    DESTINATIONS ||--o{ BOOKING_SCHEDULES : "scheduled for"
+
+    BOOKING_SCHEDULES ||--o{ BOOKINGS : "booked as"
+    BOOKING_SCHEDULES ||--o{ TOUR_ACTIVITIES : includes
+    BOOKING_SCHEDULES ||--o{ GUIDE_ASSIGNMENTS : "staffed by"
+    BOOKING_SCHEDULES ||--o{ ROUTE_LOGS : "tracked by"
+    BOOKING_SCHEDULES ||--o{ DISRUPTION_ALERTS : "affected by"
+    BOOKING_SCHEDULES ||--o{ CUSTOMER_REVIEWS : "reviewed after"
+
+    BOOKINGS ||--o| PAYMENT_ESCROWS : secures
+    BOOKINGS ||--o{ DISCOUNT_REQUESTS : "raised on"
+    BOOKINGS ||--o{ SUPPORT_TICKETS : "related to"
+
+    SUPPORT_TICKETS ||--o| VOUCHERS : "resolves into"
+
+    USERS {
+        uuid id PK
+        string firebaseUid UK
+        string email
+        string fullName
+        string phone
+        string role "Traveler | Guide | Operator | Admin"
+        datetime createdAt
+    }
+
+    TRAVELER_PROFILES {
+        uuid id PK
+        uuid userId FK
+        string budgetRange
+        string travelStyle
+        jsonb preferences
+        datetime createdAt
+    }
+
+    DESTINATIONS {
+        uuid id PK
+        string name
+        string region
+        text description
+        string_array tags
+        decimal latitude
+        decimal longitude
+        string budgetCategory
+        string imageUrl
+        datetime createdAt
+    }
+
+    PERSONALIZED_ITINERARIES {
+        uuid id PK
+        uuid userId FK
+        uuid destinationId FK
+        string title
+        jsonb itineraryData
+        string pdfUrl
+        datetime createdAt
+    }
+
+    BOOKING_SCHEDULES {
+        uuid id PK
+        uuid destinationId FK
+        date tourDate
+        int capacity
+        int availableSlots
+        decimal pricePerPerson
+        datetime createdAt
+    }
+
+    BOOKINGS {
+        uuid id PK
+        uuid userId FK
+        uuid bookingScheduleId FK
+        string status "Pending | Confirmed | Completed | Cancelled"
+        decimal totalAmount
+        datetime createdAt
+    }
+
+    PAYMENT_ESCROWS {
+        uuid id PK
+        uuid bookingId FK
+        decimal amount
+        string stripePaymentIntentId
+        string status "Locked | Released | Refunded"
+        datetime lockedAt
+        datetime releasedAt
+    }
+
+    DISCOUNT_REQUESTS {
+        uuid id PK
+        uuid bookingId FK
+        uuid requestedBy FK
+        decimal requestedAmount
+        string reason
+        string status "Pending | Approved | Rejected"
+        uuid reviewedBy FK
+        datetime reviewedAt
+    }
+
+    TOUR_ACTIVITIES {
+        uuid id PK
+        uuid bookingScheduleId FK
+        string activityName
+        datetime scheduledTime
+        string location
+        string status
+    }
+
+    GUIDE_ASSIGNMENTS {
+        uuid id PK
+        uuid bookingScheduleId FK
+        uuid guideUserId FK
+        string status "Assigned | Active | Completed"
+        datetime assignedAt
+    }
+
+    ROUTE_LOGS {
+        uuid id PK
+        uuid bookingScheduleId FK
+        uuid recordedBy FK
+        decimal latitude
+        decimal longitude
+        datetime timestamp
+    }
+
+    DISRUPTION_ALERTS {
+        uuid id PK
+        uuid bookingScheduleId FK
+        string type "Weather | Traffic"
+        string severity
+        text description
+        datetime triggeredAt
+        datetime resolvedAt
+    }
+
+    SUPPORT_TICKETS {
+        uuid id PK
+        uuid userId FK
+        uuid bookingId FK "nullable"
+        string subject
+        text description
+        string photoUrl
+        string severity
+        float sentimentScore
+        string status "Pending_AI_Triage | In_Review | Pending_Admin_Voucher_Approval | Resolved | Closed"
+        datetime createdAt
+    }
+
+    VOUCHERS {
+        uuid id PK
+        uuid supportTicketId FK
+        uuid userId FK
+        decimal amount
+        string code UK
+        string status "Draft | Active | Redeemed | Expired"
+        uuid approvedBy FK
+        datetime createdAt
+    }
+
+    CUSTOMER_REVIEWS {
+        uuid id PK
+        uuid userId FK
+        uuid bookingScheduleId FK
+        int rating
+        text comment
+        boolean verified
+        datetime createdAt
+    }
+
+    AUDIT_LOGS {
+        uuid id PK
+        string entityType
+        uuid entityId
+        string action
+        uuid performedBy FK "nullable, null = AI/system"
+        jsonb metadata
+        datetime timestamp
+    }

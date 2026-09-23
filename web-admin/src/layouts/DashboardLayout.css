@@ -1,0 +1,198 @@
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg-app);
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Prevents overflow in flex child */
+}
+
+/* Page common styles to be used across different pages */
+.page-container {
+  padding: var(--space-8);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.page-header {
+  margin-bottom: var(--space-6);
+}
+
+.page-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: #EEF2FF;
+  color: var(--color-primary);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+}
+
+.page-breadcrumb .dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-primary);
+  border-radius: 50%;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin-bottom: var(--space-2);
+  letter-spacing: -0.025em;
+}
+
+.page-subtitle {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  max-width: 800px;
+  line-height: 1.5;
+}
+
+/* Common api path bubbles used under titles */
+.api-paths {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.api-path {
+  display: inline-flex;
+  align-items: center;
+  background-color: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 4px 12px 4px 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--color-text-muted);
+}
+
+.api-method {
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-right: 8px;
+}
+
+.api-method.get { background-color: #E0E7FF; color: #4338CA; }
+.api-method.post { background-color: #D1FAE5; color: #059669; }
+.api-method.put { background-color: #FEF3C7; color: #D97706; }
+
+/* Topbar search and quick stats */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  background-color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.search-container {
+  position: relative;
+  width: 400px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 16px 10px 40px;
+  background-color: #F3F4F6;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.search-input:focus {
+  background-color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-light);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: white;
+  border: 1px solid var(--color-border);
+}
+
+.status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-pill.healthy { color: var(--color-success); border-color: var(--color-success-bg); background-color: var(--color-success-bg); }
+.status-pill.healthy .dot { background-color: var(--color-success); }
+.status-pill.warning { color: var(--color-warning-text); border-color: var(--color-warning-bg); background-color: var(--color-warning-bg); }
+.status-pill.warning .dot { background-color: var(--color-warning); }
+
+.notification-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.notification-btn:hover {
+  background-color: #F9FAFB;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background-color: var(--color-danger);
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
