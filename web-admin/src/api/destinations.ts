@@ -30,7 +30,7 @@ export interface CreateDestinationPayload {
 }
 
 export const destinationsApi = {
-  list: (params?: { search?: string; region?: string; tags?: string; page?: number; pageSize?: number }) =>
+  list: (params?: { search?: string; region?: string; tags?: string; sortBy?: string; sortDir?: string; page?: number; pageSize?: number }) =>
     api.get<DestinationListResponse>('/destinations', { params }),
 
   getById: (id: string) =>
