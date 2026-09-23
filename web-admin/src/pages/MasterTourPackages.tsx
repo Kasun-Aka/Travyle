@@ -176,7 +176,7 @@ export default function MasterTourPackages() {
             <span className="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
             Catalog
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4 tracking-tight">Master tour packages</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4 tracking-tight uppercase">Master Tour Packages</h1>
           <p className="text-gray-500 max-w-3xl text-lg leading-relaxed mb-6">
             Create and maintain the destination catalog travelers browse in the mobile app, including geocoded coordinates, preference tags, and capacity.
           </p>
@@ -189,26 +189,6 @@ export default function MasterTourPackages() {
           </button>
         </div>
 
-        {/* ── API Endpoint Reference Chips ──────────────────── */}
-        <div className="flex flex-wrap gap-4 text-xs font-mono">
-          {[
-            { method: 'GET', path: '/api/destinations' },
-            { method: 'GET', path: '/api/destinations/{id}' },
-            { method: 'POST', path: '/api/destinations' },
-            { method: 'PUT', path: '/api/destinations/{id}' },
-            { method: 'DELETE', path: '/api/destinations/{id}' },
-          ].map(({ method, path }) => (
-            <div key={path + method} className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-              <span className={`font-bold px-2 py-0.5 rounded ${
-                method === 'GET' ? 'text-blue-600 bg-blue-50' :
-                method === 'POST' ? 'text-emerald-600 bg-emerald-50' :
-                method === 'PUT' ? 'text-amber-600 bg-amber-50' :
-                'text-red-600 bg-red-50'
-              }`}>{method}</span>
-              <span className="text-gray-500">{path}</span>
-            </div>
-          ))}
-        </div>
 
         {/* ── Package Catalog Table ─────────────────────────── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
