@@ -211,6 +211,7 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _selectedRole,
+                borderRadius: BorderRadius.circular(30),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
