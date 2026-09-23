@@ -7,19 +7,49 @@ import 'home_screen.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final String? initialEmail;
+  final String? initialFullName;
+  final String? initialRole;
+
+  const SignupScreen({
+    super.key,
+    this.initialEmail,
+    this.initialFullName,
+    this.initialRole,
+  });
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _emailController = TextEditingController();
+  late final TextEditingController _emailController;
   final _passwordController = TextEditingController();
-  final _fullNameController = TextEditingController();
-  String _selectedRole = 'Traveler';
+  late final TextEditingController _fullNameController;
+  late String _selectedRole;
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
   String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    _fullNameController = TextEditingController(text: widget.initialFullName ?? '');
+    _selectedRole = widget.initialRole ?? 'Traveler';
+    // Ensure the initialRole is one of the valid options, fallback to Traveler if not
+    if (!['Traveler', 'Local Guide', 'Tour Operator'].contains(_selectedRole)) {
+      _selectedRole = 'Traveler';
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _fullNameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleSignup() async {
     setState(() {
@@ -159,9 +189,20 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: !_isPasswordVisible,
+                decoration: InputDecoration(
                   hintText: 'Create a password',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: AppTheme.textGrey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

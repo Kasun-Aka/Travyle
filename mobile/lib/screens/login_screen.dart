@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import 'reset_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,9 +15,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'alexander@luxurytravel.com');
-  final _passwordController = TextEditingController(text: 'Password123');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
   String _errorMessage = '';
 
   Future<void> _handleLogin() async {
@@ -60,28 +63,48 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter your email address to recover your account.';
+      });
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResetPasswordScreen(email: email),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                'Welcome Back',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Unlock curated luxuries and smart AI-powered explorations.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: 16,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Welcome Back',
+                  style: Theme.of(context).textTheme.displayLarge,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 12),
+                Text(
+                  'Unlock curated luxuries and smart AI-powered explorations.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 32),
               
               if (_errorMessage.isNotEmpty)
                 Container(
@@ -137,10 +160,20 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: !_isPasswordVisible,
+                decoration: InputDecoration(
                   hintText: 'Enter your password',
-                  suffixIcon: Icon(Icons.visibility_off, color: AppTheme.textGrey),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: AppTheme.textGrey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -149,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _handleForgotPassword,
                   child: const Text(
                     'Forgot Password?',
                     style: TextStyle(
@@ -170,58 +203,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
               
               const SizedBox(height: 40),
-              
-              // Social Login Divider
-              Row(
-                children: [
-                  Expanded(child: Divider(color: AppTheme.borderLight, thickness: 1)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      'OR SECURELY IN',
-                      style: TextStyle(color: AppTheme.textGrey, fontSize: 12),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: AppTheme.borderLight, thickness: 1)),
-                ],
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Social Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.g_mobiledata, color: AppTheme.textDark, size: 28),
-                      label: const Text('Google', style: TextStyle(color: AppTheme.textDark)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: AppTheme.borderLight),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.apple, color: AppTheme.textDark),
-                      label: const Text('Apple', style: TextStyle(color: AppTheme.textDark)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: AppTheme.borderLight),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               
               const SizedBox(height: 48),
               
@@ -251,6 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -53,4 +53,18 @@ public class AuthController : ControllerBase
 
         return Ok(user);
     }
+
+    // GET /api/auth/user
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUserByEmail([FromQuery] string email)
+    {
+        if (string.IsNullOrEmpty(email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null)
+            return NotFound("User not found");
+
+        return Ok(user);
+    }
 }
