@@ -1,4 +1,5 @@
 
+import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -8,6 +9,10 @@ import {
   Users, 
   Headset 
 } from 'lucide-react';
+
+const linkBase = 'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium';
+const activeClass = 'bg-white text-sidebar font-bold';
+const inactiveClass = 'text-gray-300 hover:text-white hover:bg-white/10';
 
 export default function Sidebar() {
   return (
@@ -31,16 +36,22 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Overview</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+              >
                 <LayoutDashboard size={18} />
-                <span className="text-sm font-medium">Dashboard</span>
-              </a>
+                <span>Dashboard</span>
+              </NavLink>
             </li>
             <li>
-              <a href="#" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <NavLink
+                to="/trends"
+                className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+              >
                 <TrendingUp size={18} />
-                <span className="text-sm font-medium">Travel trends</span>
-              </a>
+                <span>Travel trends</span>
+              </NavLink>
             </li>
           </ul>
         </div>
@@ -50,13 +61,16 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Catalog</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className="flex items-center justify-between px-3 py-2 bg-white text-sidebar rounded-lg">
+              <NavLink
+                to="/catalog/packages"
+                className={({ isActive }) => `${linkBase} flex justify-between ${isActive ? activeClass : inactiveClass}`}
+              >
                 <div className="flex items-center gap-3">
                   <Map size={18} />
-                  <span className="text-sm font-bold">Tour packages</span>
+                  <span>Tour packages</span>
                 </div>
                 <span className="text-xs font-bold">&gt;</span>
-              </a>
+              </NavLink>
             </li>
           </ul>
         </div>
@@ -66,10 +80,10 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Commerce</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className="flex items-center justify-between px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
                 <div className="flex items-center gap-3">
                   <CreditCard size={18} />
-                  <span className="text-sm font-medium">Bookings & escrow</span>
+                  <span>Bookings &amp; escrow</span>
                 </div>
                 <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">2</span>
               </a>
@@ -82,18 +96,18 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Operations</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className="flex items-center justify-between px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
                 <div className="flex items-center gap-3">
                   <Activity size={18} />
-                  <span className="text-sm font-medium">Live operations</span>
+                  <span>Live operations</span>
                 </div>
                 <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">2</span>
               </a>
             </li>
             <li>
-              <a href="#" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <a href="#" className={`${linkBase} ${inactiveClass}`}>
                 <Users size={18} />
-                <span className="text-sm font-medium">Guide assignments</span>
+                <span>Guide assignments</span>
               </a>
             </li>
           </ul>
@@ -104,10 +118,10 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Customer quality</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className="flex items-center justify-between px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
                 <div className="flex items-center gap-3">
                   <Headset size={18} />
-                  <span className="text-sm font-medium">Support queue</span>
+                  <span>Support queue</span>
                 </div>
                 <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">3</span>
               </a>
