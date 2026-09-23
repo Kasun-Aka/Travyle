@@ -23,6 +23,8 @@ public class DestinationsController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] string? region,
         [FromQuery] string? tags,
+        [FromQuery] string? sortBy = "createdat",
+        [FromQuery] string? sortDir = "desc",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -54,9 +56,18 @@ public class DestinationsController : ControllerBase
             }
         }
 
+        // Sorting
+        var isAsc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+        query = sortBy?.ToLower() switch
+        {
+            "name" => isAsc ? query.OrderBy(d => d.Name) : query.OrderByDescending(d => d.Name),
+            "region" => isAsc ? query.OrderBy(d => d.Region) : query.OrderByDescending(d => d.Region),
+            "rating" => isAsc ? query.OrderBy(d => d.AverageRating) : query.OrderByDescending(d => d.AverageRating),
+            _ => isAsc ? query.OrderBy(d => d.CreatedAt) : query.OrderByDescending(d => d.CreatedAt)
+        };
+
         var totalCount = await query.CountAsync();
         var items = await query
-            .OrderByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(d => new DestinationDto
