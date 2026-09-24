@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
+import 'account_details_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -68,11 +69,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showAvatarPicker() {
+    final List<String> avatarOptions = [
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Choose Profile Icon', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 20)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: avatarOptions.length,
+                  itemBuilder: (context, index) {
+                    final url = avatarOptions[index];
+                    return GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        setState(() => _isLoading = true);
+                        try {
+                          await _currentUser?.updatePhotoURL(url);
+                        } finally {
+                          if (mounted) setState(() => _isLoading = false);
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 16),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: NetworkImage(url),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark));
     }
+
+    final avatarUrl = _currentUser?.photoURL ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -84,25 +145,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 32),
           
           // Avatar
-          Stack(
-            children: [
-              const CircleAvatar(
-                radius: 60,
-                backgroundImage: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentCopper,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 20),
+          GestureDetector(
+            onTap: _showAvatarPicker,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 60,
+                  backgroundImage: NetworkImage(avatarUrl),
                 ),
-              ),
-            ],
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentCopper,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.backgroundLight, width: 3),
+                    ),
+                    child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           
@@ -143,10 +208,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
           // Menu Options
-          _buildMenuOption(Icons.person_outline, 'Account Details'),
-          _buildMenuOption(Icons.notifications_outlined, 'Notifications'),
-          _buildMenuOption(Icons.security, 'Privacy & Security'),
-          _buildMenuOption(Icons.help_outline, 'Help & Support'),
+          _buildMenuOption(
+            icon: Icons.person_outline, 
+            title: 'Account Details',
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AccountDetailsScreen(role: _role)),
+              );
+              if (result == true && mounted) {
+                // Refresh to get updated displayName
+                setState(() {});
+              }
+            }
+          ),
+          _buildMenuOption(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () {}),
+          _buildMenuOption(icon: Icons.security, title: 'Privacy & Security', onTap: () {}),
+          _buildMenuOption(icon: Icons.help_outline, title: 'Help & Support', onTap: () {}),
           
           const SizedBox(height: 32),
           
@@ -169,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMenuOption(IconData icon, String title) {
+  Widget _buildMenuOption({required IconData icon, required String title, required VoidCallback onTap}) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
@@ -186,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textDark),
       ),
       trailing: const Icon(Icons.chevron_right, color: AppTheme.textGrey),
-      onTap: () {},
+      onTap: onTap,
     );
   }
 }

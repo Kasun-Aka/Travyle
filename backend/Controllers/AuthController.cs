@@ -67,4 +67,31 @@ public class AuthController : ControllerBase
 
         return Ok(user);
     }
+
+    public class UpdateUserRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+    }
+
+    // PUT /api/auth/user
+    [HttpPut("user")]
+    public async Task<IActionResult> UpdateUser([FromBody] UpdateUserRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+        if (user == null)
+            return NotFound("User not found");
+
+        if (!string.IsNullOrEmpty(req.FullName))
+        {
+            user.FullName = req.FullName;
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(user);
+    }
 }
