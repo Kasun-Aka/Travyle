@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
@@ -35,10 +36,27 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Please fill in both email and password');
       }
 
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      final user = userCredential.user;
+      if (user != null) {
+        try {
+          final dio = Dio();
+          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          await dio.post('$baseUrl/api/auth/sync', data: {
+            'firebaseUid': user.uid,
+            'email': email,
+            // Full name and role are ideally pulled from DB if already exists
+            'fullName': user.displayName ?? 'Traveler',
+            'role': 'Traveler',
+          });
+        } catch (apiError) {
+          debugPrint('Failed to sync user with DB on login: $apiError');
+        }
+      }
 
       if (mounted) {
         Navigator.pushReplacement(

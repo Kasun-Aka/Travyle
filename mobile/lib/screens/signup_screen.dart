@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
@@ -79,8 +80,8 @@ class _SignupScreenState extends State<SignupScreen> {
         // 2. Sync to PostgreSQL database via API
         try {
           final dio = Dio();
-          // Use 10.0.2.2 for Android emulator to reach localhost
-          await dio.post('http://10.0.2.2:5085/api/auth/sync', data: {
+          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          await dio.post('$baseUrl/api/auth/sync', data: {
             'firebaseUid': user.uid,
             'email': email,
             'fullName': fullName,
