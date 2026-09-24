@@ -5,8 +5,8 @@ import 'preference_screen.dart';
 import 'destination_detail_screen.dart';
 import 'login_screen.dart';
 import 'guide_dashboard_screen.dart';
-
 import 'profile_screen.dart';
+import 'support/support_home_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildHomeContent(context),
             const Center(child: Text('Bookings - Coming Soon')),
             const GuideDashboardScreen(),
-            const Center(child: Text('Support - Coming Soon')),
+            const SupportHomeScreen(),
             const ProfileScreen(),
           ],
         ),

@@ -49,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
           await dio.post('$baseUrl/api/auth/sync', data: {
             'firebaseUid': user.uid,
             'email': email,
-            // Full name and role are ideally pulled from DB if already exists
             'fullName': user.displayName ?? 'Traveler',
             'role': 'Traveler',
           });
@@ -148,12 +147,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               
               // Email Input
-              const Text(
-                'EMAIL ADDRESS',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'EMAIL ADDRESS',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -167,12 +169,15 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               
               // Password Input
-              const Text(
-                'PASSWORD',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'PASSWORD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -220,8 +225,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _handleLogin,
                     ),
               
-              const SizedBox(height: 40),
-              
               const SizedBox(height: 48),
               
               // Sign Up Link
@@ -254,3 +257,4 @@ class _LoginScreenState extends State<LoginScreen> {
   );
 }
 }
+

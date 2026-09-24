@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
           Image.network(
             'https://images.unsplash.com/photo-1499856871958-5b9627545d1a', // placeholder travel image
             fit: BoxFit.cover,
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withAlpha(75),
             colorBlendMode: BlendMode.darken,
           ),
           // Content
@@ -162,4 +162,5 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+
 

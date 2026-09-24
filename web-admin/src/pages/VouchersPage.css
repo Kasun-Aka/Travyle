@@ -1,0 +1,119 @@
+/* VouchersPage.css */
+.vouchers-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-issue-voucher {
+  background-color: #16A34A;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-issue-voucher:hover {
+  background-color: #15803D;
+}
+
+.voucher-code-pill {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #15803D;
+  background: #DCFCE7;
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-copy-mini {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: #16A34A;
+  font-size: 11px;
+}
+
+.btn-sign-approve {
+  background: #16A34A;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-sign-approve:hover:not(:disabled) {
+  background: #15803D;
+}
+
+.badge-draft {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.badge-active {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.badge-redeemed {
+  background: #E2E8F0;
+  color: #475569;
+}
+
+/* Modal for Direct Voucher Issuance */
+.voucher-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.voucher-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voucher-form-group.full-width {
+  grid-column: span 2;
+}
+
+.voucher-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.voucher-form-group input,
+.voucher-form-group select,
+.voucher-form-group textarea {
+  padding: 10px 14px;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+
+.voucher-form-group input:focus,
+.voucher-form-group select:focus,
+.voucher-form-group textarea:focus {
+  border-color: #4F46E5;
+}
