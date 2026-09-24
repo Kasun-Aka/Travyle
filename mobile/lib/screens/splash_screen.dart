@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen> {
               Container(
                 width: 40,
                 height: 2,
-                color: AppTheme.coral,
+                color: AppTheme.accentCopper,
               ),
               const SizedBox(height: 16),
               // Tagline
@@ -110,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.coral,
+                          backgroundColor: AppTheme.accentCopper,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -162,4 +162,5 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+
 

@@ -3,7 +3,7 @@ import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const TravyleApp());
 }
 
 class TravyleApp extends StatelessWidget {
@@ -14,7 +14,7 @@ class TravyleApp extends StatelessWidget {
     return MaterialApp(
       title: 'Travyle',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
+      theme: AppTheme.lightTheme,
       home: const SplashScreen(),
     );
   }
