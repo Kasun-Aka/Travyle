@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
-import 'screens/login_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const TravyleApp());
+void main() {
+  runApp(const MyApp());
 }
 
 class TravyleApp extends StatelessWidget {
@@ -20,8 +14,8 @@ class TravyleApp extends StatelessWidget {
     return MaterialApp(
       title: 'Travyle',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      theme: AppTheme.theme,
+      home: const SplashScreen(),
     );
   }
 }
