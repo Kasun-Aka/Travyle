@@ -1,0 +1,97 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Travyle.Api.Data;
+using Travyle.Api.Models;
+
+namespace Travyle.Api.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public class AuthController : ControllerBase
+{
+    private readonly TravyleDbContext _db;
+
+    public AuthController(TravyleDbContext db)
+    {
+        _db = db;
+    }
+
+    public class SyncRequest
+    {
+        public string FirebaseUid { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Role { get; set; } = "Traveler";
+    }
+
+    // POST /api/auth/sync
+    [HttpPost("sync")]
+    public async Task<IActionResult> SyncUser([FromBody] SyncRequest req)
+    {
+        if (string.IsNullOrEmpty(req.FirebaseUid) || string.IsNullOrEmpty(req.Email))
+            return BadRequest("FirebaseUid and Email are required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.FirebaseUid == req.FirebaseUid || u.Email == req.Email);
+
+        if (user == null)
+        {
+            user = new User
+            {
+                FirebaseUid = req.FirebaseUid,
+                Email = req.Email,
+                FullName = req.FullName,
+                Role = req.Role
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+        else if (string.IsNullOrEmpty(user.FirebaseUid)) // In case existing DB users don't have FirebaseUid yet
+        {
+            user.FirebaseUid = req.FirebaseUid;
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(user);
+    }
+
+    // GET /api/auth/user
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUserByEmail([FromQuery] string email)
+    {
+        if (string.IsNullOrEmpty(email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null)
+            return NotFound("User not found");
+
+        return Ok(user);
+    }
+
+    public class UpdateUserRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+    }
+
+    // PUT /api/auth/user
+    [HttpPut("user")]
+    public async Task<IActionResult> UpdateUser([FromBody] UpdateUserRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+        if (user == null)
+            return NotFound("User not found");
+
+        if (!string.IsNullOrEmpty(req.FullName))
+        {
+            user.FullName = req.FullName;
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(user);
+    }
+}
