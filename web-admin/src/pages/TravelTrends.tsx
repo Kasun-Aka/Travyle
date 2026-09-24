@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import Layout from '../components/Layout';
+
 import { TrendingUp, Package, Globe, Tag, RefreshCw, Download, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { trendsApi, type TrendsData } from '../api/trends';
 
@@ -201,7 +201,7 @@ export default function TravelTrends() {
   const maxAdded  = data && data.addedByMonth.length > 0 ? Math.max(...data.addedByMonth.map(m => m.count), 1) : 1;
 
   return (
-    <Layout>
+    <>
       <div className="max-w-5xl mx-auto space-y-8">
 
         {/* ── Header ──────────────────────────────────── */}
@@ -374,6 +374,6 @@ export default function TravelTrends() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

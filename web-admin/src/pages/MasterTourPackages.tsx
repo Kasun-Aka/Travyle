@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../components/Layout';
+
 import DestinationFormModal from '../components/DestinationFormModal';
 import { Plus, MapPin, Sparkles, Search, Edit2, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { destinationsApi, type Destination } from '../api/destinations';
@@ -162,7 +162,7 @@ export default function MasterTourPackages() {
   };
 
   return (
-    <Layout>
+    <>
       {/* ── Modals ──────────────────────────────────────────── */}
       {showForm && (
         <DestinationFormModal
@@ -469,6 +469,6 @@ export default function MasterTourPackages() {
         </div>
 
       </div>
-    </Layout>
+    </>
   );
 }

@@ -98,19 +98,27 @@ export default function Sidebar() {
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Operations</h2>
           <ul className="space-y-1">
             <li>
-              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
+              <NavLink to="/operations/live-operations" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass} flex justify-between`}>
                 <div className="flex items-center gap-3">
                   <Activity size={18} />
                   <span>Live operations</span>
                 </div>
                 <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">2</span>
-              </a>
+              </NavLink>
             </li>
             <li>
-              <a href="#" className={`${linkBase} ${inactiveClass}`}>
+              <NavLink to="/operations/guide-assignments" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}>
                 <Users size={18} />
                 <span>Guide assignments</span>
-              </a>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/operations/staff-access" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}>
+                <div className="flex items-center gap-3">
+                  <Headset size={18} />
+                  <span>Staff Access</span>
+                </div>
+              </NavLink>
             </li>
           </ul>
         </div>
