@@ -13,7 +13,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   String _role = 'Traveler'; // Default fallback
   String _errorMessage = '';
@@ -217,8 +217,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(builder: (context) => AccountDetailsScreen(role: _role)),
               );
               if (result == true && mounted) {
-                // Refresh to get updated displayName
-                setState(() {});
+                setState(() => _isLoading = true);
+                await FirebaseAuth.instance.currentUser?.reload();
+                await _fetchUserDetails();
               }
             }
           ),
