@@ -5,14 +5,60 @@ import 'preference_screen.dart';
 import 'destination_detail_screen.dart';
 import 'login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'profile_screen.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+  
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _buildHomeContent(context),
+            const Center(child: Text('Bookings - Coming Soon')),
+            const Center(child: Text('Guide - Coming Soon')),
+            const Center(child: Text('Support - Coming Soon')),
+            const ProfileScreen(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppTheme.primaryDark,
+        unselectedItemColor: AppTheme.textGrey,
+        showUnselectedLabels: true,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Bookings'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Guide'),
+          BottomNavigationBarItem(icon: Icon(Icons.help_outline), label: 'Support'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeContent(BuildContext context) {
+    return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,25 +225,6 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 40),
             ],
           ),
-        ),
-      ),
-      
-      // Temporary Bottom Navigation Bar implementation
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.primaryDark,
-        unselectedItemColor: AppTheme.textGrey,
-        showUnselectedLabels: true,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Guide'),
-          BottomNavigationBarItem(icon: Icon(Icons.help_outline), label: 'Support'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-        ],
-      ),
     );
   }
 
@@ -374,3 +401,4 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
