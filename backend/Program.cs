@@ -37,6 +37,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseStaticFiles();
 app.UseCors("DevPolicy");
 
 app.UseHttpsRedirection();
