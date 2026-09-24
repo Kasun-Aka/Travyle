@@ -88,25 +88,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'), // Placeholder for profile pic
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentIndex = 4; // Switch to Profile Tab
+                      });
+                    },
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(
+                        FirebaseAuth.instance.currentUser?.photoURL ?? 
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: AppTheme.textDark),
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          if (context.mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            );
-                          }
-                        },
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),

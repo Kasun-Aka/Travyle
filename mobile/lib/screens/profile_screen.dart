@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'account_details_screen.dart';
@@ -73,67 +69,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _showAvatarPicker() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      
-      if (image == null) return;
+  void _showAvatarPicker() {
+    final List<String> avatarOptions = [
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=200&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop',
+    ];
 
-      final ImageCropper cropper = ImageCropper();
-      final CroppedFile? croppedFile = await cropper.cropImage(
-        sourcePath: image.path,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Profile Picture',
-            toolbarColor: AppTheme.primaryDark,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: true,
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Choose Profile Icon', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 20)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: avatarOptions.length,
+                  itemBuilder: (context, index) {
+                    final url = avatarOptions[index];
+                    return GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        setState(() => _isLoading = true);
+                        try {
+                          await _currentUser?.updatePhotoURL(url);
+                        } finally {
+                          if (mounted) setState(() => _isLoading = false);
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 16),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: NetworkImage(url),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          IOSUiSettings(
-            title: 'Crop Profile Picture',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-          ),
-        ],
-      );
-
-      if (croppedFile == null) return;
-
-      setState(() => _isLoading = true);
-
-      // Save locally using path_provider
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'avatar_${_currentUser?.uid ?? DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedImage = await File(croppedFile.path).copy('${directory.path}/$fileName');
-      
-      // Update Firebase profile with local path
-      await _currentUser?.updatePhotoURL(savedImage.path);
-      
-      // Update state to trigger re-render
-      if (mounted) setState(() {});
-      
-    } catch (e) {
-      debugPrint('Error updating avatar: $e');
-      if (mounted) {
-        setState(() => _errorMessage = 'Failed to set profile picture locally.');
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  ImageProvider _getAvatarProvider() {
-    final photoURL = _currentUser?.photoURL;
-    if (photoURL == null || photoURL.isEmpty) {
-      return const NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop');
-    }
-    if (photoURL.startsWith('http')) {
-      return NetworkImage(photoURL);
-    }
-    return FileImage(File(photoURL));
+        );
+      },
+    );
   }
 
   @override
@@ -141,6 +132,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark));
     }
+
+    final avatarUrl = _currentUser?.photoURL ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -158,7 +151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 60,
-                  backgroundImage: _getAvatarProvider(),
+                  backgroundImage: NetworkImage(avatarUrl),
                 ),
                 Positioned(
                   bottom: 0,
