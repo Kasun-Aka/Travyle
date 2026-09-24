@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gradient_button.dart';
+import 'home_screen.dart';
+import 'signup_screen.dart';
+import 'reset_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,233 +15,224 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _obscurePassword = true;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  String _errorMessage = '';
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      if (email.isEmpty || password.isEmpty) {
+        throw Exception('Please fill in both email and password');
+      }
+
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'An error occurred during sign in';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter your email address to recover your account.';
+      });
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResetPasswordScreen(email: email),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightGrey,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 60),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Welcome Back',
+                  style: Theme.of(context).textTheme.displayLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Unlock curated luxuries and smart AI-powered explorations.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 32),
+              
+              if (_errorMessage.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage,
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              // Email Input
               const Text(
-                'Welcome Back',
+                'EMAIL ADDRESS',
                 style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.primaryDark,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Sign in to continue your journey.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.textLight,
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Tourist / Guide Toggle
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            // isTourist = true;
-                          });
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'Tourist',
-                            style: TextStyle(
-                              color: AppTheme.primaryDark,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            // isTourist = false;
-                          });
-                        },
-                        child: Container(
-                          color: Colors.transparent,
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'Guide',
-                            style: TextStyle(
-                              color: AppTheme.textLight,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              _buildLabel('EMAIL ADDRESS'),
-              TextField(
+              TextFormField(
+                controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'alex@sterling.com',
+                decoration: const InputDecoration(
+                  hintText: 'Enter your email',
                 ),
               ),
               const SizedBox(height: 24),
-              _buildLabel('PASSWORD'),
-              TextField(
-                obscureText: _obscurePassword,
+              
+              // Password Input
+              const Text(
+                'PASSWORD',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
-                  hintText: '••••••••',
+                  hintText: 'Enter your password',
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: AppTheme.textLight,
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: AppTheme.textGrey,
                     ),
                     onPressed: () {
                       setState(() {
-                        _obscurePassword = !_obscurePassword;
+                        _isPasswordVisible = !_isPasswordVisible;
                       });
                     },
                   ),
                 ),
               ),
               const SizedBox(height: 16),
+              
+              // Forgot Password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _handleForgotPassword,
                   child: const Text(
                     'Forgot Password?',
                     style: TextStyle(
-                      color: AppTheme.primaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.coral, AppTheme.primaryDark],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryDark.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'SIGN IN',
-                    style: TextStyle(
-                      fontSize: 16,
+                      color: AppTheme.accentCopper,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              
+              // Sign In Button
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark))
+                  : GradientButton(
+                      text: 'SIGN IN',
+                      onPressed: _handleLogin,
+                    ),
+              
+              const SizedBox(height: 40),
+              
+              const SizedBox(height: 48),
+              
+              // Sign Up Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Don\'t have an account? ',
-                    style: TextStyle(
-                      color: AppTheme.textLight,
-                      fontSize: 15,
-                    ),
-                  ),
+                  const Text('New to Travyle? ', style: TextStyle(color: AppTheme.textGrey)),
                   GestureDetector(
                     onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Sign Up'),
-                          content: const Text('Choose your account type:'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Tourist'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Guide'),
-                            ),
-                          ],
-                        ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SignupScreen()),
                       );
                     },
                     child: const Text(
-                      'Sign Up',
+                      'Create Account',
                       style: TextStyle(
                         color: AppTheme.primaryDark,
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.textDark,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 }

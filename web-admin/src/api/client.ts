@@ -1,0 +1,11 @@
+// Central Axios instance pointing at the ASP.NET Core backend
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:5085/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export default api;

@@ -25,3 +25,9 @@ mobile/lib/firebase_options.dart
 *.log
 .vscode/
 .idea/
+
+Travyle - initial doc.docx
+# Flutter Build Artifacts
+mobile/build/
+mobile/android/build/
+mobile/ios/build/
