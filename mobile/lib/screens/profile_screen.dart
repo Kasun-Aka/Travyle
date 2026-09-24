@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'account_details_screen.dart';
@@ -102,26 +104,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => _isLoading = true);
 
-      final dio = Dio();
-      final formData = FormData.fromMap({
-        'email': _currentUser?.email,
-        'file': await MultipartFile.fromFile(croppedFile.path),
-      });
-
-      final response = await dio.post('http://10.0.2.2:5085/api/auth/avatar', data: formData);
-
-      if (response.statusCode == 200 && response.data != null) {
-        final newUrl = response.data['url'];
-        await _currentUser?.updatePhotoURL(newUrl);
-      }
+      // Save locally using path_provider
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'avatar_${_currentUser?.uid ?? DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedImage = await File(croppedFile.path).copy('${directory.path}/$fileName');
+      
+      // Update Firebase profile with local path
+      await _currentUser?.updatePhotoURL(savedImage.path);
+      
+      // Update state to trigger re-render
+      if (mounted) setState(() {});
+      
     } catch (e) {
       debugPrint('Error updating avatar: $e');
       if (mounted) {
-        setState(() => _errorMessage = 'Failed to upload profile picture.');
+        setState(() => _errorMessage = 'Failed to set profile picture locally.');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  ImageProvider _getAvatarProvider() {
+    final photoURL = _currentUser?.photoURL;
+    if (photoURL == null || photoURL.isEmpty) {
+      return const NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop');
+    }
+    if (photoURL.startsWith('http')) {
+      return NetworkImage(photoURL);
+    }
+    return FileImage(File(photoURL));
   }
 
   @override
@@ -129,8 +141,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark));
     }
-
-    final avatarUrl = _currentUser?.photoURL ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -148,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 60,
-                  backgroundImage: NetworkImage(avatarUrl),
+                  backgroundImage: _getAvatarProvider(),
                 ),
                 Positioned(
                   bottom: 0,
