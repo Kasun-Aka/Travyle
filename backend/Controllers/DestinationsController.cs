@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace Travyle.Api.Controllers;
 
@@ -194,5 +197,74 @@ public class DestinationsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    public class GeneratePdfRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DestinationName { get; set; } = string.Empty;
+        public string DateRange { get; set; } = string.Empty;
+    }
+
+    [HttpPost("generate-itinerary-pdf")]
+    public async Task<IActionResult> GenerateItineraryPdf([FromBody] GeneratePdfRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email)) return BadRequest("Email is required");
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        var user = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .FirstOrDefaultAsync(u => u.Email == req.Email);
+
+        if (user == null) return NotFound("User not found");
+
+        var preferences = user.TravelerProfile?.PreferredActivities ?? Array.Empty<string>();
+        var prefString = preferences.Length > 0 ? string.Join(", ", preferences) : "General Travel";
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+                page.PageColor(Colors.White);
+                page.DefaultTextStyle(x => x.FontSize(12));
+
+                page.Header()
+                    .Text("Travyle - Custom Itinerary Pass")
+                    .SemiBold().FontSize(24).FontColor(Colors.Blue.Darken2);
+
+                page.Content().PaddingVertical(1, Unit.Centimetre).Column(x =>
+                {
+                    x.Spacing(10);
+
+                    x.Item().Text($"Traveler: {user.FullName}").FontSize(16).SemiBold();
+                    x.Item().Text($"Email: {user.Email}");
+                    
+                    x.Item().PaddingTop(15).Text("Destination Details").SemiBold().FontSize(14).Underline();
+                    x.Item().Text($"Destination: {(string.IsNullOrEmpty(req.DestinationName) ? "Personalized AI Match" : req.DestinationName)}");
+                    
+                    if (!string.IsNullOrEmpty(req.DateRange))
+                    {
+                        x.Item().Text($"Dates: {req.DateRange}");
+                    }
+
+                    x.Item().PaddingTop(15).Text("Your Preferences").SemiBold().FontSize(14).Underline();
+                    x.Item().Text(prefString);
+
+                    x.Item().PaddingTop(25).Text("Have a wonderful journey!").Italic().FontColor(Colors.Grey.Medium);
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Page ");
+                    x.CurrentPageNumber();
+                });
+            });
+        });
+
+        var pdfBytes = document.GeneratePdf();
+        return File(pdfBytes, "application/pdf", "TravelItinerary.pdf");
     }
 }

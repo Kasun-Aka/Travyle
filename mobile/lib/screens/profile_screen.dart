@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import 'dart:typed_data';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'account_details_screen.dart';
 import 'preference_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -77,6 +79,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.of(context, rootNavigator: true).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
+    }
+  }
+
+  Future<void> _downloadTravelPass() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      
+      final response = await dio.post(
+        'http://10.0.2.2:5085/api/destinations/generate-itinerary-pdf',
+        data: {
+          'email': user.email,
+          'destinationName': 'Personalized AI Match',
+          'dateRange': 'Flexible',
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        final bytes = response.data as Uint8List;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(pdfBytes: bytes),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error generating PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to generate Travel Pass.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -270,6 +317,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
             },
+          ),
+          _buildMenuOption(
+            icon: Icons.picture_as_pdf_outlined,
+            title: 'Download Travel Pass (PDF)',
+            onTap: _downloadTravelPass,
           ),
           _buildMenuOption(
             icon: Icons.notifications_outlined,
