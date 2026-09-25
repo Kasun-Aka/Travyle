@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
 import 'preference_screen.dart';
 import 'destination_detail_screen.dart';
 import 'login_screen.dart';
+import 'destinations_list_screen.dart';
 
 import 'profile_screen.dart';
 
@@ -16,7 +18,43 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  
+  bool _isLoadingDestinations = true;
+  List<dynamic> _destinations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDestinations();
+  }
+
+  Future<void> _fetchDestinations() async {
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      final response = await dio.get(
+        'http://10.0.2.2:5085/api/Destinations?pageSize=5',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        if (mounted) {
+          setState(() {
+            _destinations = response.data['items'] ?? [];
+            _isLoadingDestinations = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching destinations: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingDestinations = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,14 +82,26 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: AppTheme.primaryDark,
         unselectedItemColor: AppTheme.textGrey,
         showUnselectedLabels: true,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 10,
+        ),
         unselectedLabelStyle: const TextStyle(fontSize: 10),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Bookings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Bookings',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Guide'),
-          BottomNavigationBarItem(icon: Icon(Icons.help_outline), label: 'Support'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.help_outline),
+            label: 'Support',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -59,173 +109,198 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHomeContent(BuildContext context) {
     return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'WELCOME BACK',
-                        style: TextStyle(
-                          color: AppTheme.textGrey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        FirebaseAuth.instance.currentUser?.displayName ?? 'Alexander',
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          fontSize: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _currentIndex = 4; // Switch to Profile Tab
-                      });
-                    },
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(
-                        FirebaseAuth.instance.currentUser?.photoURL ?? 
-                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop'
-                      ),
+                  const Text(
+                    'WELCOME BACK',
+                    style: TextStyle(
+                      color: AppTheme.textGrey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    FirebaseAuth.instance.currentUser?.displayName ??
+                        'Alexander',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.displayLarge?.copyWith(fontSize: 28),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // Search Bar
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search global curated tours...',
-                  prefixIcon: const Icon(Icons.search, color: AppTheme.textGrey),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: const BorderSide(color: AppTheme.borderLight),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 4; // Switch to Profile Tab
+                  });
+                },
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundImage: NetworkImage(
+                    FirebaseAuth.instance.currentUser?.photoURL ??
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
-
-              // Popular Destinations Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Popular Destinations',
-                    style: TextStyle(
-                      color: AppTheme.primaryDark,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text('View All', style: TextStyle(color: AppTheme.accentCopper)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Horizontal Scroll List (Destinations)
-              SizedBox(
-                height: 220,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _buildDestinationCard(
-                      context,
-                      'Kyoto, Japan',
-                      '4.9',
-                      'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=300&fit=crop',
-                    ),
-                    const SizedBox(width: 16),
-                    _buildDestinationCard(
-                      context,
-                      'Amalfi Coast',
-                      '4.8',
-                      'https://images.unsplash.com/photo-1533682805518-48d1f5b8cb3a?w=400&h=300&fit=crop',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Recommended For You Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recommended For You',
-                    style: TextStyle(
-                      color: AppTheme.primaryDark,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentCopper.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'AI MATCH',
-                      style: TextStyle(
-                        color: AppTheme.accentCopper,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // AI Recommended Cards
-              _buildRecommendedCard(
-                context,
-                'Mediterranean Wellness Retreat',
-                'Sardinia',
-                '\$4,250',
-                '8 Days',
-                'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=800&h=400&fit=crop',
-              ),
-              const SizedBox(height: 24),
-              
-              _buildRecommendedCard(
-                context,
-                'Cultural & Culinary Silk Road',
-                'Samarkand',
-                '\$6,100',
-                '12 Days',
-                'https://images.unsplash.com/photo-1596700854497-874b3d81b942?w=800&h=400&fit=crop',
-              ),
-              
-              const SizedBox(height: 40),
             ],
           ),
+          const SizedBox(height: 24),
+
+          // Search Bar
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Search global curated tours...',
+              prefixIcon: const Icon(Icons.search, color: AppTheme.textGrey),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: const BorderSide(color: AppTheme.borderLight),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Popular Destinations Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Popular Destinations',
+                style: TextStyle(
+                  color: AppTheme.primaryDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DestinationsListScreen(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'View All',
+                  style: TextStyle(color: AppTheme.accentCopper),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Horizontal Scroll List (Destinations)
+          SizedBox(
+            height: 220,
+            child: _isLoadingDestinations
+                ? const Center(child: CircularProgressIndicator())
+                : _destinations.isEmpty
+                ? const Center(child: Text('No destinations found.'))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _destinations.length,
+                    itemBuilder: (context, index) {
+                      final dest = _destinations[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16.0),
+                        child: _buildDestinationCard(context, dest),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 32),
+
+          // Recommended For You Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recommended For You',
+                style: TextStyle(
+                  color: AppTheme.primaryDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentCopper.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'AI MATCH',
+                  style: TextStyle(
+                    color: AppTheme.accentCopper,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // AI Recommended Cards
+          _buildRecommendedCard(
+            context,
+            'Mediterranean Wellness Retreat',
+            'Sardinia',
+            '\$4,250',
+            '8 Days',
+            'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=800&h=400&fit=crop',
+          ),
+          const SizedBox(height: 24),
+
+          _buildRecommendedCard(
+            context,
+            'Cultural & Culinary Silk Road',
+            'Samarkand',
+            '\$6,100',
+            '12 Days',
+            'https://images.unsplash.com/photo-1596700854497-874b3d81b942?w=800&h=400&fit=crop',
+          ),
+
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
-  Widget _buildDestinationCard(BuildContext context, String title, String rating, String imageUrl) {
+  Widget _buildDestinationCard(
+    BuildContext context,
+    Map<String, dynamic> dest,
+  ) {
+    final title = dest['name'] ?? 'Unknown';
+    final rating = (dest['averageRating'] ?? 0.0).toStringAsFixed(1);
+    final imageUrl =
+        dest['imageUrl'] ??
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop';
+
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const DestinationDetailScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DestinationDetailScreen(destination: dest),
+          ),
+        );
       },
       child: Container(
         width: 160,
@@ -244,7 +319,10 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
               child: Image.network(
                 imageUrl,
                 height: 140,
@@ -291,7 +369,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRecommendedCard(BuildContext context, String title, String location, String price, String duration, String imageUrl) {
+  Widget _buildRecommendedCard(
+    BuildContext context,
+    String title,
+    String location,
+    String price,
+    String duration,
+    String imageUrl,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -311,7 +396,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Stack(
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
                 child: Image.network(
                   imageUrl,
                   height: 180,
@@ -328,14 +416,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.favorite_border, color: AppTheme.accentCopper, size: 20),
+                  child: const Icon(
+                    Icons.favorite_border,
+                    color: AppTheme.accentCopper,
+                    size: 20,
+                  ),
                 ),
               ),
               Positioned(
                 bottom: 16,
                 left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -395,4 +490,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
