@@ -21,7 +21,7 @@ class PdfViewerScreen extends StatelessWidget {
       final result = await FileSaver.instance.saveFile(
         name: name,
         bytes: pdfBytes,
-        ext: 'pdf',
+        fileExtension: 'pdf',
         mimeType: MimeType.pdf,
       );
 
