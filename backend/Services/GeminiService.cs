@@ -17,7 +17,7 @@ public class GeminiService
 
     public async Task<string> GetRecommendationAsync(string userPreferences, string availableDestinations)
     {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
         
         var prompt = $@"
         You are an expert AI travel agent for 'Travyle'.
@@ -46,7 +46,12 @@ public class GeminiService
 
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         var response = await _httpClient.PostAsync(url, content);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorJson = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Gemini API Error ({response.StatusCode}): {errorJson}");
+        }
 
         var responseJson = await response.Content.ReadAsStringAsync();
         
