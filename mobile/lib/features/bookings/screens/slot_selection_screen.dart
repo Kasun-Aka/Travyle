@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../models/booking.dart';
 import '../theme/booking_theme.dart';
 import '../widgets/primary_gradient_button.dart';
@@ -8,10 +9,7 @@ import 'booking_checkout_screen.dart';
 class SlotSelectionScreen extends StatefulWidget {
   final BookingSchedule schedule;
 
-  const SlotSelectionScreen({
-    super.key,
-    required this.schedule,
-  });
+  const SlotSelectionScreen({super.key, required this.schedule});
 
   @override
   State<SlotSelectionScreen> createState() => _SlotSelectionScreenState();
@@ -31,7 +29,7 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
         : DateTime.now();
 
     // Pick first non-full slot if available
-    for (final slot in widget.schedule.availableTimeSlots) {
+    for (final slot in widget.schedule.slotsForDate(_selectedDate)) {
       if (!widget.schedule.isSlotFull(_selectedDate, slot)) {
         _selectedSlot = slot;
         break;
@@ -46,8 +44,9 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
       selectableDayPredicate: (day) {
-        return widget.schedule.availableDates.any((d) =>
-            d.year == day.year && d.month == day.month && d.day == day.day);
+        return widget.schedule.availableDates.any(
+          (d) => d.year == day.year && d.month == day.month && d.day == day.day,
+        );
       },
       builder: (context, child) {
         return Theme(
@@ -81,15 +80,23 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
       return;
     }
 
-    final remaining = widget.schedule.remainingCapacity(_selectedDate, _selectedSlot!);
+    final remaining = widget.schedule.remainingCapacity(
+      _selectedDate,
+      _selectedSlot!,
+    );
     if (remaining <= 0) {
-      setState(() => _validationError = 'The selected time slot is full. Choose another slot.');
+      setState(
+        () => _validationError =
+            'The selected time slot is full. Choose another slot.',
+      );
       return;
     }
 
     if (_guests > remaining) {
-      setState(() => _validationError =
-          'Only $remaining spot(s) available for this slot. Please reduce guests.');
+      setState(
+        () => _validationError =
+            'Only $remaining spot(s) available for this slot. Please reduce guests.',
+      );
       return;
     }
 
@@ -116,8 +123,13 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
         ? widget.schedule.remainingCapacity(_selectedDate, _selectedSlot!)
         : widget.schedule.maxCapacityPerSlot;
 
-    final isSlotFull = _selectedSlot != null &&
-        widget.schedule.isSlotFull(_selectedDate, _selectedSlot!, requestedGuests: _guests);
+    final isSlotFull =
+        _selectedSlot != null &&
+        widget.schedule.isSlotFull(
+          _selectedDate,
+          _selectedSlot!,
+          requestedGuests: _guests,
+        );
 
     return Scaffold(
       backgroundColor: BookingTheme.background,
@@ -202,7 +214,10 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                   label: const Text('Calendar'),
                   style: TextButton.styleFrom(
                     foregroundColor: BookingTheme.primary,
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -218,7 +233,8 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final date = widget.schedule.availableDates[index];
-                  final isSelected = date.year == _selectedDate.year &&
+                  final isSelected =
+                      date.year == _selectedDate.year &&
                       date.month == _selectedDate.month &&
                       date.day == _selectedDate.day;
 
@@ -232,18 +248,25 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                     },
                     child: Container(
                       width: 76,
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? BookingTheme.primary : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isSelected ? BookingTheme.primary : BookingTheme.border,
+                          color: isSelected
+                              ? BookingTheme.primary
+                              : BookingTheme.border,
                           width: isSelected ? 2 : 1,
                         ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: BookingTheme.primary.withValues(alpha: 0.25),
+                                  color: BookingTheme.primary.withValues(
+                                    alpha: 0.25,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -259,7 +282,9 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: isSelected ? Colors.white70 : BookingTheme.textMuted,
+                              color: isSelected
+                                  ? Colors.white70
+                                  : BookingTheme.textMuted,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -268,7 +293,9 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
-                              color: isSelected ? Colors.white : BookingTheme.forestDark,
+                              color: isSelected
+                                  ? Colors.white
+                                  : BookingTheme.forestDark,
                             ),
                           ),
                           Text(
@@ -276,7 +303,9 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white70 : BookingTheme.textMuted,
+                              color: isSelected
+                                  ? Colors.white70
+                                  : BookingTheme.textMuted,
                             ),
                           ),
                         ],
@@ -314,8 +343,11 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
 
             // Slots Grid/Wrap
             Column(
-              children: widget.schedule.availableTimeSlots.map((slot) {
-                final remaining = widget.schedule.remainingCapacity(_selectedDate, slot);
+              children: widget.schedule.slotsForDate(_selectedDate).map((slot) {
+                final remaining = widget.schedule.remainingCapacity(
+                  _selectedDate,
+                  slot,
+                );
                 final isFull = remaining <= 0;
                 final isSelected = _selectedSlot == slot;
 
@@ -335,16 +367,23 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                           },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: isFull
                             ? const Color(0xFFF0ECEA)
-                            : (isSelected ? BookingTheme.mintLight : Colors.white),
+                            : (isSelected
+                                  ? BookingTheme.mintLight
+                                  : Colors.white),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isFull
                               ? const Color(0xFFE0DCD8)
-                              : (isSelected ? BookingTheme.primary : BookingTheme.border),
+                              : (isSelected
+                                    ? BookingTheme.primary
+                                    : BookingTheme.border),
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -354,51 +393,64 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                             isFull
                                 ? Icons.block_rounded
                                 : (isSelected
-                                    ? Icons.radio_button_checked_rounded
-                                    : Icons.radio_button_off_rounded),
+                                      ? Icons.radio_button_checked_rounded
+                                      : Icons.radio_button_off_rounded),
                             size: 20,
                             color: isFull
                                 ? BookingTheme.textMuted
-                                : (isSelected ? BookingTheme.primary : BookingTheme.textMuted),
+                                : (isSelected
+                                      ? BookingTheme.primary
+                                      : BookingTheme.textMuted),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             slot,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                              fontWeight: isSelected
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
                               color: isFull
                                   ? BookingTheme.textMuted
                                   : BookingTheme.forestDark,
-                              decoration: isFull ? TextDecoration.lineThrough : null,
+                              decoration: isFull
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                           ),
                           const Spacer(),
                           // Capacity indicator badge
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isFull
                                   ? BookingTheme.errorRed.withValues(alpha: 0.1)
                                   : (remaining <= 2
-                                      ? BookingTheme.warningOrange.withValues(alpha: 0.12)
-                                      : BookingTheme.primary.withValues(alpha: 0.1)),
+                                        ? BookingTheme.warningOrange.withValues(
+                                            alpha: 0.12,
+                                          )
+                                        : BookingTheme.primary.withValues(
+                                            alpha: 0.1,
+                                          )),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               isFull
                                   ? 'FULL'
                                   : (remaining <= 2
-                                      ? 'Only $remaining left'
-                                      : '$remaining spots left'),
+                                        ? 'Only $remaining left'
+                                        : '$remaining spots left'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: isFull
                                     ? BookingTheme.errorRed
                                     : (remaining <= 2
-                                        ? BookingTheme.warningOrange
-                                        : BookingTheme.primary),
+                                          ? BookingTheme.warningOrange
+                                          : BookingTheme.primary),
                               ),
                             ),
                           ),
@@ -430,7 +482,10 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.group_outlined, color: BookingTheme.forestDark),
+                  const Icon(
+                    Icons.group_outlined,
+                    color: BookingTheme.forestDark,
+                  ),
                   const SizedBox(width: 12),
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,13 +500,18 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                       ),
                       Text(
                         'Ages 12+ standard seat',
-                        style: TextStyle(fontSize: 11, color: BookingTheme.textMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: BookingTheme.textMuted,
+                        ),
                       ),
                     ],
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: _guests > 1 ? () => setState(() => _guests--) : null,
+                    onPressed: _guests > 1
+                        ? () => setState(() => _guests--)
+                        : null,
                     icon: const Icon(Icons.remove_circle_outline_rounded),
                     color: BookingTheme.primary,
                   ),
@@ -464,7 +524,8 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: (_selectedSlot != null && _guests < currentRemaining)
+                    onPressed:
+                        (_selectedSlot != null && _guests < currentRemaining)
                         ? () => setState(() => _guests++)
                         : null,
                     icon: const Icon(Icons.add_circle_outline_rounded),
@@ -481,12 +542,17 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                 decoration: BoxDecoration(
                   color: BookingTheme.errorRed.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: BookingTheme.errorRed.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: BookingTheme.errorRed.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded,
-                        color: BookingTheme.errorRed, size: 18),
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: BookingTheme.errorRed,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -529,7 +595,9 @@ class _SlotSelectionScreenState extends State<SlotSelectionScreen> {
                   style: TextStyle(fontSize: 12, color: BookingTheme.textMuted),
                 ),
                 Text(
-                  currencyFormatter.format(widget.schedule.pricePerPerson * _guests),
+                  currencyFormatter.format(
+                    widget.schedule.pricePerPerson * _guests,
+                  ),
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,

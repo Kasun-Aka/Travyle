@@ -14,7 +14,17 @@ public record BookingScheduleResponse(
     int ReviewsCount,
     List<DateTime> AvailableDates,
     List<string> AvailableTimeSlots,
-    Dictionary<string, int> BookedSlotsMap
+    Dictionary<string, int> BookedSlotsMap,
+    List<ScheduleSlotResponse> Slots
+);
+
+public record ScheduleSlotResponse(DateTime Date, string TimeSlot, int Booked);
+
+public record UpdateScheduleSlotRequest(
+    DateTime Date,
+    string TimeSlot,
+    DateTime NewDate,
+    string NewTimeSlot
 );
 
 public record CreateBookingScheduleRequest(

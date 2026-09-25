@@ -76,6 +76,15 @@ public class BookingScheduleRepository : IBookingScheduleRepository
         return await GetByIdAsync(existing.Id, ct);
     }
 
+    public async Task<BookingSchedule?> UpdateSlotOverridesAsync(Guid id, string overrides, CancellationToken ct = default)
+    {
+        var existing = await _db.BookingSchedules.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (existing == null) return null;
+        existing.SlotOverrides = overrides;
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var existing = await _db.BookingSchedules.FindAsync(new object[] { id }, ct);

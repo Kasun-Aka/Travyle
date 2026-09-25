@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -39,7 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              // Tourist / Guide Toggle
               Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -51,9 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            // isTourist = true;
-                          });
+                          setState(() {});
                         },
                         child: Container(
                           decoration: BoxDecoration(
@@ -81,9 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            // isTourist = false;
-                          });
+                          setState(() {});
                         },
                         child: Container(
                           color: Colors.transparent,
@@ -163,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/schedules');
+                    Navigator.pushReplacementNamed(context, '/welcome');
                   },
                   child: const Text(
                     'SIGN IN',
@@ -218,7 +213,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -228,14 +222,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         text,
         style: const TextStyle(
           fontSize: 12,
+          letterSpacing: 1.2,
+          color: AppTheme.textLight,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textDark,
-          letterSpacing: 0.5,
         ),
       ),
     );

@@ -59,6 +59,8 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE \"Bookings\" ADD COLUMN IF NOT EXISTS \"ReceiptReference\" text NULL;");
     await db.Database.ExecuteSqlRawAsync(
         "ALTER TABLE \"Bookings\" ADD COLUMN IF NOT EXISTS \"ReceiptImageData\" text NULL;");
+    await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE \"BookingSchedules\" ADD COLUMN IF NOT EXISTS \"SlotOverrides\" text NOT NULL DEFAULT '[]';");
     await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db);
 }

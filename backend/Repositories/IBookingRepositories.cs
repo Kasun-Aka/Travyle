@@ -8,6 +8,7 @@ public interface IBookingScheduleRepository
     Task<BookingSchedule?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<BookingSchedule> CreateAsync(BookingSchedule schedule, CancellationToken ct = default);
     Task<BookingSchedule?> UpdateAsync(BookingSchedule schedule, CancellationToken ct = default);
+    Task<BookingSchedule?> UpdateSlotOverridesAsync(Guid id, string overrides, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<Dictionary<string, int>> GetBookedSlotsMapAsync(Guid scheduleId, CancellationToken ct = default);
 }

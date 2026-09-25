@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../models/booking.dart';
 import '../providers/booking_providers.dart';
 import '../theme/booking_theme.dart';
@@ -15,21 +18,29 @@ class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
 
   @override
-  ConsumerState<BookingHistoryScreen> createState() => _BookingHistoryScreenState();
+  ConsumerState<BookingHistoryScreen> createState() =>
+      _BookingHistoryScreenState();
 }
 
 class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _bookingRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _bookingRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => ref.read(travelerBookingsProvider.notifier).refresh(),
+    );
+    ref.read(travelerBookingsProvider.notifier).refresh();
   }
 
   @override
   void dispose() {
+    _bookingRefreshTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -38,9 +49,11 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
     switch (tabIndex) {
       case 1: // Active / Upcoming
         return bookings
-            .where((b) =>
-                b.status == BookingStatus.confirmed ||
-                b.status == BookingStatus.pending)
+            .where(
+              (b) =>
+                  b.status == BookingStatus.confirmed ||
+                  b.status == BookingStatus.pending,
+            )
             .toList();
       case 2: // Completed
         return bookings
@@ -74,7 +87,10 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
           unselectedLabelColor: BookingTheme.textMuted,
           indicatorColor: BookingTheme.primary,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'All'),
             Tab(text: 'Active'),
@@ -118,7 +134,11 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final booking = filtered[index];
-                    return _buildBookingCard(context, booking, currencyFormatter);
+                    return _buildBookingCard(
+                      context,
+                      booking,
+                      currencyFormatter,
+                    );
                   },
                 ),
               );
@@ -141,10 +161,12 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
       booking.date.month,
       booking.date.day,
     );
-    final isUpcoming = bookingDay.isAfter(todayOnly) &&
+    final isUpcoming =
+        bookingDay.isAfter(todayOnly) &&
         (booking.status == BookingStatus.pending ||
             booking.status == BookingStatus.confirmed);
-    final canDelete = bookingDay.isBefore(todayOnly) ||
+    final canDelete =
+        bookingDay.isBefore(todayOnly) ||
         booking.status == BookingStatus.completed;
 
     return InkWell(
@@ -202,7 +224,10 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
             const SizedBox(height: 4),
             Text(
               booking.location,
-              style: const TextStyle(fontSize: 12, color: BookingTheme.textMuted),
+              style: const TextStyle(
+                fontSize: 12,
+                color: BookingTheme.textMuted,
+              ),
             ),
             const SizedBox(height: 14),
 
@@ -220,7 +245,11 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
             // Date, Guests, and Total Price
             Row(
               children: [
-                Icon(Icons.calendar_today_rounded, size: 14, color: BookingTheme.primary),
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 14,
+                  color: BookingTheme.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   DateFormat('EEE, d MMM').format(booking.date),
@@ -231,7 +260,11 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Icon(Icons.access_time_rounded, size: 14, color: BookingTheme.primary),
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 14,
+                  color: BookingTheme.primary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   booking.timeSlot,
@@ -272,7 +305,8 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                     ),
                   if (canDelete)
                     TextButton.icon(
-                      onPressed: () => _deleteHistoricalBooking(context, booking),
+                      onPressed: () =>
+                          _deleteHistoricalBooking(context, booking),
                       style: TextButton.styleFrom(
                         foregroundColor: BookingTheme.errorRed,
                       ),
@@ -363,11 +397,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
       ),
       child: Text(
         st.label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

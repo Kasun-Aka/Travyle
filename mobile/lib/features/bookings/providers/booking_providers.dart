@@ -17,6 +17,8 @@
 //   8. processEscrowPaymentProvider  → POST /api/bookings/{id}/process-escrow-payment
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,45 @@ import '../services/booking_api_service.dart';
 // ── Helpers: JSON → model mappers ───────────────────────────────────────────
 
 BookingSchedule _scheduleFromJson(Map<String, dynamic> j) {
+  final rawSlots = (j['slots'] as List? ?? const [])
+      .map((slot) => Map<String, dynamic>.from(slot as Map))
+      .toList();
+  final slotsByDate = <String, List<String>>{};
+  for (final slot in rawSlots) {
+    final date = DateTime.parse(slot['date'].toString());
+    final dateKey =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    slotsByDate.putIfAbsent(dateKey, () => []).add(slot['timeSlot'] as String);
+  }
+
+  final today = DateTime.now();
+  final todayOnly = DateTime(today.year, today.month, today.day);
+  final rawDates = (j['availableDates'] as List)
+      .map((date) => DateTime.parse(date.toString()))
+      .where(
+        (date) =>
+            !DateTime(date.year, date.month, date.day).isBefore(todayOnly),
+      )
+      .toList();
+  final availableDates = slotsByDate.isEmpty
+      ? rawDates
+      : slotsByDate.keys
+            .map(DateTime.parse)
+            .where(
+              (date) => !DateTime(
+                date.year,
+                date.month,
+                date.day,
+              ).isBefore(todayOnly),
+            )
+            .toList();
+  final availableTimeSlots = slotsByDate.values
+      .expand((slots) => slots)
+      .toSet()
+      .toList();
+
   return BookingSchedule(
     id: j['id'].toString(),
     destinationId: j['destinationId'].toString(),
@@ -37,10 +78,11 @@ BookingSchedule _scheduleFromJson(Map<String, dynamic> j) {
     maxCapacityPerSlot: j['maxCapacityPerSlot'] as int,
     rating: (j['rating'] as num).toDouble(),
     reviewsCount: j['reviewsCount'] as int,
-    availableDates: (j['availableDates'] as List)
-        .map((d) => DateTime.parse(d.toString()))
-        .toList(),
-    availableTimeSlots: List<String>.from(j['availableTimeSlots'] as List),
+    availableDates: availableDates,
+    availableTimeSlots: availableTimeSlots.isEmpty
+        ? List<String>.from(j['availableTimeSlots'] as List)
+        : availableTimeSlots,
+    slotsByDate: slotsByDate,
     bookedSlotsMap: (j['bookedSlotsMap'] as Map<String, dynamic>).map(
       (k, v) => MapEntry(k, (v as num).toInt()),
     ),
@@ -58,6 +100,48 @@ BookingStatus _parseBookingStatus(String s) {
     default:
       return BookingStatus.pending;
   }
+}
+
+BookingStatus _displayBookingStatus(
+  String apiStatus,
+  DateTime bookingDate,
+  String timeSlot,
+) {
+  final status = _parseBookingStatus(apiStatus);
+  if (status != BookingStatus.pending && status != BookingStatus.confirmed) {
+    return status;
+  }
+
+  final now = DateTime.now();
+  final scheduledDate = DateTime(
+    bookingDate.year,
+    bookingDate.month,
+    bookingDate.day,
+  );
+  final today = DateTime(now.year, now.month, now.day);
+  if (scheduledDate.isBefore(today)) return BookingStatus.completed;
+  if (scheduledDate.isAfter(today)) return status;
+
+  final match = RegExp(
+    r'^(\d{1,2}):(\d{2})\s*(AM|PM)$',
+    caseSensitive: false,
+  ).firstMatch(timeSlot.trim());
+  if (match == null) return status;
+
+  var hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final meridiem = match.group(3)!.toUpperCase();
+  if (meridiem == 'PM' && hour != 12) hour += 12;
+  if (meridiem == 'AM' && hour == 12) hour = 0;
+
+  final scheduledTime = DateTime(
+    bookingDate.year,
+    bookingDate.month,
+    bookingDate.day,
+    hour,
+    minute,
+  );
+  return scheduledTime.isBefore(now) ? BookingStatus.completed : status;
 }
 
 EscrowStatus _parseEscrowStatus(String s) {
@@ -85,6 +169,8 @@ BookingPaymentMethod _parsePaymentMethod(String? s) {
 }
 
 Booking _bookingFromJson(Map<String, dynamic> j) {
+  final bookingDate = DateTime.parse(j['bookingDate'] as String);
+  final timeSlot = j['timeSlot'] as String;
   return Booking(
     id: j['id'].toString(),
     scheduleId: j['scheduleId'].toString(),
@@ -93,14 +179,14 @@ Booking _bookingFromJson(Map<String, dynamic> j) {
     travelerId: j['travelerId'].toString(),
     travelerName: j['travelerName'] as String,
     travelerEmail: j['travelerEmail'] as String,
-    date: DateTime.parse(j['bookingDate'] as String),
-    timeSlot: j['timeSlot'] as String,
+    date: bookingDate,
+    timeSlot: timeSlot,
     guests: j['guests'] as int,
     basePrice: (j['basePrice'] as num).toDouble(),
     serviceFee: (j['serviceFee'] as num).toDouble(),
     discountAmount: (j['discountAmount'] as num).toDouble(),
     totalAmount: (j['totalAmount'] as num).toDouble(),
-    status: _parseBookingStatus(j['status'] as String),
+    status: _displayBookingStatus(j['status'] as String, bookingDate, timeSlot),
     paymentStatus: _parseEscrowStatus(j['paymentStatus'] as String),
     paymentMethod: _parsePaymentMethod(j['paymentMethod'] as String?),
     createdAt: DateTime.parse(j['createdAt'] as String),
@@ -305,8 +391,20 @@ final scheduleFilterProvider = StateProvider<ScheduleFilterState>(
 
 class ScheduleListNotifier
     extends StateNotifier<AsyncValue<List<BookingSchedule>>> {
+  Timer? _refreshTimer;
+
   ScheduleListNotifier() : super(const AsyncValue.loading()) {
     loadSchedules();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => loadSchedules(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> loadSchedules({String? search, DateTime? date}) async {

@@ -2,15 +2,35 @@ using Travyle.Api.DTOs;
 using Travyle.Api.Models;
 using Travyle.Api.Repositories;
 using System.Globalization;
+using System.Text.Json;
 
 namespace Travyle.Api.Services;
+
+internal sealed record SlotOverride(string Date, string TimeSlot, string? NewDate, string? NewTimeSlot, bool Deleted);
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
 internal static class BookingMapper
 {
+    private static string SlotKey(DateTime date, string slot) => $"{date:yyyy-MM-dd}_{slot}";
+
     public static BookingScheduleResponse ToResponse(BookingSchedule s, Dictionary<string, int> bookedSlotsMap)
     {
+        var slots = s.AvailableDates
+            .SelectMany(date => s.TimeSlots.Select(time => new ScheduleSlotResponse(date.Date, time.SlotLabel, bookedSlotsMap.GetValueOrDefault(SlotKey(date.Date, time.SlotLabel)))))
+            .ToList();
+        var overrides = JsonSerializer.Deserialize<List<SlotOverride>>(s.SlotOverrides ?? "[]") ?? [];
+        foreach (var change in overrides)
+        {
+            var existing = slots.FirstOrDefault(slot => slot.Date.ToString("yyyy-MM-dd") == change.Date && slot.TimeSlot == change.TimeSlot);
+            if (existing != null) slots.Remove(existing);
+            if (!change.Deleted && change.NewDate != null && change.NewTimeSlot != null)
+            {
+                var newDate = DateTime.SpecifyKind(DateTime.Parse(change.NewDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).Date, DateTimeKind.Utc);
+                slots.Add(new ScheduleSlotResponse(newDate, change.NewTimeSlot, bookedSlotsMap.GetValueOrDefault(SlotKey(newDate, change.NewTimeSlot))));
+            }
+        }
+
         return new BookingScheduleResponse(
             s.Id,
             s.DestinationId,
@@ -23,7 +43,8 @@ internal static class BookingMapper
             s.ReviewsCount,
             s.AvailableDates.Select(d => d.Date).OrderBy(d => d).ToList(),
             s.TimeSlots.Select(t => t.SlotLabel).ToList(),
-            bookedSlotsMap
+            bookedSlotsMap,
+            slots.OrderBy(slot => slot.Date).ThenBy(slot => slot.TimeSlot).ToList()
         );
     }
 
@@ -161,9 +182,14 @@ public class BookingScheduleService : IBookingScheduleService
             return (null, "At least one date and time slot are required.");
         if (request.MaxCapacityPerSlot < 1 || request.PricePerPerson < 0)
             return (null, "Capacity and price must be valid values.");
-        if (request.AvailableDates.Any(date => request.AvailableTimeSlots.Any(slot =>
-                !TryGetSlotStart(date, slot, out var start) || start <= now)))
-            return (null, "A schedule can only be edited before its slot starts.");
+        var existingKeys = existing.AvailableDates
+            .SelectMany(date => existing.TimeSlots.Select(slot => SlotKey(date.Date, slot.SlotLabel)))
+            .ToHashSet();
+        var hasNewPastSlot = request.AvailableDates.Any(date => request.AvailableTimeSlots.Any(slot =>
+            !existingKeys.Contains(SlotKey(date, slot)) &&
+            (!TryGetSlotStart(date, slot, out var start) || start <= now)));
+        if (hasNewPastSlot)
+            return (null, "New or changed slots must be scheduled in the future.");
 
         var booked = await _scheduleRepo.GetBookedSlotsMapAsync(id, ct);
         var requestedKeys = request.AvailableDates
@@ -183,6 +209,7 @@ public class BookingScheduleService : IBookingScheduleService
             MaxCapacityPerSlot = request.MaxCapacityPerSlot,
             Rating = request.Rating,
             ReviewsCount = request.ReviewsCount,
+            SlotOverrides = "[]",
             AvailableDates = request.AvailableDates.Select(date => new ScheduleAvailableDate
             {
                 BookingScheduleId = id,
@@ -199,6 +226,39 @@ public class BookingScheduleService : IBookingScheduleService
         return saved == null
             ? (null, "Schedule could not be updated.")
             : (BookingMapper.ToResponse(saved, await _scheduleRepo.GetBookedSlotsMapAsync(id, ct)), null);
+    }
+
+    public async Task<(BookingScheduleResponse? Result, string? Error)> UpdateSlotAsync(Guid id, UpdateScheduleSlotRequest request, CancellationToken ct = default)
+    {
+        var existing = await _scheduleRepo.GetByIdAsync(id, ct);
+        if (existing == null) return (null, "Schedule not found.");
+        var booked = await _scheduleRepo.GetBookedSlotsMapAsync(id, ct);
+        var oldKey = SlotKey(request.Date, request.TimeSlot);
+        if (booked.GetValueOrDefault(oldKey) > 0) return (null, "A booked slot cannot be edited.");
+        if (!TryGetSlotStart(request.NewDate, request.NewTimeSlot, out var start) || start <= DateTime.UtcNow)
+            return (null, "The edited slot must be scheduled in the future.");
+
+        var overrides = JsonSerializer.Deserialize<List<SlotOverride>>(existing.SlotOverrides ?? "[]") ?? [];
+        overrides.RemoveAll(item => item.Date == request.Date.ToString("yyyy-MM-dd") && item.TimeSlot == request.TimeSlot);
+        overrides.Add(new SlotOverride(request.Date.ToString("yyyy-MM-dd"), request.TimeSlot, request.NewDate.ToString("yyyy-MM-dd"), request.NewTimeSlot, false));
+        var saved = await _scheduleRepo.UpdateSlotOverridesAsync(id, JsonSerializer.Serialize(overrides), ct);
+        return saved == null ? (null, "Slot could not be edited.") : (BookingMapper.ToResponse(saved, await _scheduleRepo.GetBookedSlotsMapAsync(id, ct)), null);
+    }
+
+    public async Task<(BookingScheduleResponse? Result, string? Error)> DeleteSlotAsync(Guid id, DateTime date, string timeSlot, CancellationToken ct = default)
+    {
+        var existing = await _scheduleRepo.GetByIdAsync(id, ct);
+        if (existing == null) return (null, "Schedule not found.");
+        var booked = await _scheduleRepo.GetBookedSlotsMapAsync(id, ct);
+        if (booked.GetValueOrDefault(SlotKey(date, timeSlot)) > 0) return (null, "This slot has bookings and cannot be deleted.");
+        if (!TryGetSlotStart(date, timeSlot, out var start) || start <= DateTime.UtcNow)
+            return (null, "Started or past slots cannot be deleted.");
+
+        var overrides = JsonSerializer.Deserialize<List<SlotOverride>>(existing.SlotOverrides ?? "[]") ?? [];
+        overrides.RemoveAll(item => item.Date == date.ToString("yyyy-MM-dd") && item.TimeSlot == timeSlot);
+        overrides.Add(new SlotOverride(date.ToString("yyyy-MM-dd"), timeSlot, null, null, true));
+        var saved = await _scheduleRepo.UpdateSlotOverridesAsync(id, JsonSerializer.Serialize(overrides), ct);
+        return saved == null ? (null, "Slot could not be deleted.") : (BookingMapper.ToResponse(saved, await _scheduleRepo.GetBookedSlotsMapAsync(id, ct)), null);
     }
 
     public async Task<(bool Success, string? Error)> DeleteScheduleAsync(Guid id, CancellationToken ct = default)

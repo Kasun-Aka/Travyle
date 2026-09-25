@@ -89,4 +89,18 @@ public class BookingSchedulesController : ControllerBase
         if (!success) return BadRequest(new { error });
         return NoContent();
     }
+
+    [HttpPut("{id:guid}/slots")]
+    public async Task<IActionResult> UpdateSlot(Guid id, [FromBody] UpdateScheduleSlotRequest request, CancellationToken ct)
+    {
+        var (result, error) = await _service.UpdateSlotAsync(id, request, ct);
+        return result == null ? BadRequest(new { error }) : Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/slots")]
+    public async Task<IActionResult> DeleteSlot(Guid id, [FromQuery] DateTime date, [FromQuery] string timeSlot, CancellationToken ct)
+    {
+        var (result, error) = await _service.DeleteSlotAsync(id, date, timeSlot, ct);
+        return result == null ? BadRequest(new { error }) : Ok(result);
+    }
 }

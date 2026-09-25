@@ -200,6 +200,8 @@ class BookingSchedule {
   final double pricePerPerson;
   final List<DateTime> availableDates;
   final List<String> availableTimeSlots;
+  // Exact slots returned for each date, including admin slot overrides.
+  final Map<String, List<String>> slotsByDate;
   final int maxCapacityPerSlot;
   // Map of date-slot key ("YYYY-MM-DD_HH:MM") to currently booked count
   final Map<String, int> bookedSlotsMap;
@@ -216,6 +218,7 @@ class BookingSchedule {
     required this.pricePerPerson,
     required this.availableDates,
     required this.availableTimeSlots,
+    this.slotsByDate = const {},
     required this.maxCapacityPerSlot,
     required this.bookedSlotsMap,
     required this.rating,
@@ -232,6 +235,14 @@ class BookingSchedule {
   int bookedCount(DateTime date, String slot) {
     final key = slotKey(date, slot);
     return bookedSlotsMap[key] ?? 0;
+  }
+
+  List<String> slotsForDate(DateTime date) {
+    final dateKey =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    return slotsByDate[dateKey] ?? availableTimeSlots;
   }
 
   int remainingCapacity(DateTime date, String slot) {
@@ -253,6 +264,7 @@ class BookingSchedule {
     double? pricePerPerson,
     List<DateTime>? availableDates,
     List<String>? availableTimeSlots,
+    Map<String, List<String>>? slotsByDate,
     int? maxCapacityPerSlot,
     Map<String, int>? bookedSlotsMap,
     double? rating,
@@ -267,6 +279,7 @@ class BookingSchedule {
       pricePerPerson: pricePerPerson ?? this.pricePerPerson,
       availableDates: availableDates ?? this.availableDates,
       availableTimeSlots: availableTimeSlots ?? this.availableTimeSlots,
+      slotsByDate: slotsByDate ?? this.slotsByDate,
       maxCapacityPerSlot: maxCapacityPerSlot ?? this.maxCapacityPerSlot,
       bookedSlotsMap: bookedSlotsMap ?? this.bookedSlotsMap,
       rating: rating ?? this.rating,

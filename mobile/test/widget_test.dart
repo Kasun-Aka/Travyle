@@ -1,19 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/bookings/screens/schedule_browse_screen.dart';
-import 'package:mobile/features/bookings/theme/booking_theme.dart';
+import 'package:mobile/main.dart';
 
 void main() {
-  testWidgets('Schedule browse screen launches smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: BookingTheme.themeData,
-        home: const ProviderScope(child: ScheduleBrowseScreen()),
-      ),
-    );
+  testWidgets('app loads landing screen', (WidgetTester tester) async {
+    await tester.pumpWidget(const ProviderScope(child: TravyleApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Explore Schedules'), findsOneWidget);
+    expect(find.text('TRAVYLE'), findsOneWidget);
+    expect(find.text('SIGN IN'), findsOneWidget);
   });
 }

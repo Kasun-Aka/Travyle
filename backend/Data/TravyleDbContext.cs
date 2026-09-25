@@ -17,6 +17,15 @@ public class TravyleDbContext : DbContext
     public DbSet<DiscountRequest> DiscountRequests => Set<DiscountRequest>();
     public DbSet<PaymentEscrow> PaymentEscrows => Set<PaymentEscrow>();
 
+    // Operations and travel planning
+    public DbSet<Destination> Destinations => Set<Destination>();
+    public DbSet<TravelerProfile> TravelerProfiles => Set<TravelerProfile>();
+    public DbSet<PersonalizedItinerary> PersonalizedItineraries => Set<PersonalizedItinerary>();
+    public DbSet<TourActivity> TourActivities => Set<TourActivity>();
+    public DbSet<GuideAssignment> GuideAssignments => Set<GuideAssignment>();
+    public DbSet<RouteLog> RouteLogs => Set<RouteLog>();
+    public DbSet<DisruptionAlert> DisruptionAlerts => Set<DisruptionAlert>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -80,5 +89,44 @@ public class TravyleDbContext : DbContext
             entity.Property(e => e.RefundedAmount).HasColumnType("numeric(18,2)");
             entity.Property(e => e.Status).HasConversion<string>();
         });
+
+        modelBuilder.Entity<TravelerProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.User)
+                  .WithOne(u => u.TravelerProfile)
+                  .HasForeignKey<TravelerProfile>(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PersonalizedItinerary>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Traveler)
+                  .WithMany(u => u.PersonalizedItineraries)
+                  .HasForeignKey(e => e.TravelerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GuideAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Guide)
+                  .WithMany()
+                  .HasForeignKey(e => e.GuideUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RouteLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Recorder)
+                  .WithMany()
+                  .HasForeignKey(e => e.RecordedBy)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TourActivity>().HasKey(e => e.Id);
+        modelBuilder.Entity<DisruptionAlert>().HasKey(e => e.Id);
     }
 }

@@ -9,6 +9,8 @@ public interface IBookingScheduleService
     Task<BookingScheduleResponse?> GetScheduleByIdAsync(Guid id, CancellationToken ct = default);
     Task<BookingScheduleResponse> CreateScheduleAsync(CreateBookingScheduleRequest request, CancellationToken ct = default);
     Task<(BookingScheduleResponse? Result, string? Error)> UpdateScheduleAsync(Guid id, UpdateBookingScheduleRequest request, CancellationToken ct = default);
+    Task<(BookingScheduleResponse? Result, string? Error)> UpdateSlotAsync(Guid id, UpdateScheduleSlotRequest request, CancellationToken ct = default);
+    Task<(BookingScheduleResponse? Result, string? Error)> DeleteSlotAsync(Guid id, DateTime date, string timeSlot, CancellationToken ct = default);
     Task<(bool Success, string? Error)> DeleteScheduleAsync(Guid id, CancellationToken ct = default);
 }
 

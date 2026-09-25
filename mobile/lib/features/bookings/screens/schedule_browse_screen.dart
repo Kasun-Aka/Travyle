@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../models/booking.dart';
 import '../providers/booking_providers.dart';
 import '../theme/booking_theme.dart';
@@ -16,7 +17,8 @@ class ScheduleBrowseScreen extends ConsumerStatefulWidget {
   const ScheduleBrowseScreen({super.key});
 
   @override
-  ConsumerState<ScheduleBrowseScreen> createState() => _ScheduleBrowseScreenState();
+  ConsumerState<ScheduleBrowseScreen> createState() =>
+      _ScheduleBrowseScreenState();
 }
 
 class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
@@ -28,6 +30,12 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
     'Sigiriya',
     'Mirissa',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(scheduleListProvider.notifier).loadSchedules();
+  }
 
   @override
   void dispose() {
@@ -59,16 +67,16 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
     );
 
     if (picked != null) {
-      ref.read(scheduleFilterProvider.notifier).update(
-            (state) => state.copyWith(filterDate: picked),
-          );
+      ref
+          .read(scheduleFilterProvider.notifier)
+          .update((state) => state.copyWith(filterDate: picked));
     }
   }
 
   void _clearDateFilter() {
-    ref.read(scheduleFilterProvider.notifier).update(
-          (state) => state.copyWith(clearFilterDate: true),
-        );
+    ref
+        .read(scheduleFilterProvider.notifier)
+        .update((state) => state.copyWith(clearFilterDate: true));
   }
 
   @override
@@ -118,9 +126,7 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
             ),
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const BookingHistoryScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const BookingHistoryScreen()),
               );
             },
           ),
@@ -147,29 +153,43 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.confirmation_number_rounded,
-                            color: BookingTheme.primary),
-                        title: const Text('My saved bookings',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        subtitle: const Text('View trips, payment and booking status'),
+                        leading: const Icon(
+                          Icons.confirmation_number_rounded,
+                          color: BookingTheme.primary,
+                        ),
+                        title: const Text(
+                          'My saved bookings',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: const Text(
+                          'View trips, payment and booking status',
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                              builder: (_) => const BookingHistoryScreen()),
+                            builder: (_) => const BookingHistoryScreen(),
+                          ),
                         ),
                       ),
                       const Divider(height: 1, color: BookingTheme.border),
                       ListTile(
-                        leading: const Icon(Icons.percent_rounded,
-                            color: BookingTheme.primary),
-                        title: const Text('Discount request status',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        subtitle: const Text('Track review, refund or cancellation'),
+                        leading: const Icon(
+                          Icons.percent_rounded,
+                          color: BookingTheme.primary,
+                        ),
+                        title: const Text(
+                          'Discount request status',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: const Text(
+                          'Track review, refund or cancellation',
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                              builder: (_) =>
-                                  const DiscountRequestHistoryScreen()),
+                            builder: (_) =>
+                                const DiscountRequestHistoryScreen(),
+                          ),
                         ),
                       ),
                     ],
@@ -188,21 +208,32 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                     TextField(
                       controller: _searchController,
                       onChanged: (val) {
-                        ref.read(scheduleFilterProvider.notifier).update(
+                        ref
+                            .read(scheduleFilterProvider.notifier)
+                            .update(
                               (state) => state.copyWith(searchQuery: val),
                             );
                       },
                       decoration: InputDecoration(
                         hintText: 'Search tours, locations, guides...',
-                        hintStyle: const TextStyle(color: BookingTheme.textMuted, fontSize: 14),
-                        prefixIcon: const Icon(Icons.search_rounded, color: BookingTheme.primary),
+                        hintStyle: const TextStyle(
+                          color: BookingTheme.textMuted,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: BookingTheme.primary,
+                        ),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear_rounded, size: 18),
                                 onPressed: () {
                                   _searchController.clear();
-                                  ref.read(scheduleFilterProvider.notifier).update(
-                                        (state) => state.copyWith(searchQuery: ''),
+                                  ref
+                                      .read(scheduleFilterProvider.notifier)
+                                      .update(
+                                        (state) =>
+                                            state.copyWith(searchQuery: ''),
                                       );
                                 },
                               )
@@ -217,7 +248,8 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                       child: Row(
                         children: _destinationPresets.map((dest) {
                           final isSelected = dest == 'All'
-                              ? (filterState.destination == null || filterState.destination!.isEmpty)
+                              ? (filterState.destination == null ||
+                                    filterState.destination!.isEmpty)
                               : filterState.destination == dest;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -225,21 +257,29 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                               label: Text(dest),
                               selected: isSelected,
                               onSelected: (_) {
-                                ref.read(scheduleFilterProvider.notifier).update(
+                                ref
+                                    .read(scheduleFilterProvider.notifier)
+                                    .update(
                                       (state) => dest == 'All'
-                                          ? state.copyWith(clearDestination: true)
+                                          ? state.copyWith(
+                                              clearDestination: true,
+                                            )
                                           : state.copyWith(destination: dest),
                                     );
                               },
                               selectedColor: BookingTheme.primary,
                               labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : BookingTheme.forestDark,
+                                color: isSelected
+                                    ? Colors.white
+                                    : BookingTheme.forestDark,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
                               ),
                               backgroundColor: Colors.white,
                               side: BorderSide(
-                                color: isSelected ? BookingTheme.primary : BookingTheme.border,
+                                color: isSelected
+                                    ? BookingTheme.primary
+                                    : BookingTheme.border,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -256,12 +296,19 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                       children: [
                         OutlinedButton.icon(
                           onPressed: _pickDateFilter,
-                          icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                          icon: const Icon(
+                            Icons.calendar_month_rounded,
+                            size: 16,
+                          ),
                           label: Text(
                             filterState.filterDate != null
-                                ? DateFormat('EEE, d MMM').format(filterState.filterDate!)
+                                ? DateFormat('EEE, d MMM')
+                                      .format(filterState.filterDate!)
                                 : 'Filter by Date',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: filterState.filterDate != null
@@ -278,7 +325,10 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                           ),
                         ),
                         if (filterState.filterDate != null) ...[
@@ -304,7 +354,8 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
               error: (err, _) => SliverFillRemaining(
                 child: ErrorState(
                   message: err.toString(),
-                  onRetry: () => ref.read(scheduleListProvider.notifier).loadSchedules(),
+                  onRetry: () =>
+                      ref.read(scheduleListProvider.notifier).loadSchedules(),
                 ),
               ),
               data: (schedules) {
@@ -317,7 +368,8 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                       actionText: 'Reset Filters',
                       onAction: () {
                         _searchController.clear();
-                        ref.read(scheduleFilterProvider.notifier).state = const ScheduleFilterState();
+                        ref.read(scheduleFilterProvider.notifier).state =
+                            const ScheduleFilterState();
                       },
                     ),
                   );
@@ -326,19 +378,17 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                 return SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final schedule = schedules[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: ScheduleCard(
-                            schedule: schedule,
-                            onSelect: () => _navigateToSlotSelection(context, schedule),
-                          ),
-                        );
-                      },
-                      childCount: schedules.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final schedule = schedules[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: ScheduleCard(
+                          schedule: schedule,
+                          onSelect: () =>
+                              _navigateToSlotSelection(context, schedule),
+                        ),
+                      );
+                    }, childCount: schedules.length),
                   ),
                 );
               },
@@ -349,7 +399,10 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
     );
   }
 
-  void _navigateToSlotSelection(BuildContext context, BookingSchedule schedule) {
+  void _navigateToSlotSelection(
+    BuildContext context,
+    BookingSchedule schedule,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SlotSelectionScreen(schedule: schedule),
