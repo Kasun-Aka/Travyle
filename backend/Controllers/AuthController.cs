@@ -63,7 +63,16 @@ public class AuthController : ControllerBase
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
         if (user == null)
-            return NotFound("User not found");
+        {
+            user = new User
+            {
+                Email = email,
+                FullName = "Traveler",
+                Role = "Traveler"
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
 
         return Ok(user);
     }
@@ -73,6 +82,47 @@ public class AuthController : ControllerBase
         public string Email { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+    }
+
+    public class UpdatePreferencesRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string[] Preferences { get; set; } = Array.Empty<string>();
+    }
+
+    // PUT /api/auth/user/preferences
+    [HttpPut("user/preferences")]
+    public async Task<IActionResult> UpdatePreferences([FromBody] UpdatePreferencesRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+        if (user == null)
+        {
+            user = new User
+            {
+                Email = req.Email,
+                FullName = "Traveler",
+                Role = "Traveler"
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        var profile = await _db.TravelerProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id);
+        if (profile == null)
+        {
+            profile = new TravelerProfile { UserId = user.Id };
+            _db.TravelerProfiles.Add(profile);
+        }
+
+        profile.PreferredActivities = req.Preferences;
+        profile.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(profile);
     }
 
     // PUT /api/auth/user
