@@ -48,6 +48,7 @@ dependencies:
   image_cropper: ^12.2.1
   path_provider: ^2.1.6
   syncfusion_flutter_pdfviewer: ^34.2.9
+  file_saver: ^0.4.0
 
 dev_dependencies:
   flutter_test:
