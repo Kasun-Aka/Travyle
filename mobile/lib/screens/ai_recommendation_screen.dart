@@ -81,7 +81,13 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
       debugPrint('AI Error: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = 'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
+          if (e is DioException && e.response?.statusCode == 503) {
+             _errorMessage = e.response?.data?.toString() ?? 'Google AI servers are overloaded right now. Please try again later.';
+          } else if (e is DioException && e.response?.data != null) {
+             _errorMessage = e.response?.data?.toString() ?? 'Failed to analyze preferences.';
+          } else {
+             _errorMessage = 'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
+          }
           _isLoading = false;
         });
       }

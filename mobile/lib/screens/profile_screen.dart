@@ -54,6 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           setState(() {
             _role = response.data['role'] ?? 'Traveler';
+            _errorMessage = ''; // Clear stale error if successful
           });
         }
       }

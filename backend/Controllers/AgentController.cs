@@ -72,6 +72,10 @@ public class AgentController : ControllerBase
         }
         catch (Exception ex)
         {
+            if (ex.Message.Contains("503") || ex.Message.Contains("ServiceUnavailable") || ex.Message.Contains("high demand"))
+            {
+                return StatusCode(503, "Google's AI servers are currently experiencing high demand. Please try again in a few moments.");
+            }
             return StatusCode(500, $"AI matching failed: {ex.Message}");
         }
     }
