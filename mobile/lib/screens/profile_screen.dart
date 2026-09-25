@@ -42,8 +42,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 3),
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
         ),
       );
       final response = await dio.get(
@@ -62,7 +62,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint('Error fetching user role: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Could not load complete profile data.';
+          if (e is DioException) {
+            _errorMessage = 'Network Error: ${e.message}';
+          } else {
+            _errorMessage = 'Could not load complete profile data: $e';
+          }
         });
       }
     } finally {
