@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 
+using Travyle.Api.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -14,6 +16,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<TravyleDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddHttpClient<GeminiService>();
 
 builder.Services.AddSwaggerGen();
 
