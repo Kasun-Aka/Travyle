@@ -6,6 +6,7 @@ import 'preference_screen.dart';
 import 'destination_detail_screen.dart';
 import 'login_screen.dart';
 import 'destinations_list_screen.dart';
+import 'ai_recommendation_screen.dart';
 
 import 'profile_screen.dart';
 
@@ -167,6 +168,75 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(30),
                 borderSide: const BorderSide(color: AppTheme.borderLight),
               ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // AI Match Banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.primaryDark, AppTheme.accentCopper],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.accentCopper.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 40),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Not sure where to go?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Let Gemini find your perfect match',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AiRecommendationScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryDark,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('Try Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 32),
