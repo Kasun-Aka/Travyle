@@ -76,10 +76,15 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate change
       }
+    } on DioException catch (e) {
+      debugPrint('Dio Error updating profile: ${e.response?.statusCode} - ${e.response?.data}');
+      setState(() {
+        _errorMessage = 'Server Error: ${e.response?.data ?? e.message}';
+      });
     } catch (e) {
       debugPrint('Error updating profile: $e');
       setState(() {
-        _errorMessage = 'Failed to update account details.';
+        _errorMessage = 'Failed to update account details: $e';
       });
     } finally {
       if (mounted) {
