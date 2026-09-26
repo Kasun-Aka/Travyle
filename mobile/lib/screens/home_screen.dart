@@ -9,6 +9,7 @@ import 'destinations_list_screen.dart';
 import 'ai_recommendation_screen.dart';
 
 import 'profile_screen.dart';
+import 'profile_notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,11 +22,34 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _isLoadingDestinations = true;
   List<dynamic> _destinations = [];
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
     _fetchDestinations();
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (email == null) return;
+    try {
+      final response = await Dio().get(
+        'http://10.0.2.2:5085/api/notifications/traveler/$email',
+      );
+      if (response.statusCode == 200) {
+        final List notifs = response.data;
+        final unread = notifs.where((n) => n['isRead'] == false).length;
+        if (mounted) {
+          setState(() {
+            _unreadNotifications = unread;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load notifications: $e');
+    }
   }
 
   Future<void> _fetchDestinations() async {
@@ -140,19 +164,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _currentIndex = 4; // Switch to Profile Tab
-                  });
-                },
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(
-                    FirebaseAuth.instance.currentUser?.photoURL ??
-                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+              Row(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none, size: 28, color: AppTheme.textPrimary),
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ProfileNotificationsScreen()),
+                          );
+                          _fetchNotifications(); // Refresh on return
+                        },
+                      ),
+                      if (_unreadNotifications > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$_unreadNotifications',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentIndex = 4; // Switch to Profile Tab
+                      });
+                    },
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(
+                        FirebaseAuth.instance.currentUser?.photoURL ??
+                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               ),
             ],
           ),

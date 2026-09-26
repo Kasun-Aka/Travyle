@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Travyle.Api.Data;
@@ -11,9 +12,11 @@ using Travyle.Api.Data;
 namespace Travyle.Api.Migrations
 {
     [DbContext(typeof(TravyleDbContext))]
-    partial class TravyleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926024726_AddTravelerNotifications")]
+    partial class AddTravelerNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -11,6 +11,7 @@ public class TravyleDbContext : DbContext
     public DbSet<TravelerProfile> TravelerProfiles => Set<TravelerProfile>();
     public DbSet<Destination> Destinations => Set<Destination>();
     public DbSet<PersonalizedItinerary> PersonalizedItineraries => Set<PersonalizedItinerary>();
+    public DbSet<TravelerNotification> TravelerNotifications => Set<TravelerNotification>();
     // each vertical adds their own DbSets here as they build
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -29,6 +30,13 @@ public class TravyleDbContext : DbContext
             .HasMany(u => u.PersonalizedItineraries)
             .WithOne(pi => pi.Traveler)
             .HasForeignKey(pi => pi.TravelerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure 1-to-Many relationship between User and Notifications
+        modelBuilder.Entity<User>()
+            .HasMany<TravelerNotification>()
+            .WithOne(tn => tn.User)
+            .HasForeignKey(tn => tn.UserId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

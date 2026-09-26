@@ -1,8 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Sparkles, Send, User, Map, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Send, User, Map, CheckCircle2, Clock } from 'lucide-react';
 import axios from 'axios';
 import { destinationsApi, type Destination } from '../api/destinations';
+
+interface NotificationHistory {
+  id: string;
+  pitch: string;
+  isRead: boolean;
+  sentAt: string;
+  userEmail: string;
+  userName: string;
+  destinationName: string;
+  destinationRegion: string;
+}
 
 export default function TravelerConcierge() {
   const [email, setEmail] = useState('');
@@ -10,6 +21,20 @@ export default function TravelerConcierge() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ destination: Destination; reasoning: string } | null>(null);
   const [sent, setSent] = useState(false);
+  const [history, setHistory] = useState<NotificationHistory[]>([]);
+
+  const fetchHistory = async () => {
+    try {
+      const res = await axios.get('http://localhost:5085/api/notifications/admin');
+      setHistory(res.data);
+    } catch (err) {
+      console.error("Failed to load history", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +46,6 @@ export default function TravelerConcierge() {
     setSent(false);
 
     try {
-      // 1. Call the Recommendation Agent
       const agentResponse = await axios.post('http://localhost:5085/api/agent/recommend', {
         email: email.trim(),
       });
@@ -42,6 +66,21 @@ export default function TravelerConcierge() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNotify = async () => {
+    if (!result || !email) return;
+    try {
+      await axios.post('http://localhost:5085/api/notifications', {
+        email: email.trim(),
+        destinationId: result.destination.id,
+        pitch: result.reasoning
+      });
+      setSent(true);
+      fetchHistory(); // Refresh the list
+    } catch (err) {
+      alert("Failed to send notification. Make sure the backend is running.");
     }
   };
 
@@ -104,19 +143,19 @@ export default function TravelerConcierge() {
                     </div>
                     {sent ? (
                       <span className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 px-4 py-2 rounded-lg">
-                        <CheckCircle2 size={20} /> Pitch Sent
+                        <CheckCircle2 size={20} /> Notification Sent
                       </span>
                     ) : (
                       <button 
-                        onClick={() => setSent(true)}
-                        className="bg-gray-900 text-white font-medium px-4 py-2 rounded-lg hover:bg-black transition-colors flex items-center gap-2"
+                        onClick={handleNotify}
+                        className="bg-gray-900 text-white font-medium px-4 py-2 rounded-lg hover:bg-black transition-colors flex items-center gap-2 shadow-sm"
                       >
-                        <Send size={16} /> Email to Traveler
+                        <Send size={16} /> Notify to Traveler
                       </button>
                     )}
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 mb-6">
+                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 mb-6 mt-4">
                     <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
                       <Sparkles size={16} className="text-brand-600" />
                       Agent's Personalized Pitch
@@ -125,19 +164,50 @@ export default function TravelerConcierge() {
                       "{result.reasoning}"
                     </p>
                   </div>
-
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 mb-2">Package Included Tags</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {result.destination.tags.map((tag: string) => (
-                        <span key={tag} className="bg-white border border-gray-200 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-md">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* History Section */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock className="text-gray-400" size={24} />
+            Sent Recommendations History
+          </h2>
+          {history.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-500">
+              No recommendations sent yet.
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {history.map((h) => (
+                <div key={h.id} className="bg-white rounded-xl border border-gray-200 p-5 flex gap-4 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
+                    <User size={20} className="text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-bold text-gray-900 truncate">{h.userName} <span className="text-gray-400 font-normal ml-1">({h.userEmail})</span></h4>
+                      <span className="text-xs text-gray-400">{new Date(h.sentAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-brand-600 font-medium mb-2">Recommended: {h.destinationName} ({h.destinationRegion})</p>
+                    <p className="text-sm text-gray-600 italic line-clamp-2">"{h.pitch}"</p>
+                  </div>
+                  <div className="shrink-0 flex items-center">
+                    {h.isRead ? (
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Read
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
