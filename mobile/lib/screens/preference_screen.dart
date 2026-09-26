@@ -14,18 +14,51 @@ class PreferenceScreen extends StatefulWidget {
 
 class _PreferenceScreenState extends State<PreferenceScreen> {
   bool _isSaving = false;
+  bool _isLoadingPrefs = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) {
+      if (mounted) setState(() => _isLoadingPrefs = false);
+      return;
+    }
+    try {
+      final response = await Dio().get(
+        'http://10.0.2.2:5085/api/auth/user/preferences',
+        queryParameters: {'email': user.email},
+      );
+      if (response.statusCode == 200 && mounted) {
+        final List<dynamic> prefs = response.data;
+        setState(() {
+          for (var item in _preferences) {
+            item['selected'] = prefs.contains(item['title']);
+          }
+          _isLoadingPrefs = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load prefs: $e');
+      if (mounted) setState(() => _isLoadingPrefs = false);
+    }
+  }
   final List<Map<String, dynamic>> _preferences = [
     {
       'title': 'Adventure',
       'icon': Icons.explore_outlined,
-      'selected': true,
+      'selected': false,
       'image':
           'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&h=300&fit=crop',
     },
     {
       'title': 'Beach & Islands',
       'icon': Icons.wb_sunny_outlined,
-      'selected': true,
+      'selected': false,
       'image':
           'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=300&fit=crop',
     },
@@ -46,7 +79,7 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
     {
       'title': 'Wellness & Spa',
       'icon': Icons.spa_outlined,
-      'selected': true,
+      'selected': false,
       'image':
           'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&h=300&fit=crop',
     },
@@ -127,6 +160,13 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingPrefs) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
