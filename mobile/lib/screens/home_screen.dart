@@ -37,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (email == null) return;
     try {
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/notifications/traveler/',
+        'http://10.0.2.2:5085/api/notifications/traveler/$email',
       );
       if (response.statusCode == 200) {
         final List notifs = response.data;
@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Failed to load notifications: ');
+      debugPrint('Failed to load notifications: $e');
     }
   }
 
@@ -200,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Text(
-                              '',
+                              '$_unreadNotifications',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
