@@ -134,8 +134,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _onRefresh() async {
+    await _fetchNotifications();
+    await _fetchDestinations();
+  }
+
   Widget _buildHomeContent(BuildContext context) {
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppTheme.accentCopper,
+      child: SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,6 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 40),
         ],
       ),
+    ),
     );
   }
 
