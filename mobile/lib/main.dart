@@ -1,16 +1,22 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
-import 'theme/app_theme.dart';
+import 'screens/home_screen.dart';
 import 'features/bookings/screens/booking_history_screen.dart';
 import 'features/bookings/screens/discount_request_history_screen.dart';
 import 'features/bookings/screens/schedule_browse_screen.dart';
+import 'features/bookings/screens/smart_booking_screen.dart';
 import 'features/bookings/theme/booking_theme.dart';
-import 'features/bookings/widgets/primary_gradient_button.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const ProviderScope(child: TravyleApp()));
 }
 
@@ -28,9 +34,11 @@ class TravyleApp extends StatelessWidget {
         '/splash': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/welcome': (context) => const WelcomeScreen(),
+        '/home': (context) => const HomeScreen(),
         '/schedules': (context) => const ScheduleBrowseScreen(),
         '/history': (context) => const BookingHistoryScreen(),
         '/discount-requests': (context) => const DiscountRequestHistoryScreen(),
+        '/smart-booking': (context) => const SmartBookingScreen(),
         '/prototype': (context) => const BookingScreen(),
       },
     );

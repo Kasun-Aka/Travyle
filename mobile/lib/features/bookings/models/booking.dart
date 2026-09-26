@@ -359,3 +359,142 @@ class PaymentEscrow {
     required this.escrowReleaseDate,
   });
 }
+
+class ProposedBooking {
+  final String scheduleId;
+  final String destinationTitle;
+  final String location;
+  final DateTime bookingDate;
+  final String timeSlot;
+  final int guests;
+  final double pricePerPerson;
+  final double basePrice;
+  final double serviceFee;
+  final double discountAmount;
+  final double totalAmount;
+  final String paymentMethod;
+
+  const ProposedBooking({
+    required this.scheduleId,
+    required this.destinationTitle,
+    required this.location,
+    required this.bookingDate,
+    required this.timeSlot,
+    required this.guests,
+    required this.pricePerPerson,
+    required this.basePrice,
+    required this.serviceFee,
+    required this.discountAmount,
+    required this.totalAmount,
+    required this.paymentMethod,
+  });
+
+  factory ProposedBooking.fromJson(Map<String, dynamic> j) {
+    return ProposedBooking(
+      scheduleId: j['scheduleId']?.toString() ?? '',
+      destinationTitle: j['destinationTitle']?.toString() ?? '',
+      location: j['location']?.toString() ?? '',
+      bookingDate: j['bookingDate'] != null
+          ? DateTime.tryParse(j['bookingDate'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      timeSlot: j['timeSlot']?.toString() ?? '',
+      guests: (j['guests'] as num?)?.toInt() ?? 1,
+      pricePerPerson: (j['pricePerPerson'] as num?)?.toDouble() ?? 0.0,
+      basePrice: (j['basePrice'] as num?)?.toDouble() ?? 0.0,
+      serviceFee: (j['serviceFee'] as num?)?.toDouble() ?? 0.0,
+      discountAmount: (j['discountAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (j['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: j['paymentMethod']?.toString() ?? 'SampleCard',
+    );
+  }
+}
+
+class AgentWorkflow {
+  final String id;
+  final String travelerId;
+  final String travelerName;
+  final String travelerEmail;
+  final String objective;
+  final String status;
+  final List<String> plan;
+  final List<String> completedSteps;
+  final Map<String, dynamic> toolResults;
+  final Map<String, dynamic> validationResults;
+  final ProposedBooking? proposedBooking;
+  final String? createdBookingId;
+  final String? bookingReference;
+  final String approvalStatus;
+  final String? approvedBy;
+  final String? approverRole;
+  final String? approverNotes;
+  final String? errorMessage;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const AgentWorkflow({
+    required this.id,
+    required this.travelerId,
+    required this.travelerName,
+    required this.travelerEmail,
+    required this.objective,
+    required this.status,
+    required this.plan,
+    required this.completedSteps,
+    required this.toolResults,
+    required this.validationResults,
+    this.proposedBooking,
+    this.createdBookingId,
+    this.bookingReference,
+    required this.approvalStatus,
+    this.approvedBy,
+    this.approverRole,
+    this.approverNotes,
+    this.errorMessage,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  bool get isPendingApproval => status.toLowerCase() == 'pendingapproval';
+  bool get isCompleted => status.toLowerCase() == 'completed';
+  bool get isRejected => status.toLowerCase() == 'rejected';
+  bool get isFailed => status.toLowerCase() == 'failed';
+  bool get needsMoreInfo => validationResults['needs_more_info'] == true;
+
+  factory AgentWorkflow.fromJson(Map<String, dynamic> j) {
+    return AgentWorkflow(
+      id: j['id']?.toString() ?? '',
+      travelerId: j['travelerId']?.toString() ?? '',
+      travelerName: j['travelerName']?.toString() ?? '',
+      travelerEmail: j['travelerEmail']?.toString() ?? '',
+      objective: j['objective']?.toString() ?? '',
+      status: j['status']?.toString() ?? 'Running',
+      plan: (j['plan'] as List? ?? []).map((e) => e.toString()).toList(),
+      completedSteps:
+          (j['completedSteps'] as List? ?? []).map((e) => e.toString()).toList(),
+      toolResults: j['toolResults'] is Map
+          ? Map<String, dynamic>.from(j['toolResults'] as Map)
+          : {},
+      validationResults: j['validationResults'] is Map
+          ? Map<String, dynamic>.from(j['validationResults'] as Map)
+          : {},
+      proposedBooking: j['proposedBooking'] != null
+          ? ProposedBooking.fromJson(
+              Map<String, dynamic>.from(j['proposedBooking'] as Map))
+          : null,
+      createdBookingId: j['createdBookingId']?.toString(),
+      bookingReference: j['bookingReference']?.toString(),
+      approvalStatus: j['approvalStatus']?.toString() ?? 'PENDING',
+      approvedBy: j['approvedBy']?.toString(),
+      approverRole: j['approverRole']?.toString(),
+      approverNotes: j['approverNotes']?.toString(),
+      errorMessage: j['errorMessage']?.toString(),
+      createdAt: j['createdAt'] != null
+          ? DateTime.tryParse(j['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: j['updatedAt'] != null
+          ? DateTime.tryParse(j['updatedAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import '../features/destinations/models/destination.dart';
+import '../features/bookings/screens/schedule_browse_screen.dart';
 
 class DestinationDetailScreen extends StatelessWidget {
   final Destination destination;
@@ -320,7 +321,13 @@ class DestinationDetailScreen extends StatelessWidget {
               ],
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ScheduleBrowseScreen(),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryDark,
                 padding: const EdgeInsets.symmetric(

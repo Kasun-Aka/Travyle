@@ -229,11 +229,12 @@ DiscountRequest _discountRequestFromJson(Map<String, dynamic> json) {
 // ── Current logged-in traveler ───────────────────────────────────────────────
 // NOTE: When the auth team wires up login, replace this with a real provider
 // that reads the JWT claims. For now we use a well-known dev traveler ID.
-final currentTravelerProvider = Provider<Map<String, String>>((ref) {
-  return const {
-    'id': '00000000-0000-0000-0000-000000000001',
-    'name': 'Nithu Traveler',
-    'email': 'traveler@travyle.com',
+final currentTravelerProvider = FutureProvider<Map<String, String>>((ref) async {
+  final traveler = await bookingApiService.getAuthenticatedTraveler();
+  return {
+    'id': traveler['id'].toString(),
+    'name': (traveler['fullName'] ?? 'Traveler').toString(),
+    'email': (traveler['email'] ?? '').toString(),
   };
 });
 
@@ -393,7 +394,7 @@ class ScheduleListNotifier
     extends StateNotifier<AsyncValue<List<BookingSchedule>>> {
   Timer? _refreshTimer;
 
-  ScheduleListNotifier() : super(const AsyncValue.loading()) {
+  ScheduleListNotifier() : super(AsyncValue.data(_seedSchedules())) {
     loadSchedules();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -408,7 +409,9 @@ class ScheduleListNotifier
   }
 
   Future<void> loadSchedules({String? search, DateTime? date}) async {
-    state = const AsyncValue.loading();
+    if (state.value == null) {
+      state = const AsyncValue.loading();
+    }
     try {
       final raw = await bookingApiService.getSchedules(
         search: search,
@@ -505,11 +508,13 @@ class TravelerBookingsNotifier
     _load();
   }
 
+  Future<void> reload() async => _load();
+
   Future<void> _load() async {
     state = const AsyncValue.loading();
     try {
-      final travelerId = ref.read(currentTravelerProvider)['id']!;
-      final raw = await bookingApiService.getTravelerBookings(travelerId);
+      final traveler = await ref.read(currentTravelerProvider.future);
+      final raw = await bookingApiService.getTravelerBookings(traveler['id']!);
       state = AsyncValue.data(raw.map(_bookingFromJson).toList());
     } on DioException catch (e) {
       debugPrint(
@@ -678,7 +683,13 @@ class CreateBookingNotifier extends StateNotifier<CreateBookingState> {
       return null;
     }
 
-    final traveler = ref.read(currentTravelerProvider);
+    late final Map<String, String> traveler;
+    try {
+      traveler = await ref.read(currentTravelerProvider.future);
+    } catch (e) {
+      state = CreateBookingState(isLoading: false, error: e.toString());
+      return null;
+    }
 
     try {
       final json = await bookingApiService.createBooking(
@@ -865,7 +876,13 @@ class DiscountRequestNotifier extends StateNotifier<DiscountRequestState> {
   }) async {
     state = const DiscountRequestState(isSubmitting: true);
 
-    final traveler = ref.read(currentTravelerProvider);
+    late final Map<String, String> traveler;
+    try {
+      traveler = await ref.read(currentTravelerProvider.future);
+    } catch (e) {
+      state = DiscountRequestState(isSubmitting: false, error: e.toString());
+      return null;
+    }
 
     try {
       final json = await bookingApiService.createDiscountRequest(
@@ -931,10 +948,10 @@ class DiscountRequestsNotifier
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    final travelerId = ref.read(currentTravelerProvider)['id']!;
     try {
+      final traveler = await ref.read(currentTravelerProvider.future);
       final json = await bookingApiService.getTravelerDiscountRequests(
-        travelerId,
+        traveler['id']!,
       );
       state = AsyncValue.data(json.map(_discountRequestFromJson).toList());
     } on DioException catch (error, stackTrace) {
@@ -1050,3 +1067,81 @@ final processEscrowPaymentProvider =
     StateNotifierProvider<EscrowPaymentNotifier, EscrowPaymentState>((ref) {
       return EscrowPaymentNotifier(ref);
     });
+
+// ── 9. Smart Booking Agent Provider ─────────────────────────────────────────
+
+class AgentBookingState {
+  final bool isLoading;
+  final AgentWorkflow? workflow;
+  final String? error;
+
+  const AgentBookingState({
+    this.isLoading = false,
+    this.workflow,
+    this.error,
+  });
+}
+
+class AgentBookingNotifier extends StateNotifier<AgentBookingState> {
+  AgentBookingNotifier() : super(const AgentBookingState());
+
+  Future<AgentWorkflow?> startWorkflow({
+    required String travelerId,
+    required String objective,
+    String? travelerName,
+    String? travelerEmail,
+    String? preferredScheduleId,
+    DateTime? preferredDate,
+    String? preferredTimeSlot,
+    int? guests,
+  }) async {
+    state = const AgentBookingState(isLoading: true);
+    try {
+      final json = await bookingApiService.startAgentBooking(
+        travelerId: travelerId,
+        objective: objective,
+        travelerName: travelerName,
+        travelerEmail: travelerEmail,
+        preferredScheduleId: preferredScheduleId,
+        preferredDate: preferredDate,
+        preferredTimeSlot: preferredTimeSlot,
+        guests: guests,
+      );
+      final workflow = AgentWorkflow.fromJson(json);
+      state = AgentBookingState(isLoading: false, workflow: workflow);
+      return workflow;
+    } on DioException catch (e) {
+      debugPrint('[BookingAPI] startAgentBooking error: $e');
+      final errorMsg = e.response?.data is Map && e.response?.data['error'] != null
+          ? e.response!.data['error'].toString()
+          : (e.message ?? 'Network error connecting to Smart Booking Agent');
+      state = AgentBookingState(isLoading: false, error: errorMsg);
+      return null;
+    } catch (e) {
+      state = AgentBookingState(isLoading: false, error: e.toString());
+      return null;
+    }
+  }
+
+  Future<AgentWorkflow?> pollWorkflow(String workflowId) async {
+    try {
+      final json = await bookingApiService.getAgentWorkflow(workflowId);
+      final workflow = AgentWorkflow.fromJson(json);
+      state = AgentBookingState(isLoading: false, workflow: workflow);
+      return workflow;
+    } catch (e) {
+      debugPrint('[BookingAPI] pollWorkflow error: $e');
+      return null;
+    }
+  }
+
+  void reset() {
+    state = const AgentBookingState();
+  }
+}
+
+final agentBookingProvider =
+    StateNotifierProvider<AgentBookingNotifier, AgentBookingState>((ref) {
+  return AgentBookingNotifier();
+});
+

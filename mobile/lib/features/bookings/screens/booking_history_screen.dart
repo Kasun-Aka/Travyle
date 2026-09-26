@@ -13,6 +13,9 @@ import '../widgets/error_state.dart';
 import '../widgets/loading_state.dart';
 import 'booking_edit_screen.dart';
 import 'booking_status_screen.dart';
+import 'discount_request_history_screen.dart';
+import 'schedule_browse_screen.dart';
+import 'smart_booking_screen.dart';
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
@@ -81,6 +84,76 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
       backgroundColor: BookingTheme.background,
       appBar: AppBar(
         title: const Text('My Saved Bookings'),
+        actions: [
+          IconButton(
+            tooltip: 'Smart Booking Agent',
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: BookingTheme.border),
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: BookingTheme.primary,
+                size: 20,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Discount Requests',
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: BookingTheme.border),
+              ),
+              child: const Icon(
+                Icons.percent_rounded,
+                color: BookingTheme.primary,
+                size: 20,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const DiscountRequestHistoryScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Browse Schedules',
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: BookingTheme.border),
+              ),
+              child: const Icon(
+                Icons.explore_outlined,
+                color: BookingTheme.primary,
+                size: 20,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ScheduleBrowseScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: BookingTheme.primary,
@@ -99,52 +172,189 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
           ],
         ),
       ),
-      body: bookingsAsync.when(
-        loading: () => const LoadingState(message: 'Loading your bookings...'),
-        error: (err, _) => ErrorState(
-          message: err.toString(),
-          onRetry: () => ref.read(travelerBookingsProvider.notifier).refresh(),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: BookingTheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text(
+          'Smart Booking Agent',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        data: (allBookings) {
-          return TabBarView(
-            controller: _tabController,
-            children: List.generate(4, (tabIdx) {
-              final filtered = _filterBookings(allBookings, tabIdx);
-
-              if (filtered.isEmpty) {
-                return EmptyState(
-                  title: 'No bookings found',
-                  description: tabIdx == 0
-                      ? 'You have not booked any travel schedules yet.'
-                      : 'No bookings in this category.',
-                  icon: Icons.confirmation_number_outlined,
-                  actionText: 'Browse Tours',
-                  onAction: () => Navigator.of(context).pop(),
-                );
-              }
-
-              return RefreshIndicator(
-                color: BookingTheme.primary,
-                onRefresh: () async {
-                  ref.read(travelerBookingsProvider.notifier).refresh();
-                },
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final booking = filtered[index];
-                    return _buildBookingCard(
-                      context,
-                      booking,
-                      currencyFormatter,
-                    );
-                  },
-                ),
-              );
-            }),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
           );
         },
+      ),
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: BookingTheme.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ScheduleBrowseScreen(),
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.explore_rounded,
+                            size: 18,
+                            color: BookingTheme.primary,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Browse Tours',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: BookingTheme.forestDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: BookingTheme.border),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SmartBookingScreen(),
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome,
+                            size: 18,
+                            color: BookingTheme.primary,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'AI Agent',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: BookingTheme.forestDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: BookingTheme.border),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const DiscountRequestHistoryScreen(),
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.percent_rounded,
+                            size: 18,
+                            color: BookingTheme.primary,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Discounts',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: BookingTheme.forestDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: bookingsAsync.when(
+              loading: () =>
+                  const LoadingState(message: 'Loading your bookings...'),
+              error: (err, _) => ErrorState(
+                message: err.toString(),
+                onRetry: () =>
+                    ref.read(travelerBookingsProvider.notifier).refresh(),
+              ),
+              data: (allBookings) {
+                return TabBarView(
+                  controller: _tabController,
+                  children: List.generate(4, (tabIdx) {
+                    final filtered = _filterBookings(allBookings, tabIdx);
+
+                    if (filtered.isEmpty) {
+                      return EmptyState(
+                        title: 'No bookings found',
+                        description: tabIdx == 0
+                            ? 'You have not booked any travel schedules yet.'
+                            : 'No bookings in this category.',
+                        icon: Icons.confirmation_number_outlined,
+                        actionText: 'Browse Tours',
+                        onAction: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ScheduleBrowseScreen(),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      color: BookingTheme.primary,
+                      onRefresh: () async {
+                        ref.read(travelerBookingsProvider.notifier).refresh();
+                      },
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final booking = filtered[index];
+                          return _buildBookingCard(
+                            context,
+                            booking,
+                            currencyFormatter,
+                          );
+                        },
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

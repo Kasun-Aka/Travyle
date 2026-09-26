@@ -3,6 +3,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/bookings/models/booking.dart';
 import 'package:mobile/features/bookings/providers/booking_providers.dart';
 
+ProviderContainer createTestContainer() => ProviderContainer(
+  overrides: [
+    currentTravelerProvider.overrideWith(
+      (ref) async => const {
+        'id': '00000000-0000-0000-0000-000000000001',
+        'name': 'Nithu Traveler',
+        'email': 'traveler@travyle.com',
+      },
+    ),
+  ],
+);
+
 void main() {
   group('Booking Models & Capacity Logic Tests', () {
     late BookingSchedule schedule;
@@ -67,7 +79,7 @@ void main() {
 
   group('Riverpod Booking Providers Tests', () {
     test('createBookingProvider fails if slot capacity is exceeded', () async {
-      final container = ProviderContainer();
+      final container = createTestContainer();
       addTearDown(container.dispose);
 
       final testDate = DateTime(2026, 7, 29);
@@ -97,6 +109,7 @@ void main() {
             serviceFee: 250.0,
             discountAmount: 0,
             totalAmount: 5250.0,
+            paymentMethod: BookingPaymentMethod.sampleCard,
           );
 
       expect(result, isNull);
@@ -105,7 +118,7 @@ void main() {
     });
 
     test('createBookingProvider successfully books and deducts capacity', () async {
-      final container = ProviderContainer();
+      final container = createTestContainer();
       addTearDown(container.dispose);
 
       final schedules = container.read(scheduleListProvider).value!;
@@ -124,6 +137,7 @@ void main() {
             serviceFee: 400.0,
             discountAmount: 0,
             totalAmount: schedule.pricePerPerson * 2 + 400.0,
+            paymentMethod: BookingPaymentMethod.sampleCard,
           );
 
       expect(booking, isNotNull);
@@ -136,7 +150,7 @@ void main() {
     });
 
     test('cancelBookingProvider marks booking cancelled and refunds escrow', () async {
-      final container = ProviderContainer();
+      final container = createTestContainer();
       addTearDown(container.dispose);
 
       // Seed has BKG-10101 in confirmed & heldInEscrow
@@ -153,7 +167,7 @@ void main() {
     });
 
     test('createDiscountRequestProvider submits request and updates booking balance', () async {
-      final container = ProviderContainer();
+      final container = createTestContainer();
       addTearDown(container.dispose);
 
       final initialBooking = container.read(bookingDetailProvider('BKG-10101'))!;

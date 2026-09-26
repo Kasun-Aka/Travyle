@@ -18,6 +18,7 @@
 // ============================================================================
 
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 // ── Base URL config ──────────────────────────────────────────────────────────
@@ -54,6 +55,28 @@ class BookingApiService {
         },
       ),
     );
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          try {
+            final user = FirebaseAuth.instance.currentUser;
+            final token = await user?.getIdToken();
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+            handler.next(options);
+          } catch (error, stackTrace) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                error: error,
+                stackTrace: stackTrace,
+              ),
+            );
+          }
+        },
+      ),
+    );
 
     if (kDebugMode) {
       _dio.interceptors.add(
@@ -64,6 +87,19 @@ class BookingApiService {
         ),
       );
     }
+  }
+
+  Future<Map<String, dynamic>> getAuthenticatedTraveler() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user?.email == null) {
+      throw StateError('Please sign in to use Smart Booking.');
+    }
+
+    final response = await _dio.get(
+      '/api/auth/user',
+      queryParameters: {'email': user!.email},
+    );
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   // ── 1. GET /api/booking-schedules ─────────────────────────────────────────
@@ -220,6 +256,49 @@ class BookingApiService {
     final response = await _dio.get(
       '/api/discount-requests/traveler/$travelerId',
     );
+    return (response.data as List)
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  // ── 11. POST /api/agent/bookings/start ────────────────────────────────────
+  Future<Map<String, dynamic>> startAgentBooking({
+    required String travelerId,
+    required String objective,
+    String? travelerName,
+    String? travelerEmail,
+    String? preferredScheduleId,
+    DateTime? preferredDate,
+    String? preferredTimeSlot,
+    int? guests,
+  }) async {
+    final response = await _dio.post(
+      '/api/agent/bookings/start',
+      data: {
+        'travelerId': travelerId,
+        'objective': objective,
+        'travelerName': travelerName,
+        'travelerEmail': travelerEmail,
+        'preferredScheduleId': preferredScheduleId,
+        'preferredDate': preferredDate?.toIso8601String(),
+        'preferredTimeSlot': preferredTimeSlot,
+        'guests': guests,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  // ── 12. GET /api/agent/workflows/{workflowId} ─────────────────────────────
+  Future<Map<String, dynamic>> getAgentWorkflow(String workflowId) async {
+    final response = await _dio.get('/api/agent/workflows/$workflowId');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  // ── 13. GET /api/agent/workflows/traveler/{travelerId} ────────────────────
+  Future<List<Map<String, dynamic>>> getTravelerAgentWorkflows(
+    String travelerId,
+  ) async {
+    final response = await _dio.get('/api/agent/workflows/traveler/$travelerId');
     return (response.data as List)
         .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();

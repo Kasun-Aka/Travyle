@@ -77,25 +77,28 @@ class _SignupScreenState extends State<SignupScreen> {
       if (user != null) {
         await user.updateDisplayName(fullName);
 
-        // 2. Sync to PostgreSQL database via API
+        // 2. Sync to PostgreSQL before allowing the user into the app.
         try {
           final dio = Dio();
           final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          final idToken = await user.getIdToken();
           await dio.post('$baseUrl/api/auth/sync', data: {
             'firebaseUid': user.uid,
             'email': email,
             'fullName': fullName,
             'role': _selectedRole,
-          });
-        } catch (apiError) {
-          debugPrint('Failed to sync user with DB: $apiError');
-          // We can proceed even if DB sync fails, but ideally it shouldn't
+          }, options: Options(headers: {'Authorization': 'Bearer $idToken'}));
+        } catch (_) {
+          await FirebaseAuth.instance.signOut();
+          throw Exception('Account setup failed. Please try again when the server is available.');
         }
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(initialIndex: 1),
+            ),
           );
         }
       }

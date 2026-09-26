@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { auth } from "./lib/firebase";
 import SlotManager from "./components/SlotManager";
+import AgentApprovals from "./components/AgentApprovals";
 
-type View = "overview" | "bookings" | "slots" | "requests";
+type View = "overview" | "bookings" | "slots" | "requests" | "agent";
 type Booking = {
   id: string;
   bookingReference: string;
@@ -141,9 +145,20 @@ const demoRequests: Request[] = [
     createdAt: "2026-09-19T14:00:00Z",
   },
 ];
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await auth?.currentUser?.getIdToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 async function get<T>(path: string, fallback: T): Promise<T> {
   try {
-    const response = await fetch(`${API}${path}`);
+    const response = await fetch(`${API}${path}`, {
+      headers: await authHeaders(),
+    });
     if (!response.ok) throw new Error();
     return (await response.json()) as T;
   } catch {
@@ -152,11 +167,11 @@ async function get<T>(path: string, fallback: T): Promise<T> {
 }
 
 function App() {
+  const navigate = useNavigate();
   const [view, setView] = useState<View>("overview");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
-  const [signedIn, setSignedIn] = useState(false);
   const [notice, setNotice] = useState("");
   const loadData = async () => {
     const [nextBookings, nextSchedules, nextRequests] = await Promise.all([
@@ -175,7 +190,7 @@ function App() {
     try {
       await fetch(`${API}/discount-requests/${id}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({ status }),
       });
     } catch {
@@ -192,7 +207,7 @@ function App() {
     try {
       await fetch(`${API}/bookings/${booking.id}/process-escrow-payment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           bookingId: booking.id,
           totalAmount: booking.totalAmount,
@@ -213,7 +228,6 @@ function App() {
       `${booking.bookingReference} payment verified and held in escrow.`,
     );
   };
-  if (!signedIn) return <Login onSignIn={() => setSignedIn(true)} />;
   const pendingPayments = bookings.filter(
     (booking) => booking.paymentStatus === "Pending",
   ).length;
@@ -238,6 +252,7 @@ function App() {
               ["bookings", "Bookings & payments"],
               ["slots", "Booking slots"],
               ["requests", "Bonus requests"],
+              ["agent", "Agent Approvals"],
             ] as [View, string][]
           ).map(([key, label]) => (
             <button
@@ -262,24 +277,32 @@ function App() {
             <b>Admin desk</b>
             <small>Operations manager</small>
           </div>
-          <button className="logout" onClick={() => setSignedIn(false)}>
-            ↗
-          </button>
         </div>
       </aside>
       <main className="main-content">
-        <header className="topbar">
-          <div>
-            <span className="breadcrumb">TRAVYLE / {view.toUpperCase()}</span>
-            <h1>
-              {view === "overview"
-                ? "Good morning, Admin"
-                : view === "bookings"
-                  ? "Bookings & payments"
-                  : view === "slots"
-                    ? "Booking slots"
-                    : "Bonus requests"}
-            </h1>
+        <header className="topbar workspace-topbar">
+          <div className="workspace-heading">
+            <button
+              className="workspace-back"
+              type="button"
+              title="Back to main dashboard"
+              aria-label="Back to main dashboard"
+              onClick={() => navigate("/welcome")}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <span className="breadcrumb">TRAVYLE / {view.toUpperCase()}</span>
+              <h1>
+                {view === "overview"
+                  ? "Good morning, Admin"
+                  : view === "bookings"
+                    ? "Bookings & payments"
+                    : view === "slots"
+                      ? "Booking slots"
+                      : "Bonus requests"}
+              </h1>
+            </div>
           </div>
           <div className="top-actions">
             <button
@@ -322,49 +345,27 @@ function App() {
         {view === "requests" && (
           <Requests requests={requests} onUpdate={updateRequest} />
         )}
+        {view === "agent" && (
+          <AgentApprovals
+            apiUrl={API}
+            onBookingApproved={() => {
+              void authHeaders()
+                .then((headers) =>
+                  fetch(`${API}/bookings/admin/all?page=1&pageSize=50`, {
+                    headers,
+                  }),
+                )
+                .then((response) => (response.ok ? response.json() : []))
+                .then((data) => setBookings(data))
+                .catch(() => {});
+            }}
+          />
+        )}
       </main>
     </div>
   );
 }
 
-function Login({ onSignIn }: { onSignIn: () => void }) {
-  return (
-    <div className="login-page">
-      <div className="login-panel">
-        <span className="brand-mark">T</span>
-        <span className="eyebrow">TRAVYLE / ADMIN</span>
-        <h1>
-          Run the day
-          <br />
-          <i>beautifully.</i>
-        </h1>
-        <p>
-          One calm place to manage trips, verify payments, and keep every
-          traveler moving.
-        </p>
-        <button className="primary-button login-button" onClick={onSignIn}>
-          Enter operations desk <span>→</span>
-        </button>
-        <small>Demo workspace · secure admin access</small>
-      </div>
-      <div className="login-art">
-        <div className="art-note">
-          FIELD NOTES
-          <br />
-          <b>09 / 20 / 26</b>
-        </div>
-        <div className="sun" />
-        <div className="mountain mountain-back" />
-        <div className="mountain mountain-front" />
-        <div className="art-caption">
-          CURATED JOURNEYS
-          <br />
-          <b>FROM HERE</b>
-        </div>
-      </div>
-    </div>
-  );
-}
 function Overview({
   bookings,
   schedules,

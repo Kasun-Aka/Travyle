@@ -1,98 +1,127 @@
-# Travyle — How to Run the Project on This Machine
-### Component: User & Travel Plan Management | IT24104383
+# Travyle — How to Run the Project
 
-> Keep this file handy. Every time you open your laptop to work on the project,
-> follow the sections below in order.
+Use this guide to run the API, AI booking agent, web admin, and mobile app locally.
+Commands below are for Windows PowerShell and assume you have cloned the repository.
 
 ---
 
 ## Prerequisites (One-Time Setup)
 
-### 1. Install .NET 10 SDK  ← **YOU NEED TO DO THIS FIRST**
-- Download from: https://dotnet.microsoft.com/en-us/download/dotnet/10.0
-- Choose: **Windows x64 — SDK installer**
-- After install, verify in a new terminal:
+### 1. Install the .NET 10 SDK
+- Download the Windows x64 SDK from: https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+- Verify in a new terminal:
   ```
   dotnet --version
   ```
-  Should show `10.x.x`
+  It should show `10.x.x`.
 
-### 2. Verify Node.js (already installed ✅)
+### 2. Install Node.js
 ```powershell
-node --version    # should show v22.x.x
-npm --version     # should show 10.x.x
+node --version
+npm --version
+```
+Node.js 22 and npm 10 or newer are recommended.
+
+### 3. Install Python
+Install Python 3.10 or newer and verify it is available:
+```powershell
+python --version
 ```
 
-### 3. Verify Flutter (check if it works)
+### 4. Install Flutter
 ```powershell
 flutter --version
-flutter doctor    # shows what is missing for Android dev
+flutter doctor
 ```
-If `flutter` is not recognized, add the Flutter SDK `bin` folder to your Windows PATH.
+Flutter Doctor lists anything else needed for Android development. If `flutter` is not recognized, add the Flutter SDK `bin` folder to your Windows PATH.
+
+### 5. Get project configuration
+The API needs a Supabase PostgreSQL connection and Firebase Admin credentials. The web admin and mobile app also need Firebase client configuration. Ask the project maintainer for access and configuration values; do not commit credentials.
+
+Copy the backend example file and fill in its placeholders:
+```powershell
+Copy-Item backend\appsettings.Development.json.example backend\appsettings.Development.json
+```
+
+Copy the web admin example and fill in the Firebase web values:
+```powershell
+Copy-Item web-admin\.env.example web-admin\.env.local
+```
+
+For mobile, configure `mobile\lib\firebase_options.dart` with the project's Firebase configuration. Keep these local configuration files out of commits.
 
 
-### 4. Geocoding — No Setup Needed ✅
-This project uses **OpenStreetMap Nominatim** for geocoding (converting destination names/addresses to lat/lng coordinates).
-- **Free forever. No API key. No billing. No account.**
-- Works out of the box — nothing to configure.
+## Run the Project
+
+Open four separate PowerShell / Windows Terminal tabs from the repository root. Start the backend and agent before using features that depend on them.
 
 ---
 
-
-## Daily Workflow — Starting the Project
-
-Open **3 separate PowerShell / Windows Terminal tabs**.
-
----
-
-### Tab 1 — Backend (ASP.NET Core API)
+### Tab 1 — Backend API (ASP.NET Core)
 
 ```powershell
-cd "d:\UNI Projects\Travyle\backend"
+cd backend
 
-# First time only — restore packages
+# First run (or after dependency changes)
 dotnet restore
 
-# Run the backend (hot-reload enabled)
+# Start with hot reload
 dotnet watch run
 ```
 
-- API will be available at: **https://localhost:5001**
-- Swagger UI at: **https://localhost:5001/swagger**
+- API: **http://localhost:5085**
+- Swagger UI: **http://localhost:5085/swagger**
 - Press `Ctrl+C` to stop
 
-#### First time only — run database migration (after .NET 10 is installed):
-```powershell
-cd "d:\UNI Projects\Travyle\backend"
-dotnet tool install --global dotnet-ef       # install EF CLI (one-time)
-dotnet ef database update                    # applies migrations to Supabase
-```
+The API applies database migrations and seeds initial data when it starts. A reachable, correctly configured Supabase database is required.
 
 ---
 
-### Tab 2 — Web Admin (React + Vite)
+### Tab 2 — AI Booking Agent (FastAPI + LangGraph)
 
 ```powershell
-cd "d:\UNI Projects\Travyle\web-admin"
+cd backend\agent
 
-# First time only — install dependencies
+# Create and activate a virtual environment (first time only)
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+
+# Start the agent
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- Agent: **http://localhost:8000**
+- Interactive API docs: **http://localhost:8000/docs**
+- Press `Ctrl+C` to stop
+
+---
+
+### Tab 3 — Web Admin (React + Vite)
+
+```powershell
+cd web-admin
+
+# First run (or after dependency changes)
 npm install
 
 # Start the dev server
 npm run dev
 ```
 
-- Web Admin will be available at: **http://localhost:5173**
+- Web admin: **http://localhost:5173**
 - Press `Ctrl+C` to stop
+
+The web app uses `http://localhost:5085/api` for the API by default. Set `VITE_API_URL` in `.env.local` only if using a different API address.
 
 ---
 
-### Tab 3 — Mobile App (Flutter)
+### Tab 4 — Mobile App (Flutter)
 
 ```powershell
-cd "d:\UNI Projects\Travyle\mobile"
+cd mobile
 
-# First time only — get packages
+# First run (or after dependency changes)
 flutter pub get
 
 # List connected devices
@@ -105,40 +134,40 @@ flutter run
 flutter run -d <device-id>
 ```
 
+The Android emulator is configured to access the API at `http://10.0.2.2:5085`. For an iOS simulator or physical device, use an API address reachable from that device if needed.
+
 ---
 
-## Git — Working on Your Branch
+## Geocoding
+
+Destination geocoding uses OpenStreetMap Nominatim and does not require an API key.
+
+---
+
+## Git — Team Workflow
 
 ```powershell
-cd "d:\UNI Projects\Travyle"
+# Check the current branch and working tree
+git status
 
-# Make sure you're on your branch (always work here)
-git checkout IT24104383
+# Create or switch to your own feature branch
+git switch -c <your-branch-name>
 
-# Pull latest changes from your branch
-git pull origin IT24104383
-
-# Get latest updates from the development branch (team changes)
-git fetch origin development
-git merge origin/development   # merge team changes into your branch
-
-# Stage and commit your work
+# Stage and commit your changes
 git add .
 git commit -m "feat: describe what you did"
-
-# Push your changes
-git push origin IT24104383
+git push -u origin <your-branch-name>
 ```
 
-> Never push directly to `development` or `production`. Always push to `IT24104383`.
+Open a pull request to merge your branch according to the team's repository policy. Do not commit local configuration or secrets.
 
 ---
 
 ## Quick Status Check — Is Everything Working?
 
 ```powershell
-# Check git branch
-git -C "d:\UNI Projects\Travyle" branch
+# Run these from the repository root
+git branch --show-current
 
 # Check .NET SDK
 dotnet --version
@@ -148,6 +177,9 @@ node --version
 
 # Check Flutter
 flutter --version
+
+# Check Python
+python --version
 ```
 
 ---
@@ -157,7 +189,7 @@ flutter --version
 | File | Purpose | Gitignored? |
 |---|---|---|
 | `backend\appsettings.Development.json` | Supabase DB + Firebase Admin SDK credentials | ✅ Yes |
-| `web-admin\.env.local` | Firebase web config for React app | ✅ Yes |
+| `web-admin\.env.local` | Firebase web config and optional API URL | ✅ Yes |
 | `mobile\lib\firebase_options.dart` | Firebase config for Flutter | ✅ Yes |
 
 ---
@@ -166,7 +198,9 @@ flutter --version
 
 | Service | URL |
 |---|---|
-| Swagger UI (API docs) | https://localhost:5001/swagger |
+| Backend API | http://localhost:5085 |
+| Swagger UI (API docs) | http://localhost:5085/swagger |
+| AI Agent docs | http://localhost:8000/docs |
 | Web Admin (React) | http://localhost:5173 |
 | Supabase Dashboard | https://supabase.com/dashboard |
 | Firebase Console | https://console.firebase.google.com/project/travyle |

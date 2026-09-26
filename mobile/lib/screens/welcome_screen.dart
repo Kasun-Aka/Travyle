@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../features/bookings/screens/booking_history_screen.dart';
+import '../features/bookings/screens/discount_request_history_screen.dart';
 import '../features/bookings/screens/schedule_browse_screen.dart';
+import '../features/bookings/screens/smart_booking_screen.dart';
 import '../theme/app_theme.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -24,7 +26,7 @@ class WelcomeScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +47,7 @@ class WelcomeScreen extends StatelessWidget {
                   color: AppTheme.textLight,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -71,7 +73,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Manage bookings, trips and saved experiences in one place.',
+                      'Manage bookings, schedules & AI assistance in one place.',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -83,7 +85,7 @@ class WelcomeScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.of(context).pushReplacement(
+                          Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const ScheduleBrowseScreen(),
                             ),
@@ -98,7 +100,7 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Open Bookings',
+                          'Open Bookings & Schedules',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                           ),
@@ -108,9 +110,48 @@ class WelcomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               _QuickActionCard(
-                title: 'My Bookings',
+                title: 'Smart Booking AI Agent',
+                subtitle: 'Natural language tour booking & escrow protection',
+                icon: Icons.auto_awesome,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SmartBookingScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _QuickActionCard(
+                title: 'Explore Tour Schedules',
+                subtitle: 'Browse certified guide schedules and available slots',
+                icon: Icons.explore_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ScheduleBrowseScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _QuickActionCard(
+                title: 'Discount Request Status',
+                subtitle: 'Track review, refund, and discount approvals',
+                icon: Icons.percent_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DiscountRequestHistoryScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _QuickActionCard(
+                title: 'My Saved Bookings',
                 subtitle: 'Track trip status and payment progress',
                 icon: Icons.confirmation_number_rounded,
                 onTap: () {
@@ -121,19 +162,7 @@ class WelcomeScreen extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 14),
-              _QuickActionCard(
-                title: 'Explore Tours',
-                subtitle: 'Browse available experiences and slots',
-                icon: Icons.explore_rounded,
-                onTap: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (_) => const ScheduleBrowseScreen(),
-                    ),
-                  );
-                },
-              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -149,7 +178,7 @@ class WelcomeScreen extends StatelessWidget {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.confirmation_number_rounded),
+            icon: Icon(Icons.calendar_today_rounded),
             label: 'Bookings',
           ),
           BottomNavigationBarItem(
@@ -159,7 +188,7 @@ class WelcomeScreen extends StatelessWidget {
         ],
         onTap: (index) {
           if (index == 1) {
-            Navigator.of(context).pushReplacement(
+            Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const ScheduleBrowseScreen(),
               ),

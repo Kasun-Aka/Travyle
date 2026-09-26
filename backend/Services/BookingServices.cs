@@ -494,6 +494,8 @@ public class DiscountRequestService : IDiscountRequestService
         var booking = await _bookingRepo.GetByIdAsync(request.BookingId, ct);
         if (booking == null)
             return (null, "Booking not found.");
+        if (booking.TravelerId != request.TravelerId || booking.ScheduleId != request.ScheduleId)
+            return (null, "The discount request does not match the selected booking.");
 
         if (booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.Completed)
             return (null, "Cannot request discount on a cancelled or completed booking.");

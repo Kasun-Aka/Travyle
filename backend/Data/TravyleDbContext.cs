@@ -16,6 +16,7 @@ public class TravyleDbContext : DbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<DiscountRequest> DiscountRequests => Set<DiscountRequest>();
     public DbSet<PaymentEscrow> PaymentEscrows => Set<PaymentEscrow>();
+    public DbSet<BookingAgentWorkflow> BookingAgentWorkflows => Set<BookingAgentWorkflow>();
 
     // Operations and travel planning
     public DbSet<Destination> Destinations => Set<Destination>();
@@ -128,5 +129,16 @@ public class TravyleDbContext : DbContext
 
         modelBuilder.Entity<TourActivity>().HasKey(e => e.Id);
         modelBuilder.Entity<DisruptionAlert>().HasKey(e => e.Id);
+
+        modelBuilder.Entity<BookingAgentWorkflow>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).HasConversion<string>();
+            entity.Property(e => e.PlanJson).HasColumnType("text");
+            entity.Property(e => e.CompletedStepsJson).HasColumnType("text");
+            entity.Property(e => e.ToolResultsJson).HasColumnType("text");
+            entity.Property(e => e.ValidationResultsJson).HasColumnType("text");
+            entity.Property(e => e.ProposedBookingJson).HasColumnType("text");
+        });
     }
 }

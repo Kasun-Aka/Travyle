@@ -30,5 +30,11 @@ table th{color:#5e85a0}
 .dark-panel{background:#123b66;color:#e5f1fa}
 .receipt-modal-backdrop{background:#102f4d99}
 .receipt-modal{border:1px solid #d2e3ef}
+.app-shell{width:100%;min-height:100vh}
+.main-content{min-width:0;max-width:none;padding:32px clamp(20px,3vw,48px)}
+.workspace-topbar{align-items:center;gap:24px}
+.workspace-heading{display:flex;align-items:center;gap:14px;min-width:0}
+.workspace-back{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;border:1px solid #d2e3ef;border-radius:10px;background:#fff;color:#1d5d93}
+.workspace-back:hover{background:#e8f3fb}
 @media (max-width:700px){body{font-size:.9375rem}.main-content{padding:22px 16px}.topbar h1{font-size:1.625rem}.hero-strip h2{font-size:2rem}.panel-heading h3,.request-card h3{font-size:1.0625rem}.table-panel{overflow-x:auto}table{min-width:760px}}
 @media (max-width:480px){.main-content{padding:18px 12px}.topbar h1{font-size:1.375rem}.hero-strip h2{font-size:1.75rem}.panel,.request-card,.metric-card{padding:18px}.receipt-modal-backdrop{padding:12px}.receipt-modal{padding:18px}}

@@ -197,7 +197,8 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final traveler = ref.watch(currentTravelerProvider);
+    final traveler =
+      ref.watch(currentTravelerProvider).valueOrNull ?? const <String, String>{};
     final currencyFormatter = NumberFormat.currency(
       symbol: 'LKR ',
       decimalDigits: 2,

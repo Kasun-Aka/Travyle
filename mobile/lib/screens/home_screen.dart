@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_theme.dart';
+import '../features/bookings/screens/schedule_browse_screen.dart';
+import '../features/bookings/screens/smart_booking_screen.dart';
 import 'destination_detail_screen.dart';
 import 'login_screen.dart';
 import 'guide_dashboard_screen.dart';
@@ -14,7 +16,9 @@ import '../features/destinations/providers/destination_providers.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -28,6 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addObserver(this);
     _destinationRefreshTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -57,13 +62,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           index: _currentIndex,
           children: [
             _buildHomeContent(context),
-            const Center(child: Text('Bookings - Coming Soon')),
+            const ScheduleBrowseScreen(),
             const GuideDashboardScreen(),
             const Center(child: Text('Support - Coming Soon')),
             const ProfileScreen(),
           ],
         ),
       ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton.extended(
+              backgroundColor: AppTheme.primaryDark,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.auto_awesome, color: AppTheme.coral),
+              label: const Text(
+                'AI Booking Agent',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
+                );
+              },
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -175,7 +196,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
+
+            // Smart Booking Assistant & Schedules Banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppTheme.primaryDark, Color(0xFF1E3A4C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.coral.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome,
+                            color: AppTheme.coral, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'SMART BOOKING AI',
+                          style: TextStyle(
+                            color: AppTheme.coral,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Plan & Book Your Tours With AI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Browse available schedules, check capacity, or let our AI agent book your slots automatically.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SmartBookingScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.auto_awesome, size: 16),
+                          label: const Text(
+                            'Ask AI Agent',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.coral,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _currentIndex = 1;
+                            });
+                          },
+                          icon: const Icon(Icons.calendar_month,
+                              size: 16, color: Colors.white),
+                          label: const Text(
+                            'Schedules',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white38),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
 
             // Popular Destinations Header
             Row(

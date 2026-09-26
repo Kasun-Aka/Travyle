@@ -7,16 +7,31 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(TravyleDbContext db)
     {
-        // 1. Seed default traveler user if Users table is empty
-        if (!await db.Users.AnyAsync())
+        // Ensure dev traveler always exists (upsert by ID)
+        var devTravelerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        if (!await db.Users.AnyAsync(u => u.Id == devTravelerId))
         {
             db.Users.Add(new User
             {
-                Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Id = devTravelerId,
                 FirebaseUid = "dev-traveler-uid-001",
                 Email = "traveler@travyle.com",
                 FullName = "Nithu Traveler",
                 Role = "Traveler",
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        if (!await db.Users.AnyAsync(u => u.Role == "Admin"))
+        {
+            db.Users.Add(new User
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000099"),
+                FirebaseUid = "dev-admin-uid-099",
+                Email = "admin@travyle.com",
+                FullName = "Travyle Admin",
+                Role = "Admin",
                 CreatedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Travyle.Api.DTOs;
+using Travyle.Api.Models;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Auth;
 
 namespace Travyle.Api.Controllers;
 
@@ -19,11 +21,16 @@ public class BookingsController : ControllerBase
 {
     private readonly IBookingService _bookingService;
     private readonly IPaymentEscrowService _escrowService;
+    private readonly IFirebaseIdentityService _identityService;
 
-    public BookingsController(IBookingService bookingService, IPaymentEscrowService escrowService)
+    public BookingsController(
+        IBookingService bookingService,
+        IPaymentEscrowService escrowService,
+        IFirebaseIdentityService identityService)
     {
         _bookingService = bookingService;
         _escrowService = escrowService;
+        _identityService = identityService;
     }
 
     /// <summary>
@@ -38,6 +45,10 @@ public class BookingsController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
+        var user = await _identityService.VerifyUserAsync(Request, ct);
+        if (user == null) return Unauthorized(new { error = "A valid Firebase sign-in is required." });
+        if (user.Id != travelerId) return Forbid();
+
         var result = await _bookingService.GetTravelerBookingsAsync(travelerId, page, pageSize, ct);
         return Ok(result);
     }
@@ -49,6 +60,9 @@ public class BookingsController : ControllerBase
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
+        if (await _identityService.VerifyStaffAsync(Request, ct) == null)
+            return Forbid();
+
         return Ok(await _bookingService.GetAllBookingsAsync(page, pageSize, ct));
     }
 
@@ -60,8 +74,13 @@ public class BookingsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
+        var user = await _identityService.VerifyUserAsync(Request, ct);
+        if (user == null) return Unauthorized(new { error = "A valid Firebase sign-in is required." });
+
         var result = await _bookingService.GetBookingByIdAsync(id, ct);
-        return result == null ? NotFound() : Ok(result);
+        if (result == null) return NotFound();
+        if (result.TravelerId != user.Id && !IsStaff(user)) return NotFound();
+        return Ok(result);
     }
 
     /// <summary>
@@ -75,6 +94,9 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateBookingRequest request, CancellationToken ct)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+        var user = await _identityService.VerifyUserAsync(Request, ct);
+        if (user == null) return Unauthorized(new { error = "A valid Firebase sign-in is required." });
+        if (request.TravelerId != user.Id) return Forbid();
 
         var (booking, error) = await _bookingService.CreateBookingAsync(request, ct);
         if (error != null)
@@ -94,6 +116,8 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateBookingStatusRequest request, CancellationToken ct)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (await _identityService.VerifyStaffAsync(Request, ct) == null)
+            return Forbid();
 
         var result = await _bookingService.UpdateBookingStatusAsync(id, request.Status, ct);
         if (result == null) return NotFound(new { error = $"Booking {id} not found or status '{request.Status}' is invalid." });
@@ -109,6 +133,12 @@ public class BookingsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
     {
+        var user = await _identityService.VerifyUserAsync(Request, ct);
+        if (user == null) return Unauthorized(new { error = "A valid Firebase sign-in is required." });
+        var booking = await _bookingService.GetBookingByIdAsync(id, ct);
+        if (booking == null) return NotFound();
+        if (booking.TravelerId != user.Id && !IsStaff(user)) return NotFound();
+
         var success = await _bookingService.CancelBookingAsync(id, ct);
         return success ? NoContent() : NotFound();
     }
@@ -126,10 +156,20 @@ public class BookingsController : ControllerBase
         if (id != request.BookingId)
             return BadRequest(new { error = "Route id and request BookingId must match." });
 
+        var user = await _identityService.VerifyUserAsync(Request, ct);
+        if (user == null) return Unauthorized(new { error = "A valid Firebase sign-in is required." });
+        var booking = await _bookingService.GetBookingByIdAsync(id, ct);
+        if (booking == null) return NotFound();
+        if (booking.TravelerId != user.Id && !IsStaff(user)) return NotFound();
+
         var (result, error) = await _escrowService.ProcessEscrowPaymentAsync(request, ct);
         if (error != null)
             return UnprocessableEntity(new { error });
 
         return Ok(result);
     }
+
+    private static bool IsStaff(User user) =>
+        string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(user.Role, "Operator", StringComparison.OrdinalIgnoreCase);
 }

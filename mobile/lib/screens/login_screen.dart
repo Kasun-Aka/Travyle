@@ -1,5 +1,11 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
+import 'home_screen.dart';
+import 'reset_password_screen.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,7 +15,68 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Enter your email and password.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) throw Exception('Unable to load the signed-in account.');
+
+      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      try {
+        final idToken = await user.getIdToken();
+        await Dio().post('$baseUrl/api/auth/sync', data: {
+          'firebaseUid': user.uid,
+          'email': email,
+          'fullName': user.displayName ?? 'Traveler',
+          'role': 'Traveler',
+        }, options: Options(headers: {'Authorization': 'Bearer $idToken'}));
+      } catch (_) {
+        await FirebaseAuth.instance.signOut();
+        throw Exception('Account sync failed. Please try again when the server is available.');
+      }
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(initialIndex: 1),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (error) {
+      setState(() => _errorMessage = error.message ?? 'Unable to sign in.');
+    } catch (_) {
+      setState(() => _errorMessage = 'Unable to sign in. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +106,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 12),
+              ],
               Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -99,6 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 32),
               _buildLabel('EMAIL ADDRESS'),
               TextField(
+                controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'alex@sterling.com',
@@ -107,6 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               _buildLabel('PASSWORD'),
               TextField(
+                controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: '••••••••',
@@ -127,7 +200,16 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ResetPasswordScreen(
+                          email: _emailController.text.trim(),
+                        ),
+                      ),
+                    );
+                  },
                   child: const Text(
                     'Forgot Password?',
                     style: TextStyle(
@@ -157,11 +239,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/welcome');
-                  },
-                  child: const Text(
-                    'SIGN IN',
+                  onPressed: _isLoading ? null : _handleLogin,
+                  child: Text(
+                    _isLoading ? 'SIGNING IN...' : 'SIGN IN',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -184,22 +264,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Sign Up'),
-                          content: const Text('Choose your account type:'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Tourist'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Guide'),
-                            ),
-                          ],
-                        ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
                       );
                     },
                     child: const Text(

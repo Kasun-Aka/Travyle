@@ -12,6 +12,7 @@ import '../widgets/schedule_card.dart';
 import 'booking_history_screen.dart';
 import 'discount_request_history_screen.dart';
 import 'slot_selection_screen.dart';
+import 'smart_booking_screen.dart';
 
 class ScheduleBrowseScreen extends ConsumerStatefulWidget {
   const ScheduleBrowseScreen({super.key});
@@ -110,6 +111,27 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Smart Booking Agent',
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: BookingTheme.border),
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: BookingTheme.primary,
+                size: 20,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
+              );
+            },
+          ),
+          IconButton(
             tooltip: 'My Bookings',
             icon: Container(
               padding: const EdgeInsets.all(8),
@@ -152,6 +174,34 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                   ),
                   child: Column(
                     children: [
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: BookingTheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.auto_awesome,
+                            color: BookingTheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text(
+                          'Smart Booking Assistant',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: const Text(
+                          'Natural language booking with capacity & escrow protection',
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SmartBookingScreen(),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1, color: BookingTheme.border),
                       ListTile(
                         leading: const Icon(
                           Icons.confirmation_number_rounded,
