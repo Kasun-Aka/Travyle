@@ -7,12 +7,12 @@ import '../models/customer_review.dart';
 class SupportApiService {
   static String get baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:5000/api';
+      return 'http://localhost:5085/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5000/api';
+      return 'http://10.0.2.2:5085/api';
     }
-    return 'http://localhost:5000/api';
+    return 'http://localhost:5085/api';
   }
 
   final Dio _dio;
@@ -45,7 +45,23 @@ class SupportApiService {
       }
       return [];
     } catch (e) {
-      debugPrint('[SupportApiService] Error fetching tickets: $e');
+      debugPrint('[SupportApiService] Error fetching tickets ($baseUrl): $e');
+      try {
+        final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
+        final fallbackDio = Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5)));
+        final response = await fallbackDio.get('/support/tickets', queryParameters: {
+          if (priority != null && priority != 'ALL') 'priority': priority,
+          if (status != null && status != 'ALL') 'status': status,
+          if (search != null && search.isNotEmpty) 'search': search,
+          'pageSize': 50,
+        });
+        if (response.statusCode == 200 && response.data != null) {
+          final List<dynamic> items = response.data['items'] ?? [];
+          return items.map((e) => SupportTicketModel.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      } catch (fallbackError) {
+        debugPrint('[SupportApiService] Fallback getTickets failed: $fallbackError');
+      }
       return [];
     }
   }
@@ -73,24 +89,48 @@ class SupportApiService {
     String? tourId,
     String? userId,
   }) async {
+    final payload = {
+      'userId': userId ?? defaultTravelerId,
+      'title': title,
+      'description': description,
+      'category': category,
+      'priority': priority,
+      'attachmentUrl': attachmentUrl,
+      'bookingId': bookingId,
+      'tourId': tourId,
+    };
+
     try {
-      final response = await _dio.post('/support/tickets', data: {
-        'userId': userId ?? defaultTravelerId,
-        'title': title,
-        'description': description,
-        'category': category,
-        'priority': priority,
-        'attachmentUrl': attachmentUrl,
-        'bookingId': bookingId,
-        'tourId': tourId,
-      });
+      final response = await _dio.post('/support/tickets', data: payload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
       }
       return null;
     } catch (e) {
-      debugPrint('[SupportApiService] Error creating ticket: $e');
+      debugPrint('[SupportApiService] Error creating ticket on primary URL ($baseUrl): $e');
+      if (e is DioException) {
+        debugPrint('[SupportApiService] Response: ${e.response?.statusCode} -> ${e.response?.data}');
+      }
+
+      // Fallback: If primary port (5085) fails, attempt secondary standard dev port (5000)
+      try {
+        final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
+        debugPrint('[SupportApiService] Attempting fallback endpoint: $fallbackHost/support/tickets');
+        final fallbackDio = Dio(BaseOptions(
+          baseUrl: fallbackHost,
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+          headers: {'Content-Type': 'application/json'},
+        ));
+        final response = await fallbackDio.post('/support/tickets', data: payload);
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
+        }
+      } catch (fallbackError) {
+        debugPrint('[SupportApiService] Fallback connection failed: $fallbackError');
+      }
+
       return null;
     }
   }

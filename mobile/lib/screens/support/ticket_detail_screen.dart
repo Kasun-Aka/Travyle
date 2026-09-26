@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/support_ticket.dart';
 import '../../services/support_api_service.dart';
@@ -61,6 +62,29 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       default:
         return status;
     }
+  }
+
+  Widget _buildAttachmentImage(String url) {
+    if (url.startsWith('data:image')) {
+      try {
+        final base64Str = url.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
+        );
+      } catch (_) {}
+    }
+    return Image.network(
+      url,
+      height: 180,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
+    );
   }
 
   @override
@@ -140,13 +164,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                           const SizedBox(height: 8),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              _ticket!.attachmentUrl!,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
-                            ),
+                            child: _buildAttachmentImage(_ticket!.attachmentUrl!),
                           ),
                         ],
                         const SizedBox(height: 24),

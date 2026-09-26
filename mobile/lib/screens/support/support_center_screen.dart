@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -64,7 +65,6 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
         final bytes = await picked.readAsBytes();
         setState(() {
           _attachedImageBytes = bytes;
-          _attachedImageName = picked.name;
         });
       }
     } catch (e) {
@@ -109,9 +109,9 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
 
     setState(() => _isSubmitting = true);
 
-    // If an image was selected, simulate cloud photo attachment URL or pass image path
-    final simulatedAttachmentUrl = _attachedImageBytes != null
-        ? 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600'
+    // Encode actual picked image bytes as Base64 Data URI if selected
+    final attachmentUrl = _attachedImageBytes != null
+        ? 'data:image/jpeg;base64,${base64Encode(_attachedImageBytes!)}'
         : null;
 
     final created = await _apiService.createTicket(
@@ -119,7 +119,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
       description: _descController.text.trim(),
       category: _selectedCategory,
       priority: _selectedPriority,
-      attachmentUrl: simulatedAttachmentUrl,
+      attachmentUrl: attachmentUrl,
     );
 
     if (!mounted) return;
@@ -130,7 +130,6 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
       _descController.clear();
       setState(() {
         _attachedImageBytes = null;
-        _attachedImageName = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -324,7 +323,6 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
                     icon: const Icon(Icons.cancel, color: Colors.red),
                     onPressed: () => setState(() {
                       _attachedImageBytes = null;
-                      _attachedImageName = null;
                     }),
                   ),
                 ],

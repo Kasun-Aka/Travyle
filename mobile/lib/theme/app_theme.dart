@@ -5,9 +5,12 @@ class AppTheme {
   // Brand Colors
   static const Color primaryDark = Color(0xFF0D3B4C); // Deep Teal
   static const Color accentCopper = Color(0xFFD98A6C); // Warm Copper
+  static const Color coral = Color(0xFFD98A6C); // Coral / Warm Copper alias
   static const Color backgroundLight = Color(0xFFF9F9FA); // Off-white
+  static const Color lightGrey = Color(0xFFF9F9FA); // Light Grey alias
   static const Color textDark = Color(0xFF1A1A1A);
   static const Color textGrey = Color(0xFF6C7A89);
+  static const Color textLight = Color(0xFF6C7A89); // Text Light alias
   static const Color borderLight = Color(0xFFE0E4E8);
 
   // Gradients
