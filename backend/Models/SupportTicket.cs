@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Travyle.Api.Models;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TicketPriority
 {
     Low,
@@ -10,6 +12,7 @@ public enum TicketPriority
     Critical
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TicketStatus
 {
     Pending_AI_Triage,
@@ -55,6 +58,8 @@ public class SupportTicket
     public string? ResolutionSummary { get; set; }
 
     public Guid? AssignedToAdminId { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

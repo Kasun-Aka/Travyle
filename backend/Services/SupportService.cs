@@ -109,6 +109,7 @@ public class SupportService : ISupportService
             .Include(t => t.User)
             .Include(t => t.AuditLogs)
             .Include(t => t.Vouchers)
+            .Where(t => !t.IsDeleted)
             .AsQueryable();
 
         if (query.Priority.HasValue)
@@ -286,10 +287,58 @@ public class SupportService : ISupportService
             Timestamp = DateTime.UtcNow
         };
 
-        await _dbContext.AuditLogs.AddAsync(statusAudit, cancellationToken);
+        return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
+
+    public async Task<TicketResponseDto?> UpdateTicketAsync(Guid id, UpdateTicketDto dto, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted, cancellationToken);
+        if (ticket == null) return null;
+
+        // Restriction: Do not allow editing closed tickets
+        if (ticket.Status == TicketStatus.Closed)
+        {
+            throw new InvalidOperationException("Cannot edit a ticket that is already closed.");
+        }
+
+        ticket.Title = dto.Title;
+        ticket.Description = dto.Description;
+        ticket.Category = dto.Category;
+        ticket.Priority = dto.Priority;
+        if (!string.IsNullOrWhiteSpace(dto.AttachmentUrl))
+        {
+            ticket.AttachmentUrl = dto.AttachmentUrl;
+        }
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "TICKET_UPDATED",
+            ActorRole = "Traveler",
+            ActorId = ticket.UserId.ToString(),
+            Details = $"Ticket details updated (Category: {dto.Category}, Priority: {dto.Priority}).",
+            MetadataJson = JsonSerializer.Serialize(new { dto.Title, dto.Category, dto.Priority }),
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
+
+    public async Task<bool> DeleteTicketAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted, cancellationToken);
+        if (ticket == null) return false;
+
+        ticket.IsDeleted = true;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<AutoResolveResultDto?> AutoResolveClaimAsync(Guid id, CancellationToken cancellationToken = default)
@@ -429,10 +478,89 @@ public class SupportService : ISupportService
         };
     }
 
+    public async Task<VoucherResponseDto?> RejectVoucherAsync(Guid voucherId, RejectVoucherDto dto, CancellationToken cancellationToken = default)
+    {
+        var voucher = await _dbContext.Vouchers
+            .Include(v => v.User)
+            .Include(v => v.SupportTicket)
+            .FirstOrDefaultAsync(v => v.Id == voucherId, cancellationToken);
+
+        if (voucher == null) return null;
+
+        voucher.Status = VoucherStatus.Revoked;
+        voucher.ApprovedByAdminId = dto.AdminId;
+        voucher.UpdatedAt = DateTime.UtcNow;
+
+        if (voucher.SupportTicket != null)
+        {
+            voucher.SupportTicket.Status = TicketStatus.Rejected;
+            voucher.SupportTicket.ResolutionSummary = $"Declined Goodwill Voucher draft. Reason: {dto.Reason ?? "Not approved by admin"}";
+            voucher.SupportTicket.UpdatedAt = DateTime.UtcNow;
+
+            var audit = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                SupportTicketId = voucher.SupportTicket.Id,
+                Action = "VOUCHER_REJECTED",
+                ActorRole = "Support_Admin",
+                ActorId = dto.AdminId?.ToString() ?? "Admin",
+                Details = $"Admin rejected Goodwill Voucher [{voucher.Code}]. Reason: {dto.Reason ?? "None provided"}.",
+                MetadataJson = JsonSerializer.Serialize(new { voucher.Code, dto.Reason }),
+                Timestamp = DateTime.UtcNow
+            };
+            await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new VoucherResponseDto
+        {
+            Id = voucher.Id,
+            Code = voucher.Code,
+            UserId = voucher.UserId,
+            UserName = voucher.User?.FullName,
+            SupportTicketId = voucher.SupportTicketId,
+            Amount = voucher.Amount,
+            Reason = voucher.Reason,
+            Status = voucher.Status.ToString(),
+            ApprovedByAdminId = voucher.ApprovedByAdminId,
+            IssuedAt = voucher.IssuedAt,
+            ExpiresAt = voucher.ExpiresAt,
+            CreatedAt = voucher.CreatedAt
+        };
+    }
+
+    public async Task<VoucherResponseDto?> GetVoucherByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var v = await _dbContext.Vouchers
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
+
+        if (v == null) return null;
+
+        return new VoucherResponseDto
+        {
+            Id = v.Id,
+            Code = v.Code,
+            UserId = v.UserId,
+            UserName = v.User?.FullName ?? "Traveler",
+            SupportTicketId = v.SupportTicketId,
+            Amount = v.Amount,
+            Reason = v.Reason,
+            Status = v.Status.ToString(),
+            ApprovedByAdminId = v.ApprovedByAdminId,
+            IssuedAt = v.IssuedAt,
+            ExpiresAt = v.ExpiresAt,
+            RedeemedAt = v.RedeemedAt,
+            CreatedAt = v.CreatedAt
+        };
+    }
+
     public async Task<List<VoucherResponseDto>> GetAllVouchersAsync(string? status = null, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Vouchers
             .Include(v => v.User)
+            .Where(v => !v.IsDeleted)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
@@ -467,7 +595,7 @@ public class SupportService : ISupportService
     public async Task<List<VoucherResponseDto>> GetVouchersByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Vouchers
-            .Where(v => v.UserId == userId)
+            .Where(v => v.UserId == userId && !v.IsDeleted)
             .OrderByDescending(v => v.CreatedAt)
             .Select(v => new VoucherResponseDto
             {
@@ -487,11 +615,27 @@ public class SupportService : ISupportService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<ReviewResponseDto>> GetReviewsByTourIdAsync(Guid tourId, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteVoucherAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.CustomerReviews
-            .Include(r => r.User)
-            .Where(r => r.TourId == tourId)
+        var voucher = await _dbContext.Vouchers.FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted, cancellationToken);
+        if (voucher == null) return false;
+
+        voucher.IsDeleted = true;
+        voucher.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<List<ReviewResponseDto>> GetReviewsByTourIdAsync(Guid? tourId = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.CustomerReviews.Include(r => r.User).AsQueryable();
+        if (tourId.HasValue && tourId.Value != Guid.Empty)
+        {
+            query = query.Where(r => r.TourId == tourId.Value);
+        }
+
+        return await query
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ReviewResponseDto
             {
@@ -537,5 +681,41 @@ public class SupportService : ISupportService
             IsVerified = review.IsVerified,
             CreatedAt = review.CreatedAt
         };
+    }
+
+    public async Task<ReviewResponseDto?> ToggleReviewVerificationAsync(Guid id, bool isVerified, CancellationToken cancellationToken = default)
+    {
+        var review = await _dbContext.CustomerReviews
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (review == null) return null;
+
+        review.IsVerified = isVerified;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ReviewResponseDto
+        {
+            Id = review.Id,
+            UserId = review.UserId,
+            UserName = review.User?.FullName ?? "Verified Traveler",
+            TourId = review.TourId,
+            Rating = review.Rating,
+            Comment = review.Comment,
+            IsVerified = review.IsVerified,
+            CreatedAt = review.CreatedAt
+        };
+    }
+
+    public async Task<bool> DeleteReviewAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var review = await _dbContext.CustomerReviews.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (review == null) return false;
+
+        _dbContext.CustomerReviews.Remove(review);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

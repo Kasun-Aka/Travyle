@@ -73,6 +73,32 @@ public class SupportTicketsController : ControllerBase
     }
 
     /// <summary>
+    /// Update ticket details (Title, Description, Category, Priority). Allowed in early states.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<TicketResponseDto>> UpdateTicket(Guid id, [FromBody] UpdateTicketDto dto, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var result = await _supportService.UpdateTicketAsync(id, dto, cancellationToken);
+            if (result == null)
+            {
+                return NotFound(new { message = $"Ticket with ID {id} was not found." });
+            }
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Update ticket status or assign admin resolution summary.
     /// </summary>
     [HttpPut("{id:guid}/status")]
@@ -89,6 +115,20 @@ public class SupportTicketsController : ControllerBase
             return NotFound(new { message = $"Ticket with ID {id} was not found." });
         }
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Soft delete a support ticket.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteTicket(Guid id, CancellationToken cancellationToken)
+    {
+        var success = await _supportService.DeleteTicketAsync(id, cancellationToken);
+        if (!success)
+        {
+            return NotFound(new { message = $"Ticket with ID {id} was not found." });
+        }
+        return NoContent();
     }
 
     /// <summary>

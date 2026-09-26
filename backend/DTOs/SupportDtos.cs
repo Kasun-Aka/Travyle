@@ -24,6 +24,22 @@ public class CreateTicketDto
     public string? AttachmentUrl { get; set; }
 }
 
+public class UpdateTicketDto
+{
+    [Required]
+    [MaxLength(200)]
+    public string Title { get; set; } = string.Empty;
+
+    [Required]
+    public string Description { get; set; } = string.Empty;
+
+    public string Category { get; set; } = "General";
+
+    public TicketPriority Priority { get; set; } = TicketPriority.Medium;
+
+    public string? AttachmentUrl { get; set; }
+}
+
 public class UpdateTicketStatusDto
 {
     [Required]
@@ -107,6 +123,12 @@ public class ApproveVoucherDto
     public decimal? AdjustedAmount { get; set; }
     public string? Notes { get; set; }
     public bool SendNotification { get; set; } = true;
+}
+
+public class RejectVoucherDto
+{
+    public Guid? AdminId { get; set; }
+    public string? Reason { get; set; }
 }
 
 public class VoucherResponseDto

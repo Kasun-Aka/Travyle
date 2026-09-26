@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 using Travyle.Api.Repositories;
@@ -6,7 +7,11 @@ using Travyle.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -74,7 +79,7 @@ try
     var db = scope.ServiceProvider.GetRequiredService<TravyleDbContext>();
     if (db.Database.CanConnect())
     {
-        db.Database.EnsureCreated();
+        db.Database.Migrate();
         await DbSeeder.SeedAsync(db);
     }
 }

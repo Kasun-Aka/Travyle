@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Travyle.Api.Models;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum VoucherStatus
 {
     Draft,
@@ -41,6 +43,8 @@ public class Voucher
     public DateTime? IssuedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime? RedeemedAt { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
