@@ -450,24 +450,23 @@ export default function MasterTourPackages() {
           </div>
         )}
 
-        {/* ── AI Recommendation Box ─────────────────────────── */}
-        <div className="bg-brand-50 border border-brand-100 rounded-2xl p-6 flex gap-4">
-          <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0">
-            <Sparkles size={20} className="text-white" />
+        {/* -- AI Recommendation Link -- */}
+        <div className="bg-brand-50 border border-brand-100 rounded-2xl p-6 flex items-center justify-between">
+          <div className="flex gap-4">
+            <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0">
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-brand-900 mb-1">AI Traveler Concierge</h4>
+              <p className="text-brand-800 leading-relaxed max-w-xl">
+                Match catalog destinations to specific travelers using the AI Recommendation Agent.
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-brand-900 mb-1">Recommendation Agent</h4>
-            <p className="text-brand-800 leading-relaxed mb-4">
-              {selected
-                ? `"${selected.name}" (${selected.region}) is live in the catalog. The AI Recommendation Agent will match this destination to traveler preference profiles based on its tags.`
-                : 'Select a destination from the catalog above to see AI recommendation insights.'}
-            </p>
-            <button className="bg-white border border-brand-200 text-brand-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-brand-50 transition-colors">
-              View agent logs
-            </button>
-          </div>
+          <a href="/catalog/concierge" className="bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg text-sm hover:bg-brand-700 transition-colors">
+            Go to Concierge
+          </a>
         </div>
-
       </div>
     </Layout>
   );
