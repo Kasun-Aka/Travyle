@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../components/Layout';
 import DestinationFormModal from '../components/DestinationFormModal';
 import { Plus, MapPin, Sparkles, Search, Edit2, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { destinationsApi, type Destination } from '../api/destinations';
 
 // ────────────────────────────────────────────────────────────
@@ -454,7 +456,32 @@ export default function MasterTourPackages() {
                       {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)}
                     </span>
                   </div>
-                </div>
+                
+                    {/* Read-Only Map Preview */}
+                    <div className="w-full h-48 rounded-lg overflow-hidden border border-gray-200 relative z-0 mt-4">
+                      <MapContainer 
+                        key={`${selected.id}-${selected.latitude}-${selected.longitude}`}
+                        center={[selected.latitude || 7.8731, selected.longitude || 80.7718]} 
+                        zoom={selected.latitude && selected.longitude ? 12 : 6} 
+                        style={{ height: '100%', width: '100%' }}
+                        dragging={false}
+                        zoomControl={false}
+                        scrollWheelZoom={false}
+                        doubleClickZoom={false}
+                        touchZoom={false}
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        {(selected.latitude !== 0 || selected.longitude !== 0) && (
+                          <Marker position={[selected.latitude, selected.longitude]} />
+                        )}
+                      </MapContainer>
+                      <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur-sm px-2 py-1 rounded shadow-sm border border-gray-200 pointer-events-none text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        Location Preview
+                      </div>
+                    </div>
+</div>
               )}
             </div>
           </div>
