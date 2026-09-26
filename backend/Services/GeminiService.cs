@@ -108,7 +108,7 @@ Return ONLY a JSON array of 3 objects (one for each day), with no markdown forma
             }
         };
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={_apiKey}";
         var response = await _httpClient.PostAsJsonAsync(url, payload);
 
         if (!response.IsSuccessStatusCode)
