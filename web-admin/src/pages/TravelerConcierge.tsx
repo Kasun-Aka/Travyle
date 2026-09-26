@@ -93,7 +93,7 @@ export default function TravelerConcierge() {
     if (!result || !email) return;
     try {
       await axios.post('http://localhost:5085/api/notifications', {
-        email: targetEmail.trim(),
+        email: email.trim(),
         destinationId: result.destination.id,
         pitch: result.reasoning
       });
