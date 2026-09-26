@@ -78,19 +78,14 @@ class _SignupScreenState extends State<SignupScreen> {
         await user.updateDisplayName(fullName);
 
         // 2. Sync to PostgreSQL database via API
-        try {
-          final dio = Dio();
-          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
-          await dio.post('$baseUrl/api/auth/sync', data: {
-            'firebaseUid': user.uid,
-            'email': email,
-            'fullName': fullName,
-            'role': _selectedRole,
-          });
-        } catch (apiError) {
-          debugPrint('Failed to sync user with DB: $apiError');
-          // We can proceed even if DB sync fails, but ideally it shouldn't
-        }
+        final dio = Dio();
+        final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+        await dio.post('$baseUrl/api/auth/sync', data: {
+          'firebaseUid': user.uid,
+          'email': email,
+          'fullName': fullName,
+          'role': _selectedRole,
+        });
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -211,7 +206,7 @@ class _SignupScreenState extends State<SignupScreen> {
               const Text('I AM A...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _selectedRole,
+                value: _selectedRole,
                 borderRadius: BorderRadius.circular(30),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),

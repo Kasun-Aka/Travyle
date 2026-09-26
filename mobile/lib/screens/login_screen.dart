@@ -46,15 +46,20 @@ class _LoginScreenState extends State<LoginScreen> {
         try {
           final dio = Dio();
           final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
-          await dio.post('$baseUrl/api/auth/sync', data: {
-            'firebaseUid': user.uid,
-            'email': email,
-            // Full name and role are ideally pulled from DB if already exists
-            'fullName': user.displayName ?? 'Traveler',
-            'role': 'Traveler',
-          });
+          // Fetch existing user data to preserve their role
+          try {
+            await dio.get('$baseUrl/api/auth/user', queryParameters: {'email': email});
+          } catch (_) {
+            // User doesn't exist in DB yet — sync to create them
+            await dio.post('$baseUrl/api/auth/sync', data: {
+              'firebaseUid': user.uid,
+              'email': email,
+              'fullName': user.displayName ?? '',
+              'role': 'Traveler',
+            });
+          }
         } catch (apiError) {
-          debugPrint('Failed to sync user with DB on login: $apiError');
+          debugPrint('Failed to fetch/sync user with DB on login: $apiError');
         }
       }
 

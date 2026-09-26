@@ -20,13 +20,13 @@ builder.Services.AddScoped<IOperationsService, OperationsService>();
 
 builder.Services.AddSwaggerGen();
 
-// Allow the React dev server to call the API
+// Allow dev clients (React admin + Flutter web) to call the API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173", "http://localhost:3000")
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -45,7 +45,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("DevPolicy");
 
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
