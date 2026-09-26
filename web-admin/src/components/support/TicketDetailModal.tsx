@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { SupportTicketItem, TicketStatus } from '../../types/support';
+import type { SupportTicketItem, TicketStatus, TicketPriority } from '../../types/support';
 import { supportApi } from '../../services/supportApi';
 import './TicketDetailModal.css';
 
@@ -17,8 +17,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [currentTicket, setCurrentTicket] = useState<SupportTicketItem>(ticket);
   const [loadingAction, setLoadingAction] = useState(false);
   const [customAmount, setCustomAmount] = useState<number>(50);
-  const [adminNotes, setAdminNotes] = useState('');
+  const [adminNotes, setAdminNotes] = useState<string>('');
   const [statusSelection, setStatusSelection] = useState<TicketStatus>(ticket.status);
+
+  // Edit ticket state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(ticket.title);
+  const [editDesc, setEditDesc] = useState(ticket.description);
+  const [editCategory, setEditCategory] = useState(ticket.category);
+  const [editPriority, setEditPriority] = useState<TicketPriority>(ticket.priority);
 
   // Check if there is a pending draft voucher
   const draftVoucher = currentTicket.vouchers?.find((v) => v.status === 'Draft');
@@ -45,6 +52,24 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     }
   };
 
+  const handleRejectVoucher = async () => {
+    if (!draftVoucher) return;
+    setLoadingAction(true);
+    try {
+      await supportApi.rejectVoucher(draftVoucher.id, {
+        reason: adminNotes || 'Declined by Customer Support Admin.',
+      });
+      const refreshed = await supportApi.getTicketById(currentTicket.id);
+      setCurrentTicket(refreshed);
+      onTicketUpdated(refreshed);
+    } catch (err) {
+      console.error('Failed to decline voucher:', err);
+      alert('Error declining voucher. Please check backend connection.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
   const handleAutoResolve = async () => {
     setLoadingAction(true);
     try {
@@ -66,12 +91,32 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     try {
       const updated = await supportApi.updateTicketStatus(currentTicket.id, {
         status: newStatus,
-        resolutionSummary: adminNotes || `Status manually changed to ${newStatus}.`,
+        resolutionSummary: `Status manually changed to ${newStatus}.`,
       });
       setCurrentTicket(updated);
       onTicketUpdated(updated);
     } catch (err) {
       console.error('Failed to update status:', err);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    setLoadingAction(true);
+    try {
+      const updated = await supportApi.updateTicket(currentTicket.id, {
+        title: editTitle,
+        description: editDesc,
+        category: editCategory,
+        priority: editPriority,
+      });
+      setCurrentTicket(updated);
+      onTicketUpdated(updated);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Failed to edit ticket:', err);
+      alert('Failed to edit ticket. Note: Closed tickets cannot be edited.');
     } finally {
       setLoadingAction(false);
     }
@@ -88,11 +133,32 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       <div className="ticket-modal-container" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="modal-header">
-          <div className="modal-header-left">
-            <span className="modal-ticket-id">#{currentTicket.id.slice(0, 8)}</span>
-            <h2 className="modal-header-title">{currentTicket.title}</h2>
+          <div className="modal-header-left" style={{ flex: 1 }}>
+            <span className="modal-ticket-id">#{currentTicket.id ? currentTicket.id.slice(0, 8) : ''}</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                style={{ fontSize: 18, fontWeight: 700, padding: '4px 8px', borderRadius: 6, border: '1px solid #CBD5E1', width: '90%' }}
+              />
+            ) : (
+              <h2 className="modal-header-title">{currentTicket.title}</h2>
+            )}
           </div>
-          <button className="modal-close-btn" onClick={onClose}>&times;</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {currentTicket.status !== 'Closed' && (
+              isEditing ? (
+                <>
+                  <button onClick={handleSaveEdit} disabled={loadingAction} style={{ padding: '6px 12px', background: '#16A34A', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Save</button>
+                  <button onClick={() => setIsEditing(false)} style={{ padding: '6px 12px', background: '#E2E8F0', color: '#475569', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                </>
+              ) : (
+                <button onClick={() => setIsEditing(true)} style={{ padding: '6px 12px', background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>✏️ Edit Claim</button>
+              )
+            )}
+            <button className="modal-close-btn" onClick={onClose}>&times;</button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -105,11 +171,31 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             </div>
             <div className="meta-item">
               <span className="meta-label">Category</span>
-              <span className="meta-value">{currentTicket.category}</span>
+              {isEditing ? (
+                <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #CBD5E1' }}>
+                  <option value="TourDelay">TourDelay</option>
+                  <option value="TourQuality">TourQuality</option>
+                  <option value="Safety">Safety</option>
+                  <option value="Billing">Billing</option>
+                  <option value="GuideConduct">GuideConduct</option>
+                  <option value="General">General</option>
+                </select>
+              ) : (
+                <span className="meta-value">{currentTicket.category}</span>
+              )}
             </div>
             <div className="meta-item">
               <span className="meta-label">Priority</span>
-              <span className="meta-value">{currentTicket.priority}</span>
+              {isEditing ? (
+                <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as TicketPriority)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #CBD5E1' }}>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              ) : (
+                <span className="meta-value">{currentTicket.priority}</span>
+              )}
             </div>
             <div className="meta-item">
               <span className="meta-label">Current Status</span>
@@ -131,7 +217,16 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
           {/* Description & Attachment */}
           <div className="ticket-desc-section">
             <h3 className="section-heading">Description of Issue</h3>
-            <p className="ticket-desc-text">{currentTicket.description}</p>
+            {isEditing ? (
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={4}
+                style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 14 }}
+              />
+            ) : (
+              <p className="ticket-desc-text">{currentTicket.description}</p>
+            )}
             {currentTicket.attachmentUrl && (
               <div className="attachment-preview">
                 <span className="meta-label">Attached Photo Evidence</span>
@@ -164,8 +259,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             <div className="ai-grid">
               <div className="ai-grid-box">
                 <div className="ai-box-label">Sentiment Score</div>
-                <div className={`ai-box-value ${getSentimentClass(currentTicket.sentimentScore)}`}>
-                  {currentTicket.sentimentScore.toFixed(2)} / 1.00
+                <div className={`ai-box-value ${getSentimentClass(currentTicket.sentimentScore ?? 0)}`}>
+                  {(currentTicket.sentimentScore ?? 0).toFixed(2)} / 1.00
                 </div>
               </div>
               <div className="ai-grid-box">
@@ -231,7 +326,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   onClick={handleApproveVoucher}
                   disabled={loadingAction}
                 >
-                  {loadingAction ? 'Activating...' : '✓ Approve & Issue Voucher'}
+                  {loadingAction ? 'Processing...' : '✓ Approve & Issue'}
+                </button>
+                <button 
+                  style={{ padding: '10px 16px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
+                  onClick={handleRejectVoucher}
+                  disabled={loadingAction}
+                >
+                  ✕ Decline
                 </button>
               </div>
             </div>

@@ -9,7 +9,7 @@ import type {
   CustomerReviewItem 
 } from '../types/support';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5085/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -27,8 +27,18 @@ export const supportApi = {
     status?: TicketStatus;
     search?: string;
   }): Promise<PaginatedTicketsResponse> => {
-    const response = await api.get<PaginatedTicketsResponse>('/support/tickets', { params });
-    return response.data;
+    const response = await api.get('/support/tickets', { params });
+    const data = response.data as any;
+    if (Array.isArray(data)) {
+      return { items: data, totalCount: data.length, page: 1, pageSize: 50, totalPages: 1 };
+    }
+    return {
+      items: Array.isArray(data?.items) ? data.items : (Array.isArray(data?.value) ? data.value : []),
+      totalCount: data?.totalCount ?? 0,
+      page: data?.page ?? 1,
+      pageSize: data?.pageSize ?? 50,
+      totalPages: data?.totalPages ?? 1,
+    };
   },
 
   getTicketById: async (id: string): Promise<SupportTicketItem> => {
@@ -50,6 +60,14 @@ export const supportApi = {
     return response.data;
   },
 
+  updateTicket: async (
+    id: string,
+    data: { title: string; description: string; category?: string; priority?: TicketPriority; attachmentUrl?: string }
+  ): Promise<SupportTicketItem> => {
+    const response = await api.put<SupportTicketItem>(`/support/tickets/${id}`, data);
+    return response.data;
+  },
+
   updateTicketStatus: async (
     id: string, 
     data: { status: TicketStatus; resolutionSummary?: string; adminId?: string }
@@ -58,12 +76,21 @@ export const supportApi = {
     return response.data;
   },
 
+  deleteTicket: async (id: string): Promise<void> => {
+    await api.delete(`/support/tickets/${id}`);
+  },
+
   autoResolveClaim: async (id: string): Promise<AutoResolveResult> => {
     const response = await api.post<AutoResolveResult>(`/support/tickets/${id}/auto-resolve-claim`);
     return response.data;
   },
 
   // Goodwill Vouchers
+  getVoucherById: async (id: string): Promise<VoucherItem> => {
+    const response = await api.get<VoucherItem>(`/support/vouchers/${id}`);
+    return response.data;
+  },
+
   issueVoucher: async (data: {
     userId: string;
     supportTicketId?: string;
@@ -83,20 +110,44 @@ export const supportApi = {
     return response.data;
   },
 
-  getAllVouchers: async (status?: string): Promise<VoucherItem[]> => {
-    const response = await api.get<VoucherItem[]>('/support/vouchers', { params: { status } });
+  rejectVoucher: async (
+    voucherId: string, 
+    data: { reason?: string; adminId?: string }
+  ): Promise<VoucherItem> => {
+    const response = await api.put<VoucherItem>(`/support/vouchers/${voucherId}/reject`, data);
     return response.data;
+  },
+
+  deleteVoucher: async (id: string): Promise<void> => {
+    await api.delete(`/support/vouchers/${id}`);
+  },
+
+  getAllVouchers: async (status?: string): Promise<VoucherItem[]> => {
+    const response = await api.get('/support/vouchers', { params: { status } });
+    const data = response.data as any;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.value)) return data.value;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
   },
 
   getUserVouchers: async (userId: string): Promise<VoucherItem[]> => {
-    const response = await api.get<VoucherItem[]>(`/support/vouchers/user/${userId}`);
-    return response.data;
+    const response = await api.get(`/support/vouchers/user/${userId}`);
+    const data = response.data as any;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.value)) return data.value;
+    return [];
   },
 
   // Customer Reviews
-  getReviewsByTour: async (tourId: string): Promise<CustomerReviewItem[]> => {
-    const response = await api.get<CustomerReviewItem[]>(`/support/reviews/${tourId}`);
-    return response.data;
+  getReviewsByTour: async (tourId?: string): Promise<CustomerReviewItem[]> => {
+    const endpoint = tourId ? `/support/reviews/${tourId}` : '/support/reviews';
+    const response = await api.get(endpoint);
+    const data = response.data as any;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.value)) return data.value;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
   },
 
   createReview: async (data: {
@@ -107,5 +158,16 @@ export const supportApi = {
   }): Promise<CustomerReviewItem> => {
     const response = await api.post<CustomerReviewItem>('/support/reviews', data);
     return response.data;
+  },
+
+  toggleReviewVerification: async (id: string, isVerified: boolean): Promise<CustomerReviewItem> => {
+    const response = await api.put<CustomerReviewItem>(`/support/reviews/${id}/verify`, null, {
+      params: { isVerified },
+    });
+    return response.data;
+  },
+
+  deleteReview: async (id: string): Promise<void> => {
+    await api.delete(`/support/reviews/${id}`);
   },
 };

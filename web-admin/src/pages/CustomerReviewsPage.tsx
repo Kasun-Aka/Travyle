@@ -3,8 +3,10 @@ import type { CustomerReviewItem } from '../types/support';
 import { supportApi } from '../services/supportApi';
 import './CustomerReviews.css';
 
+import { useNavigate } from 'react-router-dom';
+
 interface CustomerReviewsPageProps {
-  onNavigateSupport: () => void;
+  onNavigateSupport?: () => void;
   onNavigateVouchers?: () => void;
   onLogout?: () => void;
 }
@@ -14,18 +16,22 @@ export const CustomerReviewsPage: React.FC<CustomerReviewsPageProps> = ({
   onNavigateVouchers, 
   onLogout 
 }) => {
+  const navigate = useNavigate();
+  const handleGoSupport = onNavigateSupport || (() => navigate('/support/tickets'));
+  const handleGoVouchers = onNavigateVouchers || (() => navigate('/support/vouchers'));
+  const handleLogout = onLogout || (() => navigate('/login'));
   const [reviews, setReviews] = useState<CustomerReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const defaultTourId = '33333333-3333-3333-3333-333333333333';
 
   useEffect(() => {
     const fetchReviews = async () => {
       setLoading(true);
       try {
-        const data = await supportApi.getReviewsByTour(defaultTourId);
-        setReviews(data);
+        const data = await supportApi.getReviewsByTour();
+        setReviews(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to fetch reviews:', err);
+        setReviews([]);
       } finally {
         setLoading(false);
       }
@@ -33,64 +39,79 @@ export const CustomerReviewsPage: React.FC<CustomerReviewsPageProps> = ({
     fetchReviews();
   }, []);
 
-  const renderStars = (rating: number) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+  const handleToggleVerify = async (reviewId: string, currentStatus: boolean) => {
+    try {
+      const updated = await supportApi.toggleReviewVerification(reviewId, !currentStatus);
+      setReviews((prev) => prev.map((r) => (r.id === reviewId ? { ...r, isVerified: updated.isVerified } : r)));
+    } catch (err) {
+      console.error('Failed to update review verification status:', err);
+      alert('Error updating review verification status.');
+    }
   };
 
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!window.confirm('Are you sure you want to delete this customer review?')) return;
+    try {
+      await supportApi.deleteReview(reviewId);
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+    } catch (err) {
+      console.error('Failed to delete review:', err);
+      alert('Error deleting review.');
+    }
+  };
+
+  const renderStars = (rating: number) => {
+    const valid = Math.max(0, Math.min(5, Math.floor(rating || 0)));
+    return '★'.repeat(valid) + '☆'.repeat(5 - valid);
+  };
+
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
+
   return (
-    <div className="support-dashboard-layout">
-      {/* Sidebar Navigation */}
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">T</div>
-          <div className="brand-text">
-            <h2>Travyle</h2>
-            <span>Support Admin</span>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav">
-          <button className="nav-item" onClick={onNavigateSupport}>
-            <span>🎫</span> Support Tickets
-          </button>
-          <button className="nav-item" onClick={onNavigateVouchers}>
-            <span>🎁</span> Goodwill Vouchers
-          </button>
-          <button className="nav-item active">
-            <span>⭐</span> Customer Reviews
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <div style={{ marginBottom: 8 }}>Support Operations v1.0</div>
-          {onLogout && (
-            <button 
-              onClick={onLogout}
-              style={{ background: 'transparent', border: '1px solid #334155', color: '#94A3B8', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', width: '100%' }}
-            >
-              Sign Out
-            </button>
-          )}
-        </div>
-      </aside>
+    <div className="support-dashboard-layout" style={{ padding: 24 }}>
+      {/* Feature Sub-Navigation Header */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
+        <button
+          onClick={handleGoSupport}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎫 Support Queue
+        </button>
+        <button
+          onClick={handleGoVouchers}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎁 Goodwill Vouchers
+        </button>
+        <button
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#4F46E5', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          ⭐ Customer Reviews
+        </button>
+      </div>
 
       {/* Main Content */}
-      <main className="dashboard-main">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <div className="main-header">
           <div className="header-title">
             <h1>Customer Reviews & Quality Ratings</h1>
             <p>Monitor verified feedback and ratings submitted by travelers across tours.</p>
           </div>
+          {onLogout && (
+            <button className="btn-review" onClick={handleLogout}>
+              Sign Out
+            </button>
+          )}
         </div>
 
         {loading ? (
           <p style={{ color: '#64748B' }}>Loading verified traveler reviews...</p>
         ) : (
           <div className="reviews-grid">
-            {reviews.length === 0 ? (
+            {safeReviews.length === 0 ? (
               <p style={{ color: '#64748B' }}>No reviews submitted yet.</p>
             ) : (
-              reviews.map((r) => (
+              safeReviews.map((r) => (
                 <div key={r.id} className="review-card">
                   <div className="review-card-header">
                     <div className="reviewer-info">
@@ -102,20 +123,39 @@ export const CustomerReviewsPage: React.FC<CustomerReviewsPageProps> = ({
                     <div className="review-stars">{renderStars(r.rating)}</div>
                   </div>
 
-                  <p className="review-comment">"{r.comment}"</p>
+                  <p className="review-comment">"{r.comment || ''}"</p>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {r.isVerified && <span className="verified-tag">✓ Verified Traveler</span>}
-                    <span style={{ fontSize: 12, color: '#94A3B8' }}>
-                      {new Date(r.createdAt).toLocaleDateString()}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className={`verified-tag ${r.isVerified ? '' : 'unverified'}`} style={{ background: r.isVerified ? '#DCFCE7' : '#F1F5F9', color: r.isVerified ? '#16A34A' : '#64748B', padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
+                        {r.isVerified ? '✓ Verified Traveler' : 'Unverified'}
+                      </span>
+                      <button
+                        onClick={() => handleToggleVerify(r.id, r.isVerified)}
+                        style={{ background: 'none', border: 'none', color: '#4F46E5', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                      >
+                        {r.isVerified ? 'Mark Unverified' : 'Verify Review'}
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 12, color: '#94A3B8' }}>
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteReview(r.id)}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                        title="Delete Review"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };

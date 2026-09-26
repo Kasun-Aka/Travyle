@@ -4,6 +4,8 @@ import { supportApi } from '../services/supportApi';
 import { TicketDetailModal } from '../components/support/TicketDetailModal';
 import './SupportDashboard.css';
 
+import { useNavigate } from 'react-router-dom';
+
 interface SupportDashboardProps {
   onNavigateVouchers?: () => void;
   onNavigateReviews?: () => void;
@@ -15,6 +17,10 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
   onNavigateReviews, 
   onLogout 
 }) => {
+  const navigate = useNavigate();
+  const handleGoVouchers = onNavigateVouchers || (() => navigate('/support/vouchers'));
+  const handleGoReviews = onNavigateReviews || (() => navigate('/support/reviews'));
+  const handleGoLogout = onLogout || (() => navigate('/login'));
   const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicketItem | null>(null);
@@ -33,9 +39,11 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
         search: searchQuery || undefined,
         pageSize: 50,
       });
-      setTickets(response.items);
+      const items = Array.isArray(response?.items) ? response.items : (Array.isArray(response) ? response : []);
+      setTickets(items);
     } catch (err) {
       console.error('Failed to load tickets:', err);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
@@ -46,14 +54,29 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
   }, [fetchTickets]);
 
   // Statistics calculation
-  const totalCount = tickets.length;
-  const highPriorityCount = tickets.filter((t) => t.priority === 'High' || t.priority === 'Critical').length;
-  const pendingApprovalCount = tickets.filter((t) => t.status === 'Pending_Admin_Voucher_Approval').length;
-  const resolvedCount = tickets.filter((t) => t.status === 'Resolved' || t.status === 'Closed').length;
+  const safeTickets = Array.isArray(tickets) ? tickets : [];
+  const totalCount = safeTickets.length;
+  const highPriorityCount = safeTickets.filter((t) => t?.priority === 'High' || t?.priority === 'Critical').length;
+  const pendingApprovalCount = safeTickets.filter((t) => t?.status === 'Pending_Admin_Voucher_Approval').length;
+  const resolvedCount = safeTickets.filter((t) => t?.status === 'Resolved' || t?.status === 'Closed').length;
 
   const handleTicketUpdated = (updated: SupportTicketItem) => {
     setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setSelectedTicket(updated);
+  };
+
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (!window.confirm('Are you sure you want to delete this support ticket?')) return;
+    try {
+      await supportApi.deleteTicket(ticketId);
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete ticket:', err);
+      alert('Error deleting ticket.');
+    }
   };
 
   const getPriorityBadgeClass = (priority: TicketPriority) => {
@@ -78,62 +101,53 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
         return <span className="status-badge status-resolved">✓ Resolved</span>;
       case 'Closed':
         return <span className="status-badge" style={{ background: '#E2E8F0', color: '#475569' }}>Closed</span>;
+      case 'Rejected':
+        return <span className="status-badge" style={{ background: '#FEE2E2', color: '#DC2626' }}>✕ Rejected</span>;
       default:
-        return <span className="status-badge">{status}</span>;
+        return <span className="status-badge">{status || 'Unknown'}</span>;
     }
   };
 
   return (
-    <div className="support-dashboard-layout">
-      {/* Sidebar Navigation */}
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">T</div>
-          <div className="brand-text">
-            <h2>Travyle</h2>
-            <span>Support Admin</span>
-          </div>
+    <div className="support-dashboard-layout" style={{ padding: 24 }}>
+      {/* Feature Sub-Navigation Header */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
+        <button
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#4F46E5', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎫 Support Queue
+        </button>
+        <button
+          onClick={handleGoVouchers}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎁 Goodwill Vouchers
+        </button>
+        <button
+          onClick={handleGoReviews}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          ⭐ Customer Reviews
+        </button>
+      </div>
+
+      {/* Header */}
+      <div className="main-header">
+        <div className="header-title">
+          <h1>Customer Support & Ticketing Queue</h1>
+          <p>Monitor customer disputes, review AI triage insights, and sign off on goodwill vouchers.</p>
         </div>
-
-        <nav className="sidebar-nav">
-          <button className="nav-item active">
-            <span>🎫</span> Support Tickets
+        <div className="header-actions">
+          <button className="btn-primary" onClick={fetchTickets}>
+            🔄 Refresh Queue
           </button>
-          <button className="nav-item" onClick={onNavigateVouchers}>
-            <span>🎁</span> Goodwill Vouchers
-          </button>
-          <button className="nav-item" onClick={onNavigateReviews}>
-            <span>⭐</span> Customer Reviews
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <div style={{ marginBottom: 8 }}>Support Operations v1.0</div>
           {onLogout && (
-            <button 
-              onClick={onLogout}
-              style={{ background: 'transparent', border: '1px solid #334155', color: '#94A3B8', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', width: '100%' }}
-            >
+            <button className="btn-review" onClick={handleGoLogout}>
               Sign Out
             </button>
           )}
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="dashboard-main">
-        {/* Header */}
-        <div className="main-header">
-          <div className="header-title">
-            <h1>Customer Support & Ticketing Queue</h1>
-            <p>Monitor customer disputes, review AI triage insights, and sign off on goodwill vouchers.</p>
-          </div>
-          <div className="header-actions">
-            <button className="btn-primary" onClick={fetchTickets}>
-              🔄 Refresh Queue
-            </button>
-          </div>
-        </div>
+      </div>
 
         {/* Stat Cards */}
         <div className="stats-grid">
@@ -195,6 +209,7 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
               <option value="In_Review">In Review</option>
               <option value="Resolved">Resolved</option>
               <option value="Closed">Closed</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
         </div>
@@ -251,23 +266,32 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ 
                           fontWeight: 700, 
-                          color: t.sentimentScore < -0.3 ? '#DC2626' : (t.sentimentScore > 0.3 ? '#16A34A' : '#64748B') 
+                          color: (t.sentimentScore ?? 0) < -0.3 ? '#DC2626' : ((t.sentimentScore ?? 0) > 0.3 ? '#16A34A' : '#64748B') 
                         }}>
-                          {t.sentimentScore.toFixed(2)}
+                          {(t.sentimentScore ?? 0).toFixed(2)}
                         </span>
                         <span style={{ fontSize: 11, color: '#94A3B8' }}>
-                          ({t.severityTier.replace('Tier_', 'T')})
+                          ({(t.severityTier || 'Tier_1_Low').replace('Tier_', 'T')})
                         </span>
                       </div>
                     </td>
                     <td>{getStatusBadge(t.status)}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <button 
-                        className="btn-review"
-                        onClick={() => setSelectedTicket(t)}
-                      >
-                        {t.status === 'Pending_Admin_Voucher_Approval' ? '🎁 Review & Sign' : 'Inspect Details'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button 
+                          className="btn-review"
+                          onClick={() => setSelectedTicket(t)}
+                        >
+                          {t.status === 'Pending_Admin_Voucher_Approval' ? '🎁 Review & Sign' : 'Inspect Details'}
+                        </button>
+                        <button
+                          style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 13, cursor: 'pointer', padding: '4px 6px' }}
+                          onClick={() => handleDeleteTicket(t.id)}
+                          title="Delete Ticket"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -275,7 +299,6 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
             </tbody>
           </table>
         </div>
-      </main>
 
       {/* Ticket Detail Modal */}
       {selectedTicket && (

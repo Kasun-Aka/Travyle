@@ -7,6 +7,9 @@ import TravelTrends from './pages/TravelTrends'
 import GuideAssignmentMatrix from './pages/GuideAssignmentMatrix'
 import LiveTourOperations from './pages/LiveTourOperations'
 import StaffAccessControl from './pages/StaffAccessControl'
+import { SupportDashboard } from './pages/SupportDashboard'
+import { VouchersPage } from './pages/VouchersPage'
+import { CustomerReviewsPage } from './pages/CustomerReviewsPage'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -33,6 +36,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/operations/live-operations" element={<LiveTourOperations />} />
             <Route path="/operations/guide-assignments" element={<GuideAssignmentMatrix />} />
             <Route path="/operations/staff-access" element={<StaffAccessControl />} />
+            <Route path="/support/tickets" element={<SupportDashboard />} />
+            <Route path="/support/vouchers" element={<VouchersPage />} />
+            <Route path="/support/reviews" element={<CustomerReviewsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

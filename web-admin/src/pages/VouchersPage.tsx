@@ -4,9 +4,11 @@ import { supportApi } from '../services/supportApi';
 import './SupportDashboard.css';
 import './VouchersPage.css';
 
+import { useNavigate } from 'react-router-dom';
+
 interface VouchersPageProps {
-  onNavigateSupport: () => void;
-  onNavigateReviews: () => void;
+  onNavigateSupport?: () => void;
+  onNavigateReviews?: () => void;
   onLogout?: () => void;
 }
 
@@ -15,6 +17,10 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
   onNavigateReviews,
   onLogout,
 }) => {
+  const navigate = useNavigate();
+  const handleGoSupport = onNavigateSupport || (() => navigate('/support/tickets'));
+  const handleGoReviews = onNavigateReviews || (() => navigate('/support/reviews'));
+  const handleLogout = onLogout || (() => navigate('/login'));
   const [vouchers, setVouchers] = useState<VoucherItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -31,9 +37,10 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
     setLoading(true);
     try {
       const data = await supportApi.getAllVouchers(statusFilter);
-      setVouchers(data);
+      setVouchers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load vouchers:', err);
+      setVouchers([]);
     } finally {
       setLoading(false);
     }
@@ -44,10 +51,11 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
   }, [fetchVouchers]);
 
   // Statistics
-  const totalCount = vouchers.length;
-  const draftCount = vouchers.filter((v) => v.status.toLowerCase() === 'draft').length;
-  const activeCount = vouchers.filter((v) => v.status.toLowerCase() === 'active').length;
-  const totalValue = vouchers.reduce((acc, v) => acc + (v.amount || 0), 0);
+  const safeVouchers = Array.isArray(vouchers) ? vouchers : [];
+  const totalCount = safeVouchers.length;
+  const draftCount = safeVouchers.filter((v) => v?.status?.toLowerCase() === 'draft').length;
+  const activeCount = safeVouchers.filter((v) => v?.status?.toLowerCase() === 'active').length;
+  const totalValue = safeVouchers.reduce((acc, v) => acc + (v?.amount || 0), 0);
 
   const handleApproveVoucher = async (voucherId: string) => {
     try {
@@ -59,6 +67,29 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
     } catch (err) {
       console.error('Error approving voucher:', err);
       alert('Failed to approve voucher.');
+    }
+  };
+
+  const handleRejectVoucher = async (voucherId: string) => {
+    const reason = prompt('Enter reason for declining this goodwill voucher:', 'Over-compensation threshold exceeded');
+    if (reason === null) return;
+    try {
+      await supportApi.rejectVoucher(voucherId, { reason });
+      fetchVouchers();
+    } catch (err) {
+      console.error('Error rejecting voucher:', err);
+      alert('Failed to decline voucher.');
+    }
+  };
+
+  const handleDeleteVoucher = async (voucherId: string) => {
+    if (!window.confirm('Are you sure you want to delete this voucher?')) return;
+    try {
+      await supportApi.deleteVoucher(voucherId);
+      fetchVouchers();
+    } catch (err) {
+      console.error('Error deleting voucher:', err);
+      alert('Failed to delete voucher.');
     }
   };
 
@@ -88,52 +119,30 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
   };
 
   return (
-    <div className="support-dashboard-layout">
-      {/* Sidebar Navigation */}
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">T</div>
-          <div className="brand-text">
-            <h2>Travyle</h2>
-            <span>Support Admin</span>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav">
-          <button className="nav-item" onClick={onNavigateSupport}>
-            <span>🎫</span> Support Tickets
-          </button>
-          <button className="nav-item active">
-            <span>🎁</span> Goodwill Vouchers
-          </button>
-          <button className="nav-item" onClick={onNavigateReviews}>
-            <span>⭐</span> Customer Reviews
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <div style={{ marginBottom: 8 }}>Support Operations v1.0</div>
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              style={{
-                background: 'transparent',
-                border: '1px solid #334155',
-                color: '#94A3B8',
-                padding: '6px 12px',
-                borderRadius: 6,
-                cursor: 'pointer',
-                width: '100%',
-              }}
-            >
-              Sign Out
-            </button>
-          )}
-        </div>
-      </aside>
+    <div className="support-dashboard-layout" style={{ padding: 24 }}>
+      {/* Feature Sub-Navigation Header */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
+        <button
+          onClick={handleGoSupport}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎫 Support Queue
+        </button>
+        <button
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#4F46E5', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          🎁 Goodwill Vouchers
+        </button>
+        <button
+          onClick={handleGoReviews}
+          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+        >
+          ⭐ Customer Reviews
+        </button>
+      </div>
 
       {/* Main Content Area */}
-      <main className="dashboard-main">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         {/* Header */}
         <div className="main-header">
           <div className="header-title">
@@ -147,6 +156,11 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
             <button className="btn-primary" onClick={fetchVouchers}>
               🔄 Refresh List
             </button>
+            {onLogout && (
+              <button className="btn-review" onClick={handleLogout}>
+                Sign Out
+              </button>
+            )}
           </div>
         </div>
 
@@ -269,18 +283,35 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {isDraft ? (
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {isDraft ? (
+                            <>
+                              <button
+                                className="btn-sign-approve"
+                                onClick={() => handleApproveVoucher(v.id)}
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                style={{ padding: '6px 12px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                                onClick={() => handleRejectVoucher(v.id)}
+                              >
+                                ✕ Decline
+                              </button>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: 12, color: isActive ? '#16A34A' : '#64748B', fontWeight: 600 }}>
+                              {isActive ? '✓ Active' : v.status}
+                            </span>
+                          )}
                           <button
-                            className="btn-sign-approve"
-                            onClick={() => handleApproveVoucher(v.id)}
+                            style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 13, cursor: 'pointer', marginLeft: 4 }}
+                            onClick={() => handleDeleteVoucher(v.id)}
+                            title="Delete Voucher"
                           >
-                            ✓ Approve & Activate
+                            🗑️
                           </button>
-                        ) : (
-                          <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 600 }}>
-                            ✓ Active in Wallet
-                          </span>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -289,7 +320,7 @@ export const VouchersPage: React.FC<VouchersPageProps> = ({
             </tbody>
           </table>
         </div>
-      </main>
+      </div>
 
       {/* Direct Voucher Issue Modal */}
       {showIssueModal && (
