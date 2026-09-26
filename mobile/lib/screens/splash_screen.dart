@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
+import 'signup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,12 +23,15 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image
-          Image.network(
-            'https://images.unsplash.com/photo-1499856871958-5b9627545d1a', // placeholder travel image
-            fit: BoxFit.cover,
-            color: Colors.black.withAlpha(75),
-            colorBlendMode: BlendMode.darken,
+          // Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D3B4C), Color(0xFF1A4C64), Color(0xFFD98A6C)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
           // Content
           Column(
@@ -118,22 +122,9 @@ class _SplashScreenState extends State<SplashScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Sign Up'),
-                              content: const Text('Choose your account type:'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Tourist'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Guide'),
-                                ),
-                              ],
-                            ),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SignupScreen()),
                           );
                         },
                         child: const Text('SIGN UP', style: TextStyle(fontWeight: FontWeight.bold)),

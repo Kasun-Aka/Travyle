@@ -1,12 +1,17 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Travyle.Api.Data;
 using Travyle.Api.Repositories;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Auth;
+
+// Allow flexible DateTime kinds in PostgreSQL
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ─── Infrastructure ──────────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -15,16 +20,16 @@ builder.Services.AddControllers()
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Travyle Smart Travel API", Version = "v1", Description = "API for Travyle Travel Management & Support Platform" });
+    c.SwaggerDoc("v1", new() { Title = "Travyle API", Version = "v1" });
 });
 
 // Configure Database
 builder.Services.AddDbContext<TravyleDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .ConfigureWarnings(warnings =>
+               warnings.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
-// Operations – Tour Guide vertical
-builder.Services.AddScoped<IOperationsRepository, OperationsRepository>();
-builder.Services.AddScoped<IOperationsService, OperationsService>();
+// ─── Booking Vertical DI ─────────────────────────────────────────────────────
 
 // Register Component 4 Services
 builder.Services.AddHttpClient<NotificationService>();
@@ -33,6 +38,27 @@ builder.Services.AddScoped<ISupportAiAgentService, SupportAiAgentService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
 // CORS configuration for React Web Admin and Flutter
+// Repositories
+builder.Services.AddScoped<IBookingScheduleRepository, BookingScheduleRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IDiscountRequestRepository, DiscountRequestRepository>();
+builder.Services.AddScoped<IPaymentEscrowRepository, PaymentEscrowRepository>();
+
+// Services
+builder.Services.AddScoped<IBookingScheduleService, BookingScheduleService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IDiscountRequestService, DiscountRequestService>();
+builder.Services.AddScoped<IPaymentEscrowService, PaymentEscrowService>();
+
+// Smart Booking Agent DI
+builder.Services.AddScoped<Travyle.Api.Services.Agent.IBookingAgentTools, Travyle.Api.Services.Agent.BookingAgentTools>();
+builder.Services.AddScoped<Travyle.Api.Services.Agent.ISmartBookingAgentService, Travyle.Api.Services.Agent.SmartBookingAgentProxyService>();
+builder.Services.AddScoped<IFirebaseIdentityService, FirebaseIdentityService>();
+builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri("http://localhost:8000"); });
+
+// ─── CORS (allow Flutter dev) ────────────────────────────────────────────────
+
+// Allow dev clients (React admin + Flutter web) to call the API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -44,15 +70,16 @@ builder.Services.AddCors(options =>
     options.AddPolicy("DevPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173", "http://localhost:3000")
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
+// ─── Pipeline ────────────────────────────────────────────────────────────────
+
 var app = builder.Build();
 
-app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -60,14 +87,12 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseCors("DevPolicy");
-
+app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

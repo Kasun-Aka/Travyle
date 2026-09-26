@@ -9,10 +9,12 @@ namespace Travyle.Api.Controllers;
 public class OperationsController : ControllerBase
 {
     private readonly IOperationsService _service;
+    private readonly Travyle.Api.Data.TravyleDbContext _db;
 
-    public OperationsController(IOperationsService service)
+    public OperationsController(IOperationsService service, Travyle.Api.Data.TravyleDbContext db)
     {
         _service = service;
+        _db = db;
     }
 
     // ── POST /api/operations/activities ──────────────────────
@@ -83,6 +85,54 @@ public class OperationsController : ControllerBase
         [FromBody] RouteOptimizationRequestDto dto)
     {
         var result = await _service.ReorderRouteOptimizationAsync(dto);
+        return Ok(result);
+    }
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard([FromQuery] string email)
+    {
+        var user = _db.Users.FirstOrDefault(u => u.Email == email);
+        if (user == null) return NotFound();
+
+        bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator";
+
+        var result = new
+        {
+            role = user.Role,
+            headerName = isGuide ? user.FullName : "Ketut Alit",
+            headerTitle = isGuide ? "LOCAL GUIDE" : "ASSIGNED GUIDE",
+            stats = isGuide ? new[]
+            {
+                new { value = "2", label = "TOURS TODAY" },
+                new { value = "14", label = "TRAVELERS" },
+                new { value = "4.9", label = "MY RATING" }
+            } : new[]
+            {
+                new { value = "1", label = "UPCOMING TOUR" },
+                new { value = "3", label = "COMPLETED" },
+                new { value = "4.9", label = "GUIDE RATING" }
+            },
+            tours = new[]
+            {
+                new 
+                {
+                    time = "09:00 AM - 12:00 PM",
+                    travelers = isGuide ? "6 Travelers" : "You + 5 others",
+                    title = "Sacred Ubud Forest Walk",
+                    location = "Ubud Monkey Forest Main Entrance",
+                    actionType = "CHECK_IN"
+                },
+                new
+                {
+                    time = "04:30 PM - 07:30 PM",
+                    travelers = isGuide ? "8 Travelers" : "You + 7 others",
+                    title = "Sunset Tanah Lot Escape",
+                    location = "Tanah Lot Temple Lobby",
+                    actionType = "START_TOUR"
+                }
+            }
+        };
+
         return Ok(result);
     }
 }

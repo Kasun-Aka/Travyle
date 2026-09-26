@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import 'login_screen.dart';
@@ -13,24 +14,31 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+  bool _isLoading = false;
+  bool _sent = false;
   String _errorMessage = '';
 
-  void _handleConfirm() {
-    final newPassword = _passwordController.text.trim();
-    if (newPassword.length < 6) {
-      setState(() {
-        _errorMessage = 'Password must be at least 6 characters.';
-      });
+  Future<void> _handleConfirm() async {
+    final email = widget.email.trim();
+    if (email.isEmpty) {
+      setState(() => _errorMessage = 'Enter your email address first.');
       return;
     }
 
-    // In a real app, you would call Firebase password reset API here
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) setState(() => _sent = true);
+    } on FirebaseAuthException catch (error) {
+      setState(() => _errorMessage = error.message ?? 'Unable to send reset email.');
+    } catch (_) {
+      setState(() => _errorMessage = 'Unable to send reset email. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -59,7 +67,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Enter a new password for ${widget.email.isEmpty ? "your account" : widget.email}',
+                    _sent
+                      ? 'Check ${widget.email} for a password reset link.'
+                      : 'We will send a password reset link to ${widget.email.isEmpty ? "your account" : widget.email}',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontSize: 16,
@@ -90,31 +100,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                   ),
 
-                const Text('NEW PASSWORD', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your new password',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                        color: AppTheme.textGrey,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                
                 GradientButton(
-                  text: 'CONFIRM',
-                  onPressed: _handleConfirm,
+                  text: _sent
+                      ? 'BACK TO SIGN IN'
+                      : (_isLoading ? 'SENDING...' : 'SEND RESET LINK'),
+                  onPressed: _sent
+                      ? () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          )
+                      : (_isLoading ? () {} : _handleConfirm),
                 ),
               ],
             ),

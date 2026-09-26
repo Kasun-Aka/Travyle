@@ -17,8 +17,11 @@ export default function Login() {
     setLoading(true);
 
     try {
+      if (!auth) {
+        throw new Error('Firebase is not configured. Add the VITE_FIREBASE_* values to web-admin/.env.');
+      }
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/catalog/packages');
+      navigate('/welcome');
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     } finally {
