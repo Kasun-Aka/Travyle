@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Sparkles, Send, User, Map, CheckCircle2, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Send, User, Map, CheckCircle2, Clock, ChevronDown, ChevronUp, Wallet, History } from 'lucide-react';
 import axios from 'axios';
 import { type Destination } from '../api/destinations';
 
@@ -9,6 +9,7 @@ interface Traveler {
   fullName: string;
   preferences: string[];
   budget: string;
+  tripHistory: string;
 }
 
 interface NotificationHistory {
@@ -137,12 +138,18 @@ export default function TravelerConcierge() {
                     
                     {/* Header */}
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-inner shrink-0">
                         {t.fullName.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 truncate">{t.fullName}</h3>
-                        <p className="text-xs text-gray-500 truncate">{t.email}</p>
+                        <p className="text-xs text-gray-500 truncate mb-1">{t.email}</p>
+                        {t.budget && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+                            <Wallet size={10} />
+                            {t.budget} Budget
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -162,6 +169,18 @@ export default function TravelerConcierge() {
                         )}
                       </div>
                     </div>
+                    
+                    {/* Trip History */}
+                    {t.tripHistory && (
+                      <div className="pt-2 border-t border-gray-100 mt-auto">
+                        <div className="flex items-start gap-1.5 text-gray-500">
+                          <History size={12} className="mt-0.5 shrink-0" />
+                          <p className="text-[11px] leading-tight line-clamp-2 italic" title={t.tripHistory}>
+                            {t.tripHistory}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <button
                       onClick={() => handleGenerate(t.email)}

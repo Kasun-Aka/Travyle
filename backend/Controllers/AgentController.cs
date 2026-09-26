@@ -37,6 +37,8 @@ public class AgentController : ControllerBase
 
         var preferences = user.TravelerProfile?.PreferredActivities ?? Array.Empty<string>();
         var prefString = preferences.Length > 0 ? string.Join(", ", preferences) : "General Travel";
+        var budget = user.TravelerProfile?.BudgetRange ?? "Flexible";
+        var tripHistory = user.TravelerProfile?.TripHistory ?? "First time traveler";
 
         // Get up to 20 destinations to pass to the AI
         var destinations = await _db.Destinations
@@ -50,7 +52,7 @@ public class AgentController : ControllerBase
 
         try
         {
-            var geminiMatchJson = await _geminiService.GetRecommendationAsync(prefString, destinationsJson);
+            var geminiMatchJson = await _geminiService.GetRecommendationAsync(prefString, budget, tripHistory, destinationsJson);
             
             var matchData = JsonSerializer.Deserialize<JsonElement>(geminiMatchJson);
             var destIdStr = matchData.GetProperty("destinationId").GetString();

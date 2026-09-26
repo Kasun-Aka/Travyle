@@ -104,7 +104,8 @@ public class AuthController : ControllerBase
                 u.Email,
                 u.FullName,
                 Preferences = u.TravelerProfile != null ? u.TravelerProfile.PreferredActivities : Array.Empty<string>(),
-                Budget = u.TravelerProfile != null ? u.TravelerProfile.BudgetRange : ""
+                Budget = u.TravelerProfile != null ? u.TravelerProfile.BudgetRange : "",
+                TripHistory = u.TravelerProfile != null ? u.TravelerProfile.TripHistory : ""
             })
             .ToListAsync();
             

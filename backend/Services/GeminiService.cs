@@ -15,14 +15,14 @@ public class GeminiService
         _apiKey = config["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API Key is missing");
     }
 
-    public async Task<string> GetRecommendationAsync(string userPreferences, string availableDestinations)
+    public async Task<string> GetRecommendationAsync(string preferences, string budget, string tripHistory, string destinationsJson)
     {
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={_apiKey}";
         
         var prompt = $@"
         You are an expert AI travel agent for 'Travyle'.
-        User Preferences: {userPreferences}
-        Available Destinations: {availableDestinations}
+        User Preferences: {preferences}
+        Available Destinations: {destinationsJson}
         
         Based on the user preferences, select the single best destination from the available list.
         Provide a short, exciting paragraph (about 2-3 sentences) explaining to the user exactly why it's the perfect match for their specific style.
