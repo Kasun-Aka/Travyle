@@ -14,10 +14,12 @@ namespace Travyle.Api.Controllers;
 public class DestinationsController : ControllerBase
 {
     private readonly TravyleDbContext _db;
+    private readonly Services.IGeocodingService _geocodingService;
 
-    public DestinationsController(TravyleDbContext db)
+    public DestinationsController(TravyleDbContext db, Services.IGeocodingService geocodingService)
     {
         _db = db;
+        _geocodingService = geocodingService;
     }
 
     // GET /api/destinations?search=ella&region=highlands&tags=hiking,beach&page=1&pageSize=10
@@ -123,6 +125,19 @@ public class DestinationsController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
+        var lat = dto.Latitude ?? 0.0;
+        var lng = dto.Longitude ?? 0.0;
+
+        if (lat == 0.0 && lng == 0.0)
+        {
+            var coords = await _geocodingService.GetCoordinatesAsync($"{dto.Name}, {dto.Region}");
+            if (coords != null)
+            {
+                lat = coords.Value.Latitude;
+                lng = coords.Value.Longitude;
+            }
+        }
+
         var destination = new Destination
         {
             Name = dto.Name,
@@ -130,8 +145,8 @@ public class DestinationsController : ControllerBase
             Description = dto.Description,
             Tags = dto.Tags,
             ImageUrl = dto.ImageUrl,
-            Latitude = dto.Latitude ?? 0.0,
-            Longitude = dto.Longitude ?? 0.0
+            Latitude = lat,
+            Longitude = lng
         };
 
         _db.Destinations.Add(destination);
@@ -167,8 +182,23 @@ public class DestinationsController : ControllerBase
         destination.Description = dto.Description;
         destination.Tags = dto.Tags;
         destination.ImageUrl = dto.ImageUrl;
-        if (dto.Latitude.HasValue) destination.Latitude = dto.Latitude.Value;
-        if (dto.Longitude.HasValue) destination.Longitude = dto.Longitude.Value;
+        
+        var newLat = dto.Latitude ?? destination.Latitude;
+        var newLng = dto.Longitude ?? destination.Longitude;
+
+        // Re-geocode if name/region changed and coordinates are 0 (or manually reset to 0 to trigger geocode)
+        if (newLat == 0.0 && newLng == 0.0)
+        {
+            var coords = await _geocodingService.GetCoordinatesAsync($"{dto.Name}, {dto.Region}");
+            if (coords != null)
+            {
+                newLat = coords.Value.Latitude;
+                newLng = coords.Value.Longitude;
+            }
+        }
+
+        destination.Latitude = newLat;
+        destination.Longitude = newLng;
 
         await _db.SaveChangesAsync();
 
