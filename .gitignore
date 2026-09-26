@@ -31,3 +31,11 @@ Travyle - initial doc.docx
 mobile/build/
 mobile/android/build/
 mobile/ios/build/
+
+# Auto-generated documents and scripts
+architecture/
+doc_content.txt
+doc_content2.txt
+doc_tables.txt
+extracted_doc.txt
+test_gemini.csx
