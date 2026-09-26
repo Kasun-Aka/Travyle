@@ -67,7 +67,7 @@ export default function TravelerConcierge() {
 
     try {
       const agentResponse = await axios.post('http://localhost:5085/api/agent/recommend', {
-        email: email.trim(),
+        email: targetEmail.trim(),
       });
 
       const { destination, reasoning } = agentResponse.data;
@@ -93,7 +93,7 @@ export default function TravelerConcierge() {
     if (!result || !email) return;
     try {
       await axios.post('http://localhost:5085/api/notifications', {
-        email: email.trim(),
+        email: targetEmail.trim(),
         destinationId: result.destination.id,
         pitch: result.reasoning
       });
