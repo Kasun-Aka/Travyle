@@ -210,4 +210,173 @@ public class SupportComponentTests
         Assert.Single(reviews);
         Assert.Equal("Breathtaking views and wonderfully organized itinerary!", reviews[0].Comment);
     }
+
+    [Fact]
+    public async Task RejectVoucher_ShouldRevokeVoucher_AndUpdateTicketStatus()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var user = new User { Id = Guid.NewGuid(), Email = "testuser@travyle.com", FullName = "Test Traveler" };
+        await db.Users.AddAsync(user);
+
+        var ticket = new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Title = "Minor Disruption Claim",
+            Description = "Minor delay.",
+            Status = TicketStatus.Pending_Admin_Voucher_Approval
+        };
+        await db.SupportTickets.AddAsync(ticket);
+
+        var voucher = new Voucher
+        {
+            Id = Guid.NewGuid(),
+            Code = "TRAV-GW-7777",
+            UserId = ticket.UserId,
+            SupportTicketId = ticket.Id,
+            SupportTicket = ticket,
+            Amount = 50.00m,
+            Status = VoucherStatus.Draft,
+            Reason = "Goodwill draft"
+        };
+        await db.Vouchers.AddAsync(voucher);
+        await db.SaveChangesAsync();
+
+        var rejectDto = new RejectVoucherDto
+        {
+            AdminId = Guid.NewGuid(),
+            Reason = "Claim does not meet goodwill threshold."
+        };
+
+        // Act
+        var result = await supportService.RejectVoucherAsync(voucher.Id, rejectDto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(VoucherStatus.Revoked.ToString(), result.Status);
+
+        var updatedTicket = await db.SupportTickets.FindAsync(ticket.Id);
+        Assert.NotNull(updatedTicket);
+        Assert.Equal(TicketStatus.Rejected, updatedTicket.Status);
+        Assert.Contains("Declined Goodwill Voucher", updatedTicket.ResolutionSummary);
+    }
+
+    [Fact]
+    public async Task ToggleReviewVerification_ShouldUpdateVerificationStatus()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var tourId = Guid.NewGuid();
+        var review = await supportService.CreateReviewAsync(new CreateReviewDto
+        {
+            TourId = tourId,
+            Rating = 4,
+            Comment = "Good tour experience."
+        });
+
+        // Act
+        var updated = await supportService.ToggleReviewVerificationAsync(review.Id, false);
+
+        // Assert
+        Assert.NotNull(updated);
+        Assert.False(updated.IsVerified);
+    }
+
+    [Fact]
+    public async Task UpdateTicket_ShouldEditDetails_WhenNotClosed()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var created = await supportService.CreateTicketAsync(new CreateTicketDto
+        {
+            Title = "Initial Complaint Title",
+            Description = "Initial description",
+            Category = "General",
+            Priority = TicketPriority.Low
+        });
+
+        // Act
+        var edited = await supportService.UpdateTicketAsync(created.Id, new UpdateTicketDto
+        {
+            Title = "Updated Bus Delay Complaint Title",
+            Description = "Updated detailed description of incident.",
+            Category = "TourDelay",
+            Priority = TicketPriority.High
+        });
+
+        // Assert
+        Assert.NotNull(edited);
+        Assert.Equal("Updated Bus Delay Complaint Title", edited.Title);
+        Assert.Equal("TourDelay", edited.Category);
+        Assert.Equal("High", edited.Priority);
+    }
+
+    [Fact]
+    public async Task SoftDelete_ShouldExcludeDeletedTicketsAndVouchers()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var created = await supportService.CreateTicketAsync(new CreateTicketDto
+        {
+            Title = "Ticket to be deleted",
+            Description = "Soft delete test",
+            Category = "General"
+        });
+
+        // Act
+        var deleteResult = await supportService.DeleteTicketAsync(created.Id);
+        var tickets = await supportService.GetTicketsAsync(new TicketListQueryDto());
+
+        // Assert
+        Assert.True(deleteResult);
+        Assert.DoesNotContain(tickets.Items, t => t.Id == created.Id);
+    }
+
+    [Fact]
+    public async Task DeleteReview_ShouldRemoveReviewFromDatabase()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var tourId = Guid.NewGuid();
+        var review = await supportService.CreateReviewAsync(new CreateReviewDto
+        {
+            TourId = tourId,
+            Rating = 3,
+            Comment = "Review to be deleted"
+        });
+
+        // Act
+        var deleteResult = await supportService.DeleteReviewAsync(review.Id);
+        var reviews = await supportService.GetReviewsByTourIdAsync(tourId);
+
+        // Assert
+        Assert.True(deleteResult);
+        Assert.Empty(reviews);
+    }
 }
