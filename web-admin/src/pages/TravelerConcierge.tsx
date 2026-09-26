@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Sparkles, Send, User, Map, CheckCircle2, Clock } from 'lucide-react';
 import axios from 'axios';
-import { destinationsApi, type Destination } from '../api/destinations';
+import { type Destination } from '../api/destinations';
 
 interface NotificationHistory {
   id: string;
