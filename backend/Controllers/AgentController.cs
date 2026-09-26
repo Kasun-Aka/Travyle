@@ -81,4 +81,47 @@ public class AgentController : ControllerBase
             return StatusCode(500, $"AI matching failed: {ex.Message}");
         }
     }
+    public class ItineraryRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public Guid DestinationId { get; set; }
+    }
+
+    [HttpPost("itinerary")]
+    public async Task<IActionResult> GenerateItinerary([FromBody] ItineraryRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email)) return BadRequest("Email is required");
+
+        var user = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .FirstOrDefaultAsync(u => u.Email == req.Email);
+
+        if (user == null) return NotFound("User not found");
+
+        var dest = await _db.Destinations.FindAsync(req.DestinationId);
+        if (dest == null) return NotFound("Destination not found");
+
+        var preferences = user.TravelerProfile?.PreferredActivities ?? Array.Empty<string>();
+        var prefString = preferences.Length > 0 ? string.Join(", ", preferences) : "General Travel";
+        var budget = user.TravelerProfile?.BudgetRange ?? "Flexible";
+        var tripHistory = user.TravelerProfile?.TripHistory ?? "First time traveler";
+
+        try
+        {
+            var itineraryJson = await _geminiService.GetItineraryAsync(dest.Name, dest.Region, prefString, budget, tripHistory);
+            
+            // Return raw JSON array directly to the mobile app
+            var parsedJson = JsonSerializer.Deserialize<JsonElement>(itineraryJson);
+            
+            return Ok(parsedJson);
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("503") || ex.Message.Contains("ServiceUnavailable"))
+            {
+                return StatusCode(503, "Google's AI servers are currently experiencing high demand. Please try again in a few moments.");
+            }
+            return StatusCode(500, $"AI itinerary generation failed: {ex.Message}");
+        }
+    }
 }

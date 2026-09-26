@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
+import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DestinationDetailScreen extends StatelessWidget {
   final Map<String, dynamic> destination;
@@ -248,7 +252,7 @@ class DestinationDetailScreen extends StatelessWidget {
                                     const SizedBox(height: 20),
                                     GradientButton(
                                       text: 'GENERATE AI ITINERARY',
-                                      onPressed: () {},
+                                      onPressed: () => _generateAiItinerary(context),
                                     ),
                                   ],
                                 ),
@@ -267,11 +271,45 @@ class DestinationDetailScreen extends StatelessWidget {
                               const SizedBox(height: 12),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&h=400&fit=crop',
-                                  height: 160,
+                                child: SizedBox(
+                                  height: 200,
                                   width: double.infinity,
-                                  fit: BoxFit.cover,
+                                  child: FlutterMap(
+                                    options: MapOptions(
+                                      initialCenter: LatLng(
+                                        (destination['latitude'] as num?)?.toDouble() ?? 7.8731, 
+                                        (destination['longitude'] as num?)?.toDouble() ?? 80.7718
+                                      ),
+                                      initialZoom: 12,
+                                      interactionOptions: const InteractionOptions(
+                                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                                      ),
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.travyle.app',
+                                      ),
+                                      if (destination['latitude'] != null && destination['latitude'] != 0)
+                                        MarkerLayer(
+                                          markers: [
+                                            Marker(
+                                              point: LatLng(
+                                                (destination['latitude'] as num).toDouble(), 
+                                                (destination['longitude'] as num).toDouble()
+                                              ),
+                                              width: 40,
+                                              height: 40,
+                                              child: const Icon(
+                                                Icons.location_on,
+                                                color: AppTheme.primaryDark,
+                                                size: 40,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -395,4 +433,144 @@ class DestinationDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _generateAiItinerary(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to generate itineraries.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryDark),
+      ),
+    );
+
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+      
+      final response = await dio.post(
+        'http://10.0.2.2:5085/api/agent/itinerary',
+        data: {
+          'email': user.email,
+          'destinationId': destination['id'],
+        },
+      );
+
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _showItineraryBottomSheet(context, response.data);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate AI itinerary: $e')),
+        );
+      }
+    }
+  }
+
+  void _showItineraryBottomSheet(BuildContext context, dynamic data) {
+    List<dynamic> days = [];
+    if (data is List) {
+      days = data;
+    } else if (data is Map && data.containsKey('days')) {
+      days = data['days'];
+    } else {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid AI format received')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: AppTheme.primaryDark),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Your Smart Itinerary - ${destination['name']}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryDark,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: days.length,
+                itemBuilder: (context, index) {
+                  final dayData = days[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundLight,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Day ${dayData['day'] ?? (index + 1)}: ${dayData['title'] ?? ''}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppTheme.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          dayData['description'] ?? '',
+                          style: const TextStyle(
+                            color: AppTheme.textGrey,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
