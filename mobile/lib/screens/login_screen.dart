@@ -48,18 +48,26 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = credential.user;
       if (user == null) throw Exception('Unable to load the signed-in account.');
 
-      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
-      try {
-        final idToken = await user.getIdToken();
-        await Dio().post('$baseUrl/api/auth/sync', data: {
-          'firebaseUid': user.uid,
-          'email': email,
-          'fullName': user.displayName ?? 'Traveler',
-          'role': 'Traveler',
-        }, options: Options(headers: {'Authorization': 'Bearer $idToken'}));
-      } catch (_) {
-        await FirebaseAuth.instance.signOut();
-        throw Exception('Account sync failed. Please try again when the server is available.');
+      final user = userCredential.user;
+      if (user != null) {
+        try {
+          final dio = Dio();
+          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          // Fetch existing user data to preserve their role
+          try {
+            await dio.get('$baseUrl/api/auth/user', queryParameters: {'email': email});
+          } catch (_) {
+            // User doesn't exist in DB yet — sync to create them
+            await dio.post('$baseUrl/api/auth/sync', data: {
+              'firebaseUid': user.uid,
+              'email': email,
+              'fullName': user.displayName ?? '',
+              'role': 'Traveler',
+            });
+          }
+        } catch (apiError) {
+          debugPrint('Failed to fetch/sync user with DB on login: $apiError');
+        }
       }
       if (mounted) {
         Navigator.pushReplacement(

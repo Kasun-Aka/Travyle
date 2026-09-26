@@ -122,10 +122,10 @@ class _SplashScreenState extends State<SplashScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const SignupScreen()),
-                              );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SignupScreen()),
+                          );
                         },
                         child: const Text('SIGN UP', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),

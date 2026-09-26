@@ -48,10 +48,16 @@ builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddre
 
 // ─── CORS (allow Flutter dev) ────────────────────────────────────────────────
 
+// Allow dev clients (React admin + Flutter web) to call the API
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("DevPolicy", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
 });
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────

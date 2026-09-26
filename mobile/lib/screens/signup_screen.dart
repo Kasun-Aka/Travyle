@@ -214,7 +214,7 @@ class _SignupScreenState extends State<SignupScreen> {
               const Text('I AM A...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _selectedRole,
+                value: _selectedRole,
                 borderRadius: BorderRadius.circular(30),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),

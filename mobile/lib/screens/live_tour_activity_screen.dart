@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 
 class LiveTourActivityScreen extends StatefulWidget {
-  const LiveTourActivityScreen({super.key});
+  final bool isGuide;
+  const LiveTourActivityScreen({super.key, this.isGuide = false});
 
   @override
   State<LiveTourActivityScreen> createState() => _LiveTourActivityScreenState();
 }
 
 class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
+  final List<Map<String, dynamic>> _checklist = [
+    {'title': 'Tanah Lot Temple Sunrise', 'estimatedTime': 'Estimated: 06:15 AM', 'status': CheckStatus.completed},
+    {'title': 'Kopi Luwak Estate', 'estimatedTime': 'Estimated: 08:30 AM • CURRENT STOP', 'status': CheckStatus.current},
+    {'title': 'Bratan Volcanic Caldera', 'estimatedTime': 'Estimated: 11:00 AM', 'status': CheckStatus.upcoming},
+    {'title': 'Ubud Art Market Lounge', 'estimatedTime': 'Estimated: 02:00 PM', 'status': CheckStatus.upcoming},
+  ];
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,26 +78,26 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
               ),
             ),
             const SizedBox(height: 16.0),
-            _buildChecklistItem(
-              title: 'Tanah Lot Temple Sunrise',
-              estimatedTime: 'Estimated: 06:15 AM',
-              status: CheckStatus.completed,
-            ),
-            _buildChecklistItem(
-              title: 'Kopi Luwak Estate',
-              estimatedTime: 'Estimated: 08:30 AM • CURRENT STOP',
-              status: CheckStatus.current,
-            ),
-            _buildChecklistItem(
-              title: 'Bratan Volcanic Caldera',
-              estimatedTime: 'Estimated: 11:00 AM',
-              status: CheckStatus.upcoming,
-            ),
-            _buildChecklistItem(
-              title: 'Ubud Art Market Lounge',
-              estimatedTime: 'Estimated: 02:00 PM',
-              status: CheckStatus.upcoming,
-            ),
+            ..._checklist.asMap().entries.map((entry) {
+              int idx = entry.key;
+              var item = entry.value;
+              return _buildChecklistItem(
+                title: item['title'] as String,
+                estimatedTime: item['estimatedTime'] as String,
+                status: item['status'] as CheckStatus,
+                onTap: widget.isGuide ? () {
+                  setState(() {
+                    if (item['status'] == CheckStatus.upcoming) {
+                      _checklist[idx]['status'] = CheckStatus.current;
+                    } else if (item['status'] == CheckStatus.current) {
+                      _checklist[idx]['status'] = CheckStatus.completed;
+                    } else {
+                      _checklist[idx]['status'] = CheckStatus.upcoming;
+                    }
+                  });
+                } : null,
+              );
+            }).toList(),
             const SizedBox(height: 32.0),
             SizedBox(
               width: double.infinity,
@@ -183,6 +192,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
     required String title,
     required String estimatedTime,
     required CheckStatus status,
+    VoidCallback? onTap,
   }) {
     Color getBgColor() {
       switch (status) {
@@ -236,47 +246,50 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: getBgColor(),
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          getIcon(),
-          const SizedBox(width: 16.0),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.w700,
-                    color: status == CheckStatus.completed
-                        ? Colors.grey
-                        : const Color(0xFF133E4D),
-                    decoration: status == CheckStatus.completed
-                        ? TextDecoration.lineThrough
-                        : null,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12.0),
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: getBgColor(),
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            getIcon(),
+            const SizedBox(width: 16.0),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w700,
+                      color: status == CheckStatus.completed
+                          ? Colors.grey
+                          : const Color(0xFF133E4D),
+                      decoration: status == CheckStatus.completed
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4.0),
-                Text(
-                  estimatedTime,
-                  style: const TextStyle(
-                    fontSize: 13.0,
-                    color: Colors.grey,
+                  const SizedBox(height: 4.0),
+                  Text(
+                    estimatedTime,
+                    style: const TextStyle(
+                      fontSize: 13.0,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
