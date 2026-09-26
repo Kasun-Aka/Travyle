@@ -7,6 +7,7 @@ import 'login_screen.dart';
 import 'account_details_screen.dart';
 import 'preference_screen.dart';
 import 'pdf_viewer_screen.dart';
+import 'profile_notifications_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -331,7 +332,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildMenuOption(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileNotificationsScreen()),
+              );
+            },
           ),
           _buildMenuOption(
             icon: Icons.security,
