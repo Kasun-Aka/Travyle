@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet's default icon paths
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
 import { destinationsApi, type Destination, type CreateDestinationPayload } from '../api/destinations';
 
 interface Props {
@@ -18,6 +30,20 @@ const EMPTY_FORM: CreateDestinationPayload = {
   latitude: undefined,
   longitude: undefined,
 };
+
+
+function LocationMarker({ position, setPosition }: { position: [number, number], setPosition: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition(e.latlng.lat, e.latlng.lng);
+      map.flyTo(e.latlng, map.getZoom());
+    },
+  });
+
+  return position[0] !== 0 ? (
+    <Marker position={position}></Marker>
+  ) : null;
+}
 
 export default function DestinationFormModal({ destination, onClose, onSaved }: Props) {
   const isEditing = !!destination;
@@ -227,6 +253,26 @@ export default function DestinationFormModal({ destination, onClose, onSaved }: 
                 />
               </div>
             </div>
+              {/* Map Preview */}
+              <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden h-48 relative z-0">
+                <MapContainer 
+                  center={[form.latitude || 7.8731, form.longitude || 80.7718]} 
+                  zoom={form.latitude && form.longitude ? 10 : 7} 
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  />
+                  <LocationMarker 
+                    position={[form.latitude || 0, form.longitude || 0]} 
+                    setPosition={(lat, lng) => setForm(f => ({ ...f, latitude: lat, longitude: lng }))}
+                  />
+                </MapContainer>
+                <div className="absolute top-2 left-2 z-[40] bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 shadow-sm border border-gray-200 pointer-events-none">
+                  ?? Click map to set coordinates (or leave 0 to auto-geocode)
+                </div>
+              </div>
           </div>
 
           {/* Modal Footer */}
