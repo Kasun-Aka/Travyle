@@ -18,7 +18,7 @@ builder.Services.AddDbContext<TravyleDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHttpClient<GeminiService>();
-builder.Services.AddHttpClient<IGeocodingService, GoogleMapsGeocodingService>();
+builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 
 builder.Services.AddSwaggerGen();
 
