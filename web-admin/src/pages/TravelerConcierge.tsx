@@ -26,13 +26,10 @@ export default function TravelerConcierge() {
         email: email.trim(),
       });
 
-      const { destinationId, reasoning } = agentResponse.data;
-
-      // 2. Fetch the full destination details using the ID returned
-      const destResponse = await destinationsApi.get(destinationId);
+      const { destination, reasoning } = agentResponse.data;
       
       setResult({
-        destination: destResponse.data,
+        destination,
         reasoning,
       });
     } catch (err: any) {
