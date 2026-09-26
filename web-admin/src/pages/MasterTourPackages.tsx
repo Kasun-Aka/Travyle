@@ -66,6 +66,7 @@ function DeleteConfirmDialog({
 // Main Page
 // ────────────────────────────────────────────────────────────
 export default function MasterTourPackages() {
+  const detailRef = useRef<HTMLDivElement>(null);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -91,6 +92,15 @@ export default function MasterTourPackages() {
   const [selected, setSelected] = useState<Destination | null>(null);
 
   // ── Fetch destinations ──────────────────────────────────
+
+  const handleSelectDestination = (dest: Destination) => {
+    setSelected(dest);
+    // Add a tiny timeout to ensure it renders before scrolling if on mobile, though usually instant is fine
+    setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
   const fetchDestinations = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -299,7 +309,7 @@ export default function MasterTourPackages() {
                 {destinations.map((dest) => (
                   <tr
                     key={dest.id}
-                    onClick={() => setSelected(dest)}
+                    onClick={() => handleSelectDestination(dest)}
                     className={`hover:bg-gray-50 cursor-pointer transition-colors ${selected?.id === dest.id ? 'bg-brand-50/40' : ''}`}
                   >
                     <td className="py-4 px-6">
@@ -373,7 +383,7 @@ export default function MasterTourPackages() {
 
         {/* ── Selected Package Detail Panel ─────────────────── */}
         {selected && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div ref={detailRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Package detail</h2>
