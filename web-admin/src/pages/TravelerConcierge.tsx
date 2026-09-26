@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Sparkles, Send, User, Map, CheckCircle2, Clock } from 'lucide-react';
+import { Sparkles, Send, User, Map, CheckCircle2, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 import { type Destination } from '../api/destinations';
 
@@ -30,6 +30,7 @@ export default function TravelerConcierge() {
   const [sent, setSent] = useState(false);
   const [history, setHistory] = useState<NotificationHistory[]>([]);
   const [travelers, setTravelers] = useState<Traveler[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
 
 
@@ -126,13 +127,13 @@ export default function TravelerConcierge() {
             {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
           </div>
           
-          <div className="p-6 overflow-x-auto">
-            <div className="flex gap-4 min-w-max pb-2">
+          <div className={`p-6 ${isExpanded ? '' : 'overflow-x-auto'}`}>
+            <div className={isExpanded ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex gap-4 min-w-max pb-2"}>
               {travelers.length === 0 ? (
                 <p className="text-gray-500 italic text-sm">No registered travelers found.</p>
               ) : (
                 travelers.map(t => (
-                  <div key={t.email} className={`w-80 rounded-xl border p-5 flex flex-col gap-4 transition-all ${email === t.email ? 'border-brand-500 bg-brand-50/30 ring-4 ring-brand-50' : 'border-gray-200 bg-white hover:border-gray-300 shadow-sm'}`}>
+                  <div key={t.email} className={`${isExpanded ? 'w-full' : 'w-80 shrink-0'} rounded-xl border p-5 flex flex-col gap-4 transition-all ${email === t.email ? 'border-brand-500 bg-brand-50/30 ring-4 ring-brand-50' : 'border-gray-200 bg-white hover:border-gray-300 shadow-sm'}`}>
                     
                     {/* Header */}
                     <div className="flex items-center gap-3">
@@ -175,6 +176,20 @@ export default function TravelerConcierge() {
               )}
             </div>
           </div>
+          
+          {/* Expand / Collapse Footer */}
+          {travelers.length > 0 && (
+            <div className="bg-gray-50 border-t border-gray-100 p-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-brand-600 transition-colors px-4 py-2 rounded-lg hover:bg-gray-200/50"
+              >
+                {isExpanded ? 'View Less' : 'View All Travelers'}
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+            </div>
+          )}
 
           {result && (
             <div className="p-8">
