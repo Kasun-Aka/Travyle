@@ -19,6 +19,9 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      if (!auth) {
+        throw new Error('Firebase is not configured. Add the VITE_FIREBASE_* values to web-admin/.env.');
+      }
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Update display name in Firebase
       await updateProfile(userCredential.user, { displayName: fullName });

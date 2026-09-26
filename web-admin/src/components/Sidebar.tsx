@@ -11,45 +11,41 @@ import {
   Headset 
 } from 'lucide-react';
 
-const linkBase = 'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium';
-const activeClass = 'bg-white text-sidebar font-bold';
-const inactiveClass = 'text-gray-300 hover:text-white hover:bg-white/10';
-
 export default function Sidebar() {
   const { currentUser, logout } = useAuth();
   return (
-    <div className="w-64 bg-sidebar h-screen text-white flex flex-col">
+    <aside className="admin-sidebar">
       {/* Brand Header */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center font-bold text-lg">
+      <div className="sidebar-brand">
+        <div className="sidebar-brand-mark">
           T
         </div>
-        <div>
-          <h1 className="font-bold text-lg leading-tight">Travyle</h1>
-          <p className="text-xs text-gray-400">Admin console</p>
+        <div className="sidebar-brand-copy">
+          <h1>Travyle</h1>
+          <p>Admin console</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-8">
+      <div className="sidebar-scroll">
         
         {/* Overview Group */}
-        <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Overview</h2>
-          <ul className="space-y-1">
+        <div className="sidebar-group">
+          <h2>Overview</h2>
+          <ul>
             <li>
               <NavLink
-                to="/dashboard"
-                className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+                to="/welcome"
+                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
               >
                 <LayoutDashboard size={18} />
-                <span>Dashboard</span>
+                <span>Welcome</span>
               </NavLink>
             </li>
             <li>
               <NavLink
                 to="/trends"
-                className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
               >
                 <TrendingUp size={18} />
                 <span>Travel trends</span>
@@ -59,62 +55,65 @@ export default function Sidebar() {
         </div>
 
         {/* Catalog Group */}
-        <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Catalog</h2>
-          <ul className="space-y-1">
+        <div className="sidebar-group">
+          <h2>Catalog</h2>
+          <ul>
             <li>
               <NavLink
                 to="/catalog/packages"
-                className={({ isActive }) => `${linkBase} flex justify-between ${isActive ? activeClass : inactiveClass}`}
+                className={({ isActive }) => `sidebar-link sidebar-link-split ${isActive ? 'active' : ''}`}
               >
-                <div className="flex items-center gap-3">
+                <div className="sidebar-link-content">
                   <Map size={18} />
                   <span>Tour packages</span>
                 </div>
-                <span className="text-xs font-bold">&gt;</span>
+                <span className="sidebar-chevron">&gt;</span>
               </NavLink>
             </li>
           </ul>
         </div>
 
         {/* Commerce Group */}
-        <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Commerce</h2>
-          <ul className="space-y-1">
+        <div className="sidebar-group">
+          <h2>Commerce</h2>
+          <ul>
             <li>
-              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
-                <div className="flex items-center gap-3">
+              <NavLink
+                to="/bookings"
+                className={({ isActive }) => `sidebar-link sidebar-link-split ${isActive ? 'active' : ''}`}
+              >
+                <div className="sidebar-link-content">
                   <CreditCard size={18} />
-                  <span>Bookings &amp; escrow</span>
+                  <span>Booking</span>
                 </div>
-                <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">2</span>
-              </a>
+                <span className="sidebar-count">2</span>
+              </NavLink>
             </li>
           </ul>
         </div>
 
         {/* Operations Group */}
-        <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Operations</h2>
-          <ul className="space-y-1">
+        <div className="sidebar-group">
+          <h2>Operations</h2>
+          <ul>
             <li>
-              <NavLink to="/operations/live-operations" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass} flex justify-between`}>
-                <div className="flex items-center gap-3">
+              <NavLink to="/operations/live-operations" className={({ isActive }) => `sidebar-link sidebar-link-split ${isActive ? 'active' : ''}`}>
+                <div className="sidebar-link-content">
                   <Activity size={18} />
                   <span>Live operations</span>
                 </div>
-                <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">2</span>
+                <span className="sidebar-count">2</span>
               </NavLink>
             </li>
             <li>
-              <NavLink to="/operations/guide-assignments" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}>
+              <NavLink to="/operations/guide-assignments" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <Users size={18} />
                 <span>Guide assignments</span>
               </NavLink>
             </li>
             <li>
-              <NavLink to="/operations/staff-access" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}>
-                <div className="flex items-center gap-3">
+              <NavLink to="/operations/staff-access" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <div className="sidebar-link-content">
                   <Headset size={18} />
                   <span>Staff Access</span>
                 </div>
@@ -124,16 +123,16 @@ export default function Sidebar() {
         </div>
 
         {/* Customer Quality Group */}
-        <div>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Customer quality</h2>
-          <ul className="space-y-1">
+        <div className="sidebar-group">
+          <h2>Customer quality</h2>
+          <ul>
             <li>
-              <a href="#" className={`${linkBase} ${inactiveClass} flex justify-between`}>
-                <div className="flex items-center gap-3">
+              <a href="#" className="sidebar-link sidebar-link-split">
+                <div className="sidebar-link-content">
                   <Headset size={18} />
                   <span>Support queue</span>
                 </div>
-                <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full">3</span>
+                <span className="sidebar-count">3</span>
               </a>
             </li>
           </ul>
@@ -141,33 +140,33 @@ export default function Sidebar() {
       </div>
 
       {/* User Profile */}
-      <div className="p-4 mt-auto border-t border-white/10">
-        <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg mb-4">
-          <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center font-bold text-sm uppercase">
+      <div className="sidebar-footer">
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
             {currentUser?.email?.substring(0, 2) || 'AD'}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold leading-tight truncate">{currentUser?.displayName || currentUser?.email || 'Amara De Silva'}</p>
-            <p className="text-xs text-gray-400">System administrator</p>
+          <div className="sidebar-user-copy">
+            <p>{currentUser?.displayName || currentUser?.email || 'Amara De Silva'}</p>
+            <span>System administrator</span>
           </div>
         </div>
         
-        <div className="flex flex-col gap-3 text-xs px-2 mb-2">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Platform</span>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="font-medium text-gray-200">All systems live</span>
+        <div className="sidebar-status">
+          <div>
+            <span>Platform</span>
+            <div className="sidebar-status-live">
+              <i />
+              <b>All systems live</b>
             </div>
           </div>
           <button 
             onClick={logout}
-            className="text-left text-gray-400 hover:text-white transition-colors py-1 w-fit font-medium"
+            className="sidebar-signout"
           >
             Sign Out
           </button>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

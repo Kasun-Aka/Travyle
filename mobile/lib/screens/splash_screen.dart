@@ -23,12 +23,15 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image
-          Image.network(
-            'https://images.unsplash.com/photo-1499856871958-5b9627545d1a', // placeholder travel image
-            fit: BoxFit.cover,
-            color: Colors.black.withOpacity(0.3),
-            colorBlendMode: BlendMode.darken,
+          // Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D3B4C), Color(0xFF1A4C64), Color(0xFFD98A6C)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
           // Content
           Column(

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
+import '../features/destinations/models/destination.dart';
+import '../features/bookings/screens/schedule_browse_screen.dart';
 
 class DestinationDetailScreen extends StatelessWidget {
-  const DestinationDetailScreen({super.key});
+  final Destination destination;
+
+  const DestinationDetailScreen({super.key, required this.destination});
 
   @override
   Widget build(BuildContext context) {
@@ -17,11 +22,15 @@ class DestinationDetailScreen extends StatelessWidget {
             right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
             child: Image.network(
-              'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&h=800&fit=crop',
+              destination.imageUrl,
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const ColoredBox(
+                color: AppTheme.borderLight,
+                child: Icon(Icons.landscape, size: 72),
+              ),
             ),
           ),
-          
+
           // Custom Back Button & Bookmark
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
@@ -85,8 +94,8 @@ class DestinationDetailScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      'Bali, Indonesia',
+                                    Text(
+                                      destination.name,
                                       style: TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
@@ -95,9 +104,11 @@ class DestinationDetailScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Southeast Asia • Exotic Tropical Island',
+                                      destination.region,
                                       style: TextStyle(
-                                        color: AppTheme.textGrey.withOpacity(0.8),
+                                        color: AppTheme.textGrey.withOpacity(
+                                          0.8,
+                                        ),
                                         fontSize: 13,
                                       ),
                                     ),
@@ -109,10 +120,15 @@ class DestinationDetailScreen extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.star, color: Colors.amber, size: 18),
+                                      const Icon(
+                                        Icons.star,
+                                        color: Colors.amber,
+                                        size: 18,
+                                      ),
                                       const SizedBox(width: 4),
-                                      const Text(
-                                        '4.9',
+                                      Text(
+                                        destination.averageRating
+                                            .toStringAsFixed(1),
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
@@ -135,14 +151,14 @@ class DestinationDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      
+
                       // Content starts here (offset negated)
                       Transform.translate(
                         offset: const Offset(0, -32),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'OVERVIEW',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -152,8 +168,8 @@ class DestinationDetailScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Embark on a spiritual, artistic, and natural wonderland. From pristine sunset beaches to dramatic volcanic landscapes, Bali delivers a deeply immersive, refined retreat.',
+                            Text(
+                              destination.description,
                               style: TextStyle(
                                 fontSize: 15,
                                 color: AppTheme.textGrey,
@@ -161,7 +177,7 @@ class DestinationDetailScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            
+
                             const Text(
                               'HIGHLIGHTS',
                               style: TextStyle(
@@ -175,14 +191,12 @@ class DestinationDetailScreen extends StatelessWidget {
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: [
-                                _buildHighlightChip('Luxury Spas', true),
-                                _buildHighlightChip('Private Beaches', true),
-                                _buildHighlightChip('Cultural Heritage', false),
-                              ],
+                              children: destination.tags
+                                  .map((tag) => _buildHighlightChip(tag, true))
+                                  .toList(),
                             ),
                             const SizedBox(height: 32),
-                            
+
                             // AI Planner Card
                             Container(
                               padding: const EdgeInsets.all(20),
@@ -196,7 +210,10 @@ class DestinationDetailScreen extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.auto_awesome, color: AppTheme.primaryDark),
+                                      const Icon(
+                                        Icons.auto_awesome,
+                                        color: AppTheme.primaryDark,
+                                      ),
                                       const SizedBox(width: 8),
                                       const Text(
                                         'Wanderlust AI Planner',
@@ -211,7 +228,10 @@ class DestinationDetailScreen extends StatelessWidget {
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Receive a meticulously-tailored, multi-day smart itinerary optimized for your style.',
-                                    style: TextStyle(color: AppTheme.textGrey, fontSize: 14),
+                                    style: TextStyle(
+                                      color: AppTheme.textGrey,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                   const SizedBox(height: 20),
                                   GradientButton(
@@ -222,7 +242,7 @@ class DestinationDetailScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 32),
-                            
+
                             const Text(
                               'MAP AREA',
                               style: TextStyle(
@@ -257,7 +277,9 @@ class DestinationDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: AppTheme.borderLight.withOpacity(0.5))),
+          border: Border(
+            top: BorderSide(color: AppTheme.borderLight.withOpacity(0.5)),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -268,7 +290,11 @@ class DestinationDetailScreen extends StatelessWidget {
               children: [
                 const Text(
                   'GUIDED TOUR',
-                  style: TextStyle(color: AppTheme.textGrey, fontSize: 10, letterSpacing: 1),
+                  style: TextStyle(
+                    color: AppTheme.textGrey,
+                    fontSize: 10,
+                    letterSpacing: 1,
+                  ),
                 ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -295,13 +321,30 @@ class DestinationDetailScreen extends StatelessWidget {
               ],
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ScheduleBrowseScreen(),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryDark,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
-              child: const Text('BOOK TOUR', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: const Text(
+                'BOOK TOUR',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ],
         ),
@@ -309,7 +352,10 @@ class DestinationDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCircleIconButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildCircleIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -327,7 +373,9 @@ class DestinationDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: isSelected ? AppTheme.primaryDark : Colors.transparent,
-        border: Border.all(color: isSelected ? AppTheme.primaryDark : AppTheme.borderLight),
+        border: Border.all(
+          color: isSelected ? AppTheme.primaryDark : AppTheme.borderLight,
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

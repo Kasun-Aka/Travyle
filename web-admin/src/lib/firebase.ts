@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -8,5 +8,10 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const firebaseConfigured = Object.values(firebaseConfig).every(
+  (value) => typeof value === 'string' && value.trim().length > 0,
+);
+
+export const auth: Auth | null = firebaseConfigured
+  ? getAuth(initializeApp(firebaseConfig))
+  : null;
