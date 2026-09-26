@@ -8,6 +8,9 @@ import MasterTourPackages from './pages/MasterTourPackages';
 import LiveTourOperations from './pages/LiveTourOperations';
 import GuideAssignmentMatrix from './pages/GuideAssignmentMatrix';
 import StaffAccessControl from './pages/StaffAccessControl';
+import { SupportDashboard } from './pages/SupportDashboard';
+import { VouchersPage } from './pages/VouchersPage';
+import { CustomerReviewsPage } from './pages/CustomerReviewsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import './index.css';
 import './admin-theme.css';
@@ -30,6 +33,7 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<Login />} />
     <Route path="/signup" element={<Signup />} />
+    
     <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
       <Route path="/" element={<Navigate to="/welcome" replace />} />
       <Route path="/welcome" element={<Welcome />} />
@@ -38,8 +42,15 @@ const AppRoutes = () => (
       <Route path="/operations/live-operations" element={<LiveTourOperations />} />
       <Route path="/operations/guide-assignments" element={<GuideAssignmentMatrix />} />
       <Route path="/operations/staff-access" element={<StaffAccessControl />} />
+      
+      {/* Support & Customer Quality Routes */}
+      <Route path="/support/tickets" element={<SupportDashboard />} />
+      <Route path="/support/vouchers" element={<VouchersPage />} />
+      <Route path="/support/reviews" element={<CustomerReviewsPage />} />
     </Route>
+
     <Route path="/bookings" element={<ProtectedRoute><App /></ProtectedRoute>} />
+    <Route path="*" element={<Navigate to="/welcome" replace />} />
   </Routes>
 );
 

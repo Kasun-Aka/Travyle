@@ -14,6 +14,7 @@ import '../features/destinations/models/destination.dart';
 import '../features/destinations/providers/destination_providers.dart';
 
 import 'profile_screen.dart';
+import 'support/support_home_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -64,7 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             _buildHomeContent(context),
             const ScheduleBrowseScreen(),
             const GuideDashboardScreen(),
-            const Center(child: Text('Support - Coming Soon')),
+            const SupportHomeScreen(),
             const ProfileScreen(),
           ],
         ),

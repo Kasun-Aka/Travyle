@@ -127,13 +127,28 @@ export default function Sidebar() {
           <h2>Customer quality</h2>
           <ul>
             <li>
-              <a href="#" className="sidebar-link sidebar-link-split">
-                <div className="sidebar-link-content">
+              <NavLink to="/support/tickets" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass} flex justify-between`}>
+                <div className="flex items-center gap-3">
                   <Headset size={18} />
                   <span>Support queue</span>
                 </div>
-                <span className="sidebar-count">3</span>
-              </a>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/support/vouchers" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass} flex justify-between`}>
+                <div className="flex items-center gap-3">
+                  <CreditCard size={18} />
+                  <span>Goodwill Vouchers</span>
+                </div>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/support/reviews" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass} flex justify-between`}>
+                <div className="flex items-center gap-3">
+                  <Activity size={18} />
+                  <span>Customer Reviews</span>
+                </div>
+              </NavLink>
             </li>
           </ul>
         </div>

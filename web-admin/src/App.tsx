@@ -7,6 +7,7 @@ import SlotManager from "./components/SlotManager";
 import AgentApprovals from "./components/AgentApprovals";
 
 type View = "overview" | "bookings" | "slots" | "requests" | "agent";
+
 type Booking = {
   id: string;
   bookingReference: string;
@@ -25,6 +26,7 @@ type Booking = {
   receiptImageData?: string;
   createdAt: string;
 };
+
 type Schedule = {
   id: string;
   destinationTitle: string;
@@ -36,6 +38,7 @@ type Schedule = {
   availableTimeSlots: string[];
   bookedSlotsMap: Record<string, number>;
 };
+
 type Request = {
   id: string;
   bookingId: string;
@@ -47,15 +50,19 @@ type Request = {
   status: string;
   createdAt: string;
 };
+
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:5085/api";
+
 const money = (value: number) =>
   `LKR ${value.toLocaleString("en-LK", { maximumFractionDigits: 0 })}`;
+
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+
 const demoBookings: Booking[] = [
   {
     id: "1",
@@ -108,6 +115,7 @@ const demoBookings: Booking[] = [
     createdAt: "2026-09-19T15:12:00Z",
   },
 ];
+
 const demoSchedules: Schedule[] = [
   {
     id: "1",
@@ -132,6 +140,7 @@ const demoSchedules: Schedule[] = [
     bookedSlotsMap: {},
   },
 ];
+
 const demoRequests: Request[] = [
   {
     id: "1",
@@ -145,6 +154,7 @@ const demoRequests: Request[] = [
     createdAt: "2026-09-19T14:00:00Z",
   },
 ];
+
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await auth?.currentUser?.getIdToken();
   const headers: Record<string, string> = {
@@ -173,6 +183,7 @@ function App() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [notice, setNotice] = useState("");
+
   const loadData = async () => {
     const [nextBookings, nextSchedules, nextRequests] = await Promise.all([
       get<Booking[]>("/bookings/admin/all?page=1&pageSize=100", demoBookings),
@@ -183,9 +194,11 @@ function App() {
     setSchedules(nextSchedules);
     setRequests(nextRequests);
   };
+
   useEffect(() => {
     void loadData();
   }, []);
+
   const updateRequest = async (id: string, status: "Approved" | "Rejected") => {
     try {
       await fetch(`${API}/discount-requests/${id}/status`, {
@@ -203,6 +216,7 @@ function App() {
     );
     setNotice(`Request ${status.toLowerCase()}.`);
   };
+
   const verifyPayment = async (booking: Booking) => {
     try {
       await fetch(`${API}/bookings/${booking.id}/process-escrow-payment`, {
@@ -228,12 +242,15 @@ function App() {
       `${booking.bookingReference} payment verified and held in escrow.`,
     );
   };
+
   const pendingPayments = bookings.filter(
     (booking) => booking.paymentStatus === "Pending",
   ).length;
+
   const pendingRequests = requests.filter(
     (request) => request.status === "Pending",
   ).length;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -483,6 +500,7 @@ function Overview({
     </div>
   );
 }
+
 function Metric({
   label,
   value,
@@ -505,6 +523,7 @@ function Metric({
     </div>
   );
 }
+
 function PanelHeading({
   title,
   action,
@@ -528,6 +547,7 @@ function PanelHeading({
     </div>
   );
 }
+
 function BookingRow({ booking }: { booking: Booking }) {
   return (
     <div className="booking-row">
@@ -551,9 +571,11 @@ function BookingRow({ booking }: { booking: Booking }) {
     </div>
   );
 }
+
 function Empty({ text }: { text: string }) {
   return <div className="empty">{text}</div>;
 }
+
 function Bookings({
   bookings,
   onVerify,
@@ -563,12 +585,14 @@ function Bookings({
 }) {
   const [filter, setFilter] = useState("All");
   const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
+
   const filtered =
     filter === "All"
       ? bookings
       : filter === "Receipts"
         ? bookings.filter((booking) => booking.paymentStatus === "Pending")
         : bookings.filter((booking) => booking.status === filter);
+
   return (
     <div className="content-grid">
       <div className="page-intro">
@@ -746,6 +770,7 @@ function ReceiptReview({
     </div>
   );
 }
+
 function LegacySlots({
   schedules,
   onCreated,
@@ -763,6 +788,7 @@ function LegacySlots({
     slots: "09:00 AM",
   });
   const [saving, setSaving] = useState(false);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -809,6 +835,7 @@ function LegacySlots({
       });
     }
   };
+
   return (
     <div className="content-grid">
       <div className="page-intro">
@@ -948,7 +975,9 @@ function LegacySlots({
     </div>
   );
 }
+
 void LegacySlots;
+
 function Requests({
   requests,
   onUpdate,
@@ -1017,4 +1046,5 @@ function Requests({
     </div>
   );
 }
+
 export default App;
