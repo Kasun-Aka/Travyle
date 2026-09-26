@@ -65,14 +65,14 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
       appBar: AppBar(
         title: const Text(
           'Notifications',
-          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.textPrimary),
+        iconTheme: const IconThemeData(color: AppTheme.textDark),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark))
           : _notifications.isEmpty
               ? const Center(
                   child: Text(
@@ -97,10 +97,10 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isRead ? Colors.white : AppTheme.primaryLight.withOpacity(0.3),
+                          color: isRead ? Colors.white : AppTheme.backgroundLight.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isRead ? AppTheme.borderLight : AppTheme.primary.withOpacity(0.5),
+                            color: isRead ? AppTheme.borderLight : AppTheme.primaryDark.withOpacity(0.5),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -115,7 +115,7 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 20),
+                                const Icon(Icons.auto_awesome, color: AppTheme.primaryDark, size: 20),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'AI Concierge Pitch',
@@ -143,12 +143,12 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
                             const SizedBox(height: 12),
                             Text(
                               dest != null ? 'Recommended: ${dest['name']} (${dest['region']})' : 'Recommended Destination',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textDark),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               '"${notif['pitch']}"',
-                              style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary, fontStyle: FontStyle.italic),
+                              style: const TextStyle(fontSize: 14, color: AppTheme.textGrey, fontStyle: FontStyle.italic),
                             ),
                             const SizedBox(height: 12),
                             Text(
