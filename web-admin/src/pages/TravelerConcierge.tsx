@@ -4,6 +4,13 @@ import { Sparkles, Send, User, Map, CheckCircle2, Clock } from 'lucide-react';
 import axios from 'axios';
 import { type Destination } from '../api/destinations';
 
+interface Traveler {
+  email: string;
+  fullName: string;
+  preferences: string[];
+  budget: string;
+}
+
 interface NotificationHistory {
   id: string;
   pitch: string;
@@ -22,7 +29,18 @@ export default function TravelerConcierge() {
   const [result, setResult] = useState<{ destination: Destination; reasoning: string } | null>(null);
   const [sent, setSent] = useState(false);
   const [history, setHistory] = useState<NotificationHistory[]>([]);
+  const [travelers, setTravelers] = useState<Traveler[]>([]);
 
+
+
+  const fetchTravelers = async () => {
+    try {
+      const res = await axios.get('http://localhost:5085/api/auth/travelers');
+      setTravelers(res.data);
+    } catch (err) {
+      console.error("Failed to load travelers", err);
+    }
+  };
   const fetchHistory = async () => {
     try {
       const res = await axios.get('http://localhost:5085/api/notifications/admin');
@@ -34,11 +52,12 @@ export default function TravelerConcierge() {
 
   useEffect(() => {
     fetchHistory();
+    fetchTravelers();
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
+  const handleGenerate = async (targetEmail: string) => {
+    if (!targetEmail.trim()) return;
+    setEmail(targetEmail); // Keep it in state for the notification part
 
     setLoading(true);
     setError('');
@@ -98,32 +117,63 @@ export default function TravelerConcierge() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-8">
-          <div className="p-6 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Look up traveler</h2>
-            <form onSubmit={handleGenerate} className="flex gap-4">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User size={20} className="text-gray-400" />
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. vinod23@gmail.com"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !email.trim()}
-                className="bg-brand-600 text-white font-medium px-6 py-3 rounded-xl hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-brand-600/20"
-              >
-                {loading ? <span className="animate-pulse">Analyzing...</span> : 'Generate Pitch'}
-                {!loading && <Sparkles size={18} />}
-              </button>
-            </form>
-            {error && <p className="text-red-500 mt-3 text-sm font-medium">{error}</p>}
+          <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Registered Travelers</h2>
+              <p className="text-sm text-gray-500 mt-1">Select a traveler to generate a personalized AI pitch</p>
+            </div>
+            {loading && <div className="flex items-center gap-2 text-brand-600 font-bold animate-pulse"><Sparkles size={20} /> Analyzing Match...</div>}
+            {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
+          </div>
+          
+          <div className="p-6 overflow-x-auto">
+            <div className="flex gap-4 min-w-max pb-2">
+              {travelers.length === 0 ? (
+                <p className="text-gray-500 italic text-sm">No registered travelers found.</p>
+              ) : (
+                travelers.map(t => (
+                  <div key={t.email} className={`w-80 rounded-xl border p-5 flex flex-col gap-4 transition-all ${email === t.email ? 'border-brand-500 bg-brand-50/30 ring-4 ring-brand-50' : 'border-gray-200 bg-white hover:border-gray-300 shadow-sm'}`}>
+                    
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                        {t.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 truncate">{t.fullName}</h3>
+                        <p className="text-xs text-gray-500 truncate">{t.email}</p>
+                      </div>
+                    </div>
+
+                    {/* Preferences Tags */}
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Style Preferences</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {t.preferences.length > 0 ? (
+                          t.preferences.slice(0, 3).map(p => (
+                            <span key={p} className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded-md font-medium">{p}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">No preferences saved</span>
+                        )}
+                        {t.preferences.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded-md font-medium">+{t.preferences.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleGenerate(t.email)}
+                      disabled={loading}
+                      className="mt-auto w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-brand-600 hover:text-brand-600 text-gray-700 font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      <Sparkles size={16} />
+                      Generate Pitch
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {result && (

@@ -54,6 +54,7 @@ public class AuthController : ControllerBase
         return Ok(user);
     }
 
+
     // GET /api/auth/user
     [HttpGet("user")]
     public async Task<IActionResult> GetUserByEmail([FromQuery] string email)
@@ -88,6 +89,25 @@ public class AuthController : ControllerBase
     {
         public string Email { get; set; } = string.Empty;
         public string[] Preferences { get; set; } = Array.Empty<string>();
+    }
+
+    // GET /api/auth/travelers
+    [HttpGet("travelers")]
+    public async Task<IActionResult> GetTravelers()
+    {
+        var travelers = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .Where(u => u.Role == "Traveler")
+            .Select(u => new
+            {
+                u.Email,
+                u.FullName,
+                Preferences = u.TravelerProfile != null ? u.TravelerProfile.PreferredActivities : Array.Empty<string>(),
+                Budget = u.TravelerProfile != null ? u.TravelerProfile.BudgetRange : ""
+            })
+            .ToListAsync();
+            
+        return Ok(travelers);
     }
 
     // GET /api/auth/user/preferences
