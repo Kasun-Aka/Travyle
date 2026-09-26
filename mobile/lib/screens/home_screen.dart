@@ -394,39 +394,43 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 16),
 
           // AI Recommended Cards
-          if (_adminRecommendations.isEmpty) ...[
-            _buildRecommendedCard(
-              context,
-              'Mediterranean Wellness Retreat',
-              'Sardinia',
-              '\$4,250',
-              '8 Days',
-              'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=800&h=400&fit=crop',
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _adminRecommendations.length,
+            itemBuilder: (context, index) {
+              final notif = _adminRecommendations[index];
+              final dest = notif["destination"] ?? {};
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: _buildAdminRecommendedCard(context, notif, dest),
+              );
+            },
+          ),
+          
+          if (_adminRecommendations.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Divider(color: AppTheme.borderLight),
             ),
-            const SizedBox(height: 24),
-            _buildRecommendedCard(
-              context,
-              'Cultural & Culinary Silk Road',
-              'Samarkand',
-              '\$6,100',
-              '12 Days',
-              'https://images.unsplash.com/photo-1596700854497-874b3d81b942?w=800&h=400&fit=crop',
-            ),
-          ] else ...[
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _adminRecommendations.length,
-              itemBuilder: (context, index) {
-                final notif = _adminRecommendations[index];
-                final dest = notif["destination"] ?? {};
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 24.0),
-                  child: _buildAdminRecommendedCard(context, notif, dest),
-                );
-              },
-            ),
-          ],
+            
+          _buildRecommendedCard(
+            context,
+            'Mediterranean Wellness Retreat',
+            'Sardinia',
+            '\$4,250',
+            '8 Days',
+            'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=800&h=400&fit=crop',
+          ),
+          const SizedBox(height: 24),
+          _buildRecommendedCard(
+            context,
+            'Cultural & Culinary Silk Road',
+            'Samarkand',
+            '\$6,100',
+            '12 Days',
+            'https://images.unsplash.com/photo-1542640244-76abc29e4368?w=800&h=400&fit=crop',
+          ),
           const SizedBox(height: 40),
         ],
       ),
