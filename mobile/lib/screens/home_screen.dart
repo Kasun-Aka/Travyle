@@ -2,18 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_theme.dart';
 import '../features/bookings/screens/schedule_browse_screen.dart';
 import '../features/bookings/screens/smart_booking_screen.dart';
-import 'destination_detail_screen.dart';
-import 'login_screen.dart';
-import 'guide_dashboard_screen.dart';
 import '../features/destinations/models/destination.dart';
 import '../features/destinations/providers/destination_providers.dart';
-
+import 'destination_detail_screen.dart';
+import 'destinations_list_screen.dart';
+import 'ai_recommendation_screen.dart';
+import 'guide_dashboard_screen.dart';
 import 'profile_screen.dart';
+import 'profile_notifications_screen.dart';
 import 'support/support_home_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -29,22 +31,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
   Timer? _destinationRefreshTimer;
+  int _unreadNotifications = 0;
+  List<dynamic> _adminRecommendations = [];
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addObserver(this);
+    _fetchNotifications();
+
     _destinationRefreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => ref.invalidate(destinationsProvider),
     );
   }
 
+  Future<void> _fetchNotifications() async {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (email == null) return;
+    try {
+      final response = await Dio().get(
+        'http://10.0.2.2:5085/api/notifications/traveler/$email',
+      );
+      if (response.statusCode == 200) {
+        final List notifs = response.data;
+        final unread = notifs.where((n) => n['isRead'] != true).length;
+        if (mounted) {
+          setState(() {
+            _unreadNotifications = unread;
+            _adminRecommendations = notifs;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load notifications: $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(destinationsProvider);
+      _fetchNotifications();
     }
   }
 
@@ -53,6 +82,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _destinationRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(destinationsProvider);
+    await _fetchNotifications();
   }
 
   @override
@@ -81,7 +115,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const SmartBookingScreen(),
+                  ),
                 );
               },
             )
@@ -103,12 +139,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         unselectedLabelStyle: const TextStyle(fontSize: 10),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.explore),
+            label: 'Explore',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Bookings',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Guide'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Guide',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.help_outline),
             label: 'Support',
@@ -124,8 +166,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildHomeContent(BuildContext context) {
     final destinations = ref.watch(destinationsProvider);
+
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(destinationsProvider.future),
+      onRefresh: _onRefresh,
+      color: AppTheme.accentCopper,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -152,32 +196,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     Text(
                       FirebaseAuth.instance.currentUser?.displayName ??
                           'Alexander',
-                      style: Theme.of(context).textTheme.displayLarge
+                      style: Theme.of(context)
+                          .textTheme
+                          .displayLarge
                           ?.copyWith(fontSize: 28),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 20,
-                      backgroundImage: NetworkImage(
-                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-                      ), // Placeholder for profile pic
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout, color: AppTheme.textDark),
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        if (context.mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.notifications_none,
+                            size: 28,
+                            color: AppTheme.textDark,
+                          ),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const ProfileNotificationsScreen(),
+                              ),
+                            );
+                            _fetchNotifications();
+                          },
+                        ),
+                        if (_unreadNotifications > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$_unreadNotifications',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          );
-                        }
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _currentIndex = 4; // Switch to Profile Tab
+                        });
                       },
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(
+                          FirebaseAuth.instance.currentUser?.photoURL ??
+                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -199,21 +282,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             const SizedBox(height: 20),
 
-            // Smart Booking Assistant & Schedules Banner
+            // Smart Booking Assistant & AI Banner
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppTheme.primaryDark, Color(0xFF1E3A4C)],
+                  colors: [AppTheme.primaryDark, AppTheme.accentCopper],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 12,
+                    color: AppTheme.accentCopper.withOpacity(0.3),
+                    blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -250,20 +333,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Plan & Book Your Tours With AI',
+                    'Not sure where to go?',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   const Text(
-                    'Browse available schedules, check capacity, or let our AI agent book your slots automatically.',
+                    'Let Gemini find your perfect match or automatically book your next tour.',
                     style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.4,
+                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -272,23 +354,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            Navigator.of(context).push(
+                            Navigator.push(
+                              context,
                               MaterialPageRoute(
-                                builder: (_) => const SmartBookingScreen(),
+                                builder: (context) =>
+                                    const AiRecommendationScreen(),
                               ),
                             );
                           },
                           icon: const Icon(Icons.auto_awesome, size: 16),
                           label: const Text(
-                            'Ask AI Agent',
+                            'AI Recommendations',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 12,
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.coral,
-                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.primaryDark,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -304,13 +388,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               _currentIndex = 1;
                             });
                           },
-                          icon: const Icon(Icons.calendar_month,
-                              size: 16, color: Colors.white),
+                          icon: const Icon(
+                            Icons.calendar_month,
+                            size: 16,
+                            color: Colors.white,
+                          ),
                           label: const Text(
                             'Schedules',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 12,
                               color: Colors.white,
                             ),
                           ),
@@ -334,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Popular Destinations',
                   style: TextStyle(
                     color: AppTheme.primaryDark,
@@ -343,7 +430,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DestinationsListScreen(),
+                      ),
+                    );
+                  },
                   child: const Text(
                     'View All',
                     style: TextStyle(color: AppTheme.accentCopper),
@@ -353,11 +447,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             const SizedBox(height: 16),
 
-            // Horizontal Scroll List (Destinations)
+            // Horizontal Scroll List (Destinations via Riverpod)
             SizedBox(
               height: 220,
               child: destinations.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: TextButton.icon(
                     onPressed: () => ref.invalidate(destinationsProvider),
@@ -382,7 +477,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Recommended For You',
                   style: TextStyle(
                     color: AppTheme.primaryDark,
@@ -413,29 +508,169 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             const SizedBox(height: 16),
 
-            // AI Recommended Cards
-            _buildRecommendedCard(
-              context,
-              'Mediterranean Wellness Retreat',
-              'Sardinia',
-              '\$4,250',
-              '8 Days',
-              'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?w=800&h=400&fit=crop',
-            ),
-            const SizedBox(height: 24),
-
-            _buildRecommendedCard(
-              context,
-              'Cultural & Culinary Silk Road',
-              'Samarkand',
-              '\$6,100',
-              '12 Days',
-              'https://images.unsplash.com/photo-1596700854497-874b3d81b942?w=800&h=400&fit=crop',
-            ),
+            // AI Recommended Cards (Live Notifications / Matches)
+            if (_adminRecommendations.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20.0),
+                child: Center(
+                  child: Text(
+                    'No AI matches currently available.',
+                    style: TextStyle(color: AppTheme.textGrey),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _adminRecommendations.length,
+                itemBuilder: (context, index) {
+                  final notif = _adminRecommendations[index];
+                  final dest = notif["destination"] ?? {};
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: _buildAdminRecommendedCard(context, notif, dest),
+                  );
+                },
+              ),
 
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAdminRecommendedCard(
+    BuildContext context,
+    dynamic notif,
+    dynamic dest,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+        border: Border.all(
+          color: (notif["isRead"] == true)
+              ? Colors.transparent
+              : AppTheme.primaryDark.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Stack(
+              children: [
+                Image.network(
+                  dest["imageUrl"] ??
+                      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=400&fit=crop',
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                if (notif["isRead"] == false)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'NEW MATCH',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dest["name"] ?? 'Recommended Destination',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 14,
+                      color: AppTheme.textGrey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      dest["region"] ?? 'Global',
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderLight),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 16,
+                        color: AppTheme.accentCopper,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '"${notif["pitch"] ?? ""}"',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: AppTheme.textGrey,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -518,127 +753,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendedCard(
-    BuildContext context,
-    String title,
-    String location,
-    String price,
-    String duration,
-    String imageUrl,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image Header
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-                child: Image.network(
-                  imageUrl,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                top: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    color: AppTheme.accentCopper,
-                    size: 20,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 16,
-                left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    duration,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: AppTheme.primaryDark,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          // Content Below Image
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryDark,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      location,
-                      style: const TextStyle(
-                        color: AppTheme.textGrey,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      price,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

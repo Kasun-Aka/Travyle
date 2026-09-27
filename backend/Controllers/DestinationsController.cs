@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace Travyle.Api.Controllers;
 
@@ -11,10 +14,12 @@ namespace Travyle.Api.Controllers;
 public class DestinationsController : ControllerBase
 {
     private readonly TravyleDbContext _db;
+    private readonly Services.IGeocodingService _geocodingService;
 
-    public DestinationsController(TravyleDbContext db)
+    public DestinationsController(TravyleDbContext db, Services.IGeocodingService geocodingService)
     {
         _db = db;
+        _geocodingService = geocodingService;
     }
 
     // GET /api/destinations?search=ella&region=highlands&tags=hiking,beach&page=1&pageSize=10
@@ -120,6 +125,19 @@ public class DestinationsController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
+        var lat = dto.Latitude ?? 0.0;
+        var lng = dto.Longitude ?? 0.0;
+
+        if (lat == 0.0 && lng == 0.0)
+        {
+            var coords = await _geocodingService.GetCoordinatesAsync($"{dto.Name}, {dto.Region}");
+            if (coords != null)
+            {
+                lat = coords.Value.Latitude;
+                lng = coords.Value.Longitude;
+            }
+        }
+
         var destination = new Destination
         {
             Name = dto.Name,
@@ -127,8 +145,8 @@ public class DestinationsController : ControllerBase
             Description = dto.Description,
             Tags = dto.Tags,
             ImageUrl = dto.ImageUrl,
-            Latitude = dto.Latitude ?? 0.0,
-            Longitude = dto.Longitude ?? 0.0
+            Latitude = lat,
+            Longitude = lng
         };
 
         _db.Destinations.Add(destination);
@@ -164,8 +182,23 @@ public class DestinationsController : ControllerBase
         destination.Description = dto.Description;
         destination.Tags = dto.Tags;
         destination.ImageUrl = dto.ImageUrl;
-        if (dto.Latitude.HasValue) destination.Latitude = dto.Latitude.Value;
-        if (dto.Longitude.HasValue) destination.Longitude = dto.Longitude.Value;
+        
+        var newLat = dto.Latitude ?? destination.Latitude;
+        var newLng = dto.Longitude ?? destination.Longitude;
+
+        // Re-geocode if name/region changed and coordinates are 0 (or manually reset to 0 to trigger geocode)
+        if (newLat == 0.0 && newLng == 0.0)
+        {
+            var coords = await _geocodingService.GetCoordinatesAsync($"{dto.Name}, {dto.Region}");
+            if (coords != null)
+            {
+                newLat = coords.Value.Latitude;
+                newLng = coords.Value.Longitude;
+            }
+        }
+
+        destination.Latitude = newLat;
+        destination.Longitude = newLng;
 
         await _db.SaveChangesAsync();
 
@@ -194,5 +227,74 @@ public class DestinationsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    public class GeneratePdfRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DestinationName { get; set; } = string.Empty;
+        public string DateRange { get; set; } = string.Empty;
+    }
+
+    [HttpPost("generate-itinerary-pdf")]
+    public async Task<IActionResult> GenerateItineraryPdf([FromBody] GeneratePdfRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email)) return BadRequest("Email is required");
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        var user = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .FirstOrDefaultAsync(u => u.Email == req.Email);
+
+        if (user == null) return NotFound("User not found");
+
+        var preferences = user.TravelerProfile?.PreferredActivities ?? Array.Empty<string>();
+        var prefString = preferences.Length > 0 ? string.Join(", ", preferences) : "General Travel";
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+                page.PageColor(Colors.White);
+                page.DefaultTextStyle(x => x.FontSize(12));
+
+                page.Header()
+                    .Text("Travyle - Custom Itinerary Pass")
+                    .SemiBold().FontSize(24).FontColor(Colors.Blue.Darken2);
+
+                page.Content().PaddingVertical(1, Unit.Centimetre).Column(x =>
+                {
+                    x.Spacing(10);
+
+                    x.Item().Text($"Traveler: {user.FullName}").FontSize(16).SemiBold();
+                    x.Item().Text($"Email: {user.Email}");
+                    
+                    x.Item().PaddingTop(15).Text("Destination Details").SemiBold().FontSize(14).Underline();
+                    x.Item().Text($"Destination: {(string.IsNullOrEmpty(req.DestinationName) ? "Personalized AI Match" : req.DestinationName)}");
+                    
+                    if (!string.IsNullOrEmpty(req.DateRange))
+                    {
+                        x.Item().Text($"Dates: {req.DateRange}");
+                    }
+
+                    x.Item().PaddingTop(15).Text("Your Preferences").SemiBold().FontSize(14).Underline();
+                    x.Item().Text(prefString);
+
+                    x.Item().PaddingTop(25).Text("Have a wonderful journey!").Italic().FontColor(Colors.Grey.Medium);
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Page ");
+                    x.CurrentPageNumber();
+                });
+            });
+        });
+
+        var pdfBytes = document.GeneratePdf();
+        return File(pdfBytes, "application/pdf", "TravelItinerary.pdf");
     }
 }

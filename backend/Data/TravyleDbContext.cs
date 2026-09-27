@@ -22,6 +22,8 @@ public class TravyleDbContext : DbContext
     public DbSet<Destination> Destinations => Set<Destination>();
     public DbSet<TravelerProfile> TravelerProfiles => Set<TravelerProfile>();
     public DbSet<PersonalizedItinerary> PersonalizedItineraries => Set<PersonalizedItinerary>();
+    public DbSet<TravelerNotification> TravelerNotifications => Set<TravelerNotification>();
+    // each vertical adds their own DbSets here as they build
     public DbSet<TourActivity> TourActivities => Set<TourActivity>();
     public DbSet<GuideAssignment> GuideAssignments => Set<GuideAssignment>();
     public DbSet<RouteLog> RouteLogs => Set<RouteLog>();
@@ -73,6 +75,12 @@ public class TravyleDbContext : DbContext
             .HasForeignKey(pi => pi.TravelerId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Configure 1-to-Many relationship between User and Notifications
+        modelBuilder.Entity<User>()
+            .HasMany<TravelerNotification>()
+            .WithOne(tn => tn.User)
+            .HasForeignKey(tn => tn.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
         // SupportTicket relationships
         modelBuilder.Entity<SupportTicket>()
             .HasOne(t => t.User)

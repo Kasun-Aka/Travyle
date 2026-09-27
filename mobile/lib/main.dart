@@ -28,7 +28,7 @@ class TravyleApp extends StatelessWidget {
     return MaterialApp(
       title: 'Travyle',
       debugShowCheckedModeBanner: false,
-      theme: BookingTheme.themeData,
+      theme: AppTheme.lightTheme,
       home: const SplashScreen(),
       routes: {
         '/splash': (context) => const SplashScreen(),

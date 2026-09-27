@@ -8,7 +8,8 @@ import {
   CreditCard, 
   Activity, 
   Users, 
-  Headset 
+  Headset,
+  Sparkles
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -68,6 +69,17 @@ export default function Sidebar() {
                   <span>Tour packages</span>
                 </div>
                 <span className="sidebar-chevron">&gt;</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/catalog/concierge"
+                className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+              >
+                <div className="flex items-center gap-3 text-brand-300">
+                  <Sparkles size={18} />
+                  <span className="text-brand-300">AI Concierge</span>
+                </div>
               </NavLink>
             </li>
           </ul>

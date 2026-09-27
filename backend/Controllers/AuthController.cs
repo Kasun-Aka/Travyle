@@ -74,6 +74,8 @@ public class AuthController : ControllerBase
         return Ok(user);
     }
 
+
+
     // GET /api/auth/user
     [HttpGet("user")]
     public async Task<IActionResult> GetUserByEmail([FromQuery] string? email, CancellationToken ct)
@@ -94,6 +96,84 @@ public class AuthController : ControllerBase
     {
         public string Email { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    public class UpdatePreferencesRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string[] Preferences { get; set; } = Array.Empty<string>();
+    }
+
+    // GET /api/auth/travelers
+    [HttpGet("travelers")]
+    public async Task<IActionResult> GetTravelers()
+    {
+        var travelers = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .Where(u => u.Role == "Traveler")
+            .Select(u => new
+            {
+                u.Email,
+                u.FullName,
+                Preferences = u.TravelerProfile != null ? u.TravelerProfile.PreferredActivities : Array.Empty<string>(),
+                Budget = u.TravelerProfile != null ? u.TravelerProfile.BudgetRange : "",
+                TripHistory = u.TravelerProfile != null ? u.TravelerProfile.TripHistory : ""
+            })
+            .ToListAsync();
+            
+        return Ok(travelers);
+    }
+
+    // GET /api/auth/user/preferences
+    [HttpGet("user/preferences")]
+    public async Task<IActionResult> GetPreferences([FromQuery] string email)
+    {
+        if (string.IsNullOrEmpty(email)) return BadRequest("Email is required");
+
+        var user = await _db.Users
+            .Include(u => u.TravelerProfile)
+            .FirstOrDefaultAsync(u => u.Email == email);
+            
+        if (user == null) return NotFound("User not found");
+
+        var prefs = user.TravelerProfile?.PreferredActivities ?? Array.Empty<string>();
+        return Ok(prefs);
+    }
+
+    // PUT /api/auth/user/preferences
+    [HttpPut("user/preferences")]
+    public async Task<IActionResult> UpdatePreferences([FromBody] UpdatePreferencesRequest req)
+    {
+        if (string.IsNullOrEmpty(req.Email))
+            return BadRequest("Email is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+        if (user == null)
+        {
+            user = new User
+            {
+                Email = req.Email,
+                FullName = "Traveler",
+                Role = "Traveler"
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        var profile = await _db.TravelerProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id);
+        if (profile == null)
+        {
+            profile = new TravelerProfile { UserId = user.Id };
+            _db.TravelerProfiles.Add(profile);
+        }
+
+        profile.PreferredActivities = req.Preferences;
+        profile.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(profile);
     }
 
     // PUT /api/auth/user
@@ -109,8 +189,48 @@ public class AuthController : ControllerBase
             user.FullName = req.FullName;
         }
 
+        if (!string.IsNullOrEmpty(req.Role))
+        {
+            user.Role = req.Role;
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(user);
+    }
+
+    // POST /api/auth/avatar
+    [HttpPost("avatar")]
+    public async Task<IActionResult> UploadAvatar([FromForm] string email, IFormFile file)
+    {
+        if (string.IsNullOrEmpty(email)) return BadRequest("Email is required");
+        if (file == null || file.Length == 0) return BadRequest("File is required");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null) return NotFound("User not found");
+
+        var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var avatarsPath = Path.Combine(webRootPath, "avatars");
+
+        if (!Directory.Exists(avatarsPath))
+        {
+            Directory.CreateDirectory(avatarsPath);
+        }
+
+        var fileName = $"{user.Id}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+        var filePath = Path.Combine(avatarsPath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Return the full URL for the Flutter app
+        // NOTE: In a real production app, the base URL would be read from configuration
+        var request = HttpContext.Request;
+        var baseUrl = $"{request.Scheme}://{request.Host.Value}";
+        var avatarUrl = $"{baseUrl}/avatars/{fileName}";
+
+        return Ok(new { url = avatarUrl });
     }
 }

@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Layout from '../components/Layout';
 import DestinationFormModal from '../components/DestinationFormModal';
 import { Plus, MapPin, Sparkles, Search, Edit2, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { destinationsApi, type Destination } from '../api/destinations';
 
 // ────────────────────────────────────────────────────────────
@@ -66,6 +68,7 @@ function DeleteConfirmDialog({
 // Main Page
 // ────────────────────────────────────────────────────────────
 export default function MasterTourPackages() {
+  const detailRef = useRef<HTMLDivElement>(null);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,15 @@ export default function MasterTourPackages() {
   const [selected, setSelected] = useState<Destination | null>(null);
 
   // ── Fetch destinations ──────────────────────────────────
+
+  const handleSelectDestination = (dest: Destination) => {
+    setSelected(dest);
+    // Add a tiny timeout to ensure it renders before scrolling if on mobile, though usually instant is fine
+    setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
   const fetchDestinations = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -299,7 +311,7 @@ export default function MasterTourPackages() {
                 {destinations.map((dest) => (
                   <tr
                     key={dest.id}
-                    onClick={() => setSelected(dest)}
+                    onClick={() => handleSelectDestination(dest)}
                     className={`hover:bg-gray-50 cursor-pointer transition-colors ${selected?.id === dest.id ? 'bg-brand-50/40' : ''}`}
                   >
                     <td className="py-4 px-6">
@@ -373,7 +385,7 @@ export default function MasterTourPackages() {
 
         {/* ── Selected Package Detail Panel ─────────────────── */}
         {selected && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div ref={detailRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Package detail</h2>
@@ -444,30 +456,54 @@ export default function MasterTourPackages() {
                       {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)}
                     </span>
                   </div>
-                </div>
+                
+                    {/* Read-Only Map Preview */}
+                    <div className="w-full h-48 rounded-lg overflow-hidden border border-gray-200 relative z-0 mt-4">
+                      <MapContainer 
+                        key={`${selected.id}-${selected.latitude}-${selected.longitude}`}
+                        center={[selected.latitude || 7.8731, selected.longitude || 80.7718]} 
+                        zoom={selected.latitude && selected.longitude ? 12 : 6} 
+                        style={{ height: '100%', width: '100%' }}
+                        dragging={false}
+                        zoomControl={false}
+                        scrollWheelZoom={false}
+                        doubleClickZoom={false}
+                        touchZoom={false}
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        {(selected.latitude !== 0 || selected.longitude !== 0) && (
+                          <Marker position={[selected.latitude, selected.longitude]} />
+                        )}
+                      </MapContainer>
+                      <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur-sm px-2 py-1 rounded shadow-sm border border-gray-200 pointer-events-none text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        Location Preview
+                      </div>
+                    </div>
+</div>
               )}
             </div>
           </div>
         )}
 
-        {/* ── AI Recommendation Box ─────────────────────────── */}
-        <div className="bg-brand-50 border border-brand-100 rounded-2xl p-6 flex gap-4">
-          <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0">
-            <Sparkles size={20} className="text-white" />
+        {/* -- AI Recommendation Link -- */}
+        <div className="bg-brand-50 border border-brand-100 rounded-2xl p-6 flex items-center justify-between">
+          <div className="flex gap-4">
+            <div className="w-10 h-10 bg-brand-600 rounded-full flex items-center justify-center shrink-0">
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-brand-900 mb-1">AI Traveler Concierge</h4>
+              <p className="text-brand-800 leading-relaxed max-w-xl">
+                Match catalog destinations to specific travelers using the AI Recommendation Agent.
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-brand-900 mb-1">Recommendation Agent</h4>
-            <p className="text-brand-800 leading-relaxed mb-4">
-              {selected
-                ? `"${selected.name}" (${selected.region}) is live in the catalog. The AI Recommendation Agent will match this destination to traveler preference profiles based on its tags.`
-                : 'Select a destination from the catalog above to see AI recommendation insights.'}
-            </p>
-            <button className="bg-white border border-brand-200 text-brand-700 font-medium px-4 py-2 rounded-lg text-sm hover:bg-brand-50 transition-colors">
-              View agent logs
-            </button>
-          </div>
+          <a href="/catalog/concierge" className="bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg text-sm hover:bg-brand-700 transition-colors">
+            Go to Concierge
+          </a>
         </div>
-
       </div>
     </>
   );

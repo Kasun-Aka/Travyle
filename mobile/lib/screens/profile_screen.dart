@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import 'dart:typed_data';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'account_details_screen.dart';
+import 'preference_screen.dart';
+import 'pdf_viewer_screen.dart';
+import 'profile_notifications_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,7 +17,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   String _role = 'Traveler'; // Default fallback
   String _errorMessage = '';
@@ -30,17 +34,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    if (mounted) {
+      setState(() {
+        _errorMessage = '';
+      });
+    }
+
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 3),
-        receiveTimeout: const Duration(seconds: 3),
-      ));
-      final response = await dio.get('http://10.0.2.2:5085/api/auth/user?email=${_currentUser!.email}');
-      
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      final response = await dio.get(
+        'http://10.0.2.2:5085/api/auth/user?email=${_currentUser!.email}',
+      );
+
       if (response.statusCode == 200 && response.data != null) {
         if (mounted) {
           setState(() {
             _role = response.data['role'] ?? 'Traveler';
+            _errorMessage = ''; // Clear stale error if successful
           });
         }
       }
@@ -48,7 +63,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint('Error fetching user role: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Could not load complete profile data.';
+          if (e is DioException) {
+            _errorMessage = 'Network Error: ${e.message}';
+          } else {
+            _errorMessage = 'Could not load complete profile data: $e';
+          }
         });
       }
     } finally {
@@ -66,6 +85,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.of(context, rootNavigator: true).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
+    }
+  }
+
+  Future<void> _downloadTravelPass() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      
+      final response = await dio.post(
+        'http://10.0.2.2:5085/api/destinations/generate-itinerary-pdf',
+        data: {
+          'email': user.email,
+          'destinationName': 'Personalized AI Match',
+          'dateRange': 'Flexible',
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        final bytes = response.data as Uint8List;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(pdfBytes: bytes),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error generating PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to generate Travel Pass.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -90,7 +154,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Choose Profile Icon', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 20)),
+              Text(
+                'Choose Profile Icon',
+                style: Theme.of(
+                  context,
+                ).textTheme.displayLarge?.copyWith(fontSize: 20),
+              ),
               const SizedBox(height: 16),
               SizedBox(
                 height: 100,
@@ -130,10 +199,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark));
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryDark),
+      );
     }
 
-    final avatarUrl = _currentUser?.photoURL ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop';
+    final avatarUrl =
+        _currentUser?.photoURL ??
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -143,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 20),
           Text('My Profile', style: Theme.of(context).textTheme.displayLarge),
           const SizedBox(height: 32),
-          
+
           // Avatar
           GestureDetector(
             onTap: _showAvatarPicker,
@@ -161,19 +234,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       color: AppTheme.accentCopper,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.backgroundLight, width: 3),
+                      border: Border.all(
+                        color: AppTheme.backgroundLight,
+                        width: 3,
+                      ),
                     ),
-                    child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.edit,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          
+
           Text(
             _currentUser?.displayName ?? 'Traveler',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryDark,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -181,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: const TextStyle(fontSize: 14, color: AppTheme.textGrey),
           ),
           const SizedBox(height: 12),
-          
+
           // Role Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -204,34 +288,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_errorMessage.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
-              child: Text(_errorMessage, style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
+              child: Text(
+                _errorMessage,
+                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+              ),
             ),
 
           // Menu Options
           _buildMenuOption(
-            icon: Icons.person_outline, 
+            icon: Icons.person_outline,
             title: 'Account Details',
             onTap: () async {
               final result = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => AccountDetailsScreen(role: _role)),
+                MaterialPageRoute(
+                  builder: (context) => AccountDetailsScreen(role: _role),
+                ),
               );
               if (result == true && mounted) {
-                // Refresh to get updated displayName
-                setState(() {});
+                setState(() => _isLoading = true);
+                await FirebaseAuth.instance.currentUser?.reload();
+                await _fetchUserDetails();
               }
-            }
+            },
           ),
-          _buildMenuOption(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () {}),
-          _buildMenuOption(icon: Icons.security, title: 'Privacy & Security', onTap: () {}),
-          _buildMenuOption(icon: Icons.help_outline, title: 'Help & Support', onTap: () {}),
-          
+          _buildMenuOption(
+            icon: Icons.favorite_border,
+            title: 'Travel Preferences',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PreferenceScreen(),
+                ),
+              );
+            },
+          ),
+          _buildMenuOption(
+            icon: Icons.picture_as_pdf_outlined,
+            title: 'Download Travel Pass (PDF)',
+            onTap: _downloadTravelPass,
+          ),
+          _buildMenuOption(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileNotificationsScreen()),
+              );
+            },
+          ),
+          _buildMenuOption(
+            icon: Icons.security,
+            title: 'Privacy & Security',
+            onTap: () {},
+          ),
+          _buildMenuOption(
+            icon: Icons.help_outline,
+            title: 'Help & Support',
+            onTap: () {},
+          ),
+
           const SizedBox(height: 32),
-          
+
           OutlinedButton.icon(
             onPressed: _handleLogout,
             icon: const Icon(Icons.logout, color: Colors.redAccent),
-            label: const Text('Log Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Log Out',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
               side: const BorderSide(color: Colors.redAccent),
@@ -247,7 +377,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMenuOption({required IconData icon, required String title, required VoidCallback onTap}) {
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
@@ -261,7 +395,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textDark,
+        ),
       ),
       trailing: const Icon(Icons.chevron_right, color: AppTheme.textGrey),
       onTap: onTap,

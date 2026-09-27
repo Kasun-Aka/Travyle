@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
-import 'home_screen.dart';
+import 'preference_screen.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -36,7 +36,9 @@ class _SignupScreenState extends State<SignupScreen> {
   void initState() {
     super.initState();
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
-    _fullNameController = TextEditingController(text: widget.initialFullName ?? '');
+    _fullNameController = TextEditingController(
+      text: widget.initialFullName ?? '',
+    );
     _selectedRole = widget.initialRole ?? 'Traveler';
     // Ensure the initialRole is one of the valid options, fallback to Traveler if not
     if (!['Traveler', 'Local Guide', 'Tour Operator'].contains(_selectedRole)) {
@@ -68,36 +70,44 @@ class _SignupScreenState extends State<SignupScreen> {
       }
 
       // 1. Create user in Firebase
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       final user = userCredential.user;
       if (user != null) {
         await user.updateDisplayName(fullName);
 
-        // 2. Sync to PostgreSQL before allowing the user into the app.
+        // 2. Sync to PostgreSQL with Auth token before allowing the user into the app.
         try {
           final dio = Dio();
-          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          final baseUrl =
+              kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
           final idToken = await user.getIdToken();
-          await dio.post('$baseUrl/api/auth/sync', data: {
-            'firebaseUid': user.uid,
-            'email': email,
-            'fullName': fullName,
-            'role': _selectedRole,
-          }, options: Options(headers: {'Authorization': 'Bearer $idToken'}));
+
+          await dio.post(
+            '$baseUrl/api/auth/sync',
+            data: {
+              'firebaseUid': user.uid,
+              'email': email,
+              'fullName': fullName,
+              'role': _selectedRole,
+            },
+            options: Options(
+              headers: {'Authorization': 'Bearer $idToken'},
+            ),
+          );
         } catch (_) {
           await FirebaseAuth.instance.signOut();
-          throw Exception('Account setup failed. Please try again when the server is available.');
+          throw Exception(
+            'Account setup failed. Please try again when the server is available.',
+          );
         }
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const HomeScreen(initialIndex: 1),
+              builder: (context) => const PreferenceScreen(),
             ),
           );
         }
@@ -143,12 +153,12 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 12),
               Text(
                 'Join Travyle for AI-powered explorations.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: 16,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontSize: 16),
               ),
               const SizedBox(height: 32),
-              
+
               if (_errorMessage.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -160,19 +170,33 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage,
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                
-              const Text('FULL NAME', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+
+              const Text(
+                'FULL NAME',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _fullNameController,
@@ -180,7 +204,14 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text('EMAIL ADDRESS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+              const Text(
+                'EMAIL ADDRESS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _emailController,
@@ -188,8 +219,15 @@ class _SignupScreenState extends State<SignupScreen> {
                 decoration: const InputDecoration(hintText: 'Enter your email'),
               ),
               const SizedBox(height: 24),
-              
-              const Text('PASSWORD', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+
+              const Text(
+                'PASSWORD',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
@@ -198,7 +236,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   hintText: 'Create a password',
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      _isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                       color: AppTheme.textGrey,
                     ),
                     onPressed: () {
@@ -211,19 +251,29 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text('I AM A...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+              const Text(
+                'I AM A...',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 borderRadius: BorderRadius.circular(30),
                 decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                 ),
                 items: ['Traveler', 'Local Guide', 'Tour Operator']
-                    .map((role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(role),
-                        ))
+                    .map(
+                      (role) =>
+                          DropdownMenuItem(value: role, child: Text(role)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
@@ -234,25 +284,31 @@ class _SignupScreenState extends State<SignupScreen> {
                 },
               ),
               const SizedBox(height: 32),
-              
+
               _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryDark))
-                  : GradientButton(
-                      text: 'SIGN UP',
-                      onPressed: _handleSignup,
-                    ),
-              
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.primaryDark,
+                      ),
+                    )
+                  : GradientButton(text: 'SIGN UP', onPressed: _handleSignup),
+
               const SizedBox(height: 40),
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Already have an account? ', style: TextStyle(color: AppTheme.textGrey)),
+                  const Text(
+                    'Already have an account? ',
+                    style: TextStyle(color: AppTheme.textGrey),
+                  ),
                   GestureDetector(
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       );
                     },
                     child: const Text(

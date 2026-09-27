@@ -5,6 +5,7 @@ import App from './App.tsx';
 import Welcome from './pages/Welcome';
 import TravelTrends from './pages/TravelTrends';
 import MasterTourPackages from './pages/MasterTourPackages';
+import TravelerConcierge from './pages/TravelerConcierge';
 import LiveTourOperations from './pages/LiveTourOperations';
 import GuideAssignmentMatrix from './pages/GuideAssignmentMatrix';
 import StaffAccessControl from './pages/StaffAccessControl';
@@ -39,6 +40,7 @@ const AppRoutes = () => (
       <Route path="/welcome" element={<Welcome />} />
       <Route path="/trends" element={<TravelTrends />} />
       <Route path="/catalog/packages" element={<MasterTourPackages />} />
+      <Route path="/catalog/concierge" element={<TravelerConcierge />} />
       <Route path="/operations/live-operations" element={<LiveTourOperations />} />
       <Route path="/operations/guide-assignments" element={<GuideAssignmentMatrix />} />
       <Route path="/operations/staff-access" element={<StaffAccessControl />} />

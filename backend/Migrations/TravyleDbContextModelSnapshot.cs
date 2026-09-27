@@ -335,7 +335,38 @@ namespace Travyle.Api.Migrations
                     b.ToTable("GuideAssignments");
                 });
 
-            modelBuilder.Entity("Travyle.Api.Models.PaymentEscrow", b =>
+            modelBuilder.Entity("Travyle.Api.Models.TravelerNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Pitch")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TravelerNotifications");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.TravelerProfile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -655,7 +686,26 @@ namespace Travyle.Api.Migrations
                     b.Navigation("Schedule");
                 });
 
-            modelBuilder.Entity("Travyle.Api.Models.CustomerReview", b =>
+            modelBuilder.Entity("Travyle.Api.Models.TravelerNotification", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.Destination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Travyle.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Destination");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.TravelerProfile", b =>
                 {
                     b.HasOne("Travyle.Api.Models.User", "User")
                         .WithMany()

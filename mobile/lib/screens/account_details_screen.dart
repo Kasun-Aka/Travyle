@@ -17,6 +17,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   late final TextEditingController _fullNameController;
   late final TextEditingController _emailController;
+  late String _selectedRole;
   bool _isLoading = false;
   String _errorMessage = '';
   String _successMessage = '';
@@ -26,6 +27,13 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     super.initState();
     _fullNameController = TextEditingController(text: _currentUser?.displayName ?? '');
     _emailController = TextEditingController(text: _currentUser?.email ?? '');
+    // Ensure the role exactly matches one of the dropdown items (case-sensitive)
+    final validRoles = ['Traveler', 'Local Guide', 'Tour Operator'];
+    // Try to match ignoring case, default to Traveler if not found
+    _selectedRole = validRoles.firstWhere(
+      (r) => r.toLowerCase() == widget.role.toLowerCase(), 
+      orElse: () => 'Traveler'
+    );
   }
 
   @override
@@ -57,6 +65,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       await dio.put('http://10.0.2.2:5085/api/auth/user', data: {
         'email': _currentUser?.email,
         'fullName': newName,
+        'role': _selectedRole,
       });
 
       setState(() {
@@ -67,10 +76,15 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       if (mounted) {
         Navigator.pop(context, true); // Return true to indicate change
       }
+    } on DioException catch (e) {
+      debugPrint('Dio Error updating profile: ${e.response?.statusCode} - ${e.response?.data}');
+      setState(() {
+        _errorMessage = 'Server Error: ${e.response?.data ?? e.message}';
+      });
     } catch (e) {
       debugPrint('Error updating profile: $e');
       setState(() {
-        _errorMessage = 'Failed to update account details.';
+        _errorMessage = 'Failed to update account details: $e';
       });
     } finally {
       if (mounted) {
@@ -162,15 +176,27 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               ),
               const SizedBox(height: 24),
               
-              const Text('ACCOUNT ROLE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textGrey)),
+              const Text('ACCOUNT ROLE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
               const SizedBox(height: 8),
-              TextFormField(
-                initialValue: widget.role.toUpperCase(),
-                readOnly: true,
-                style: const TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  fillColor: Colors.grey.shade100,
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                borderRadius: BorderRadius.circular(30),
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
+                items: ['Traveler', 'Local Guide', 'Tour Operator']
+                    .map((role) => DropdownMenuItem(
+                          value: role,
+                          child: Text(role),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedRole = value;
+                    });
+                  }
+                },
               ),
               const SizedBox(height: 40),
               

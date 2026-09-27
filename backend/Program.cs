@@ -15,8 +15,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -29,15 +31,17 @@ builder.Services.AddDbContext<TravyleDbContext>(options =>
            .ConfigureWarnings(warnings =>
                warnings.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
-// ─── Booking Vertical DI ─────────────────────────────────────────────────────
+// ─── AI, Geocoding & External Services ──────────────────────────────────────
+builder.Services.AddHttpClient<GeminiService>();
+builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 
-// Register Component 4 Services
+// Support & Customer Quality (Component 4) Services
 builder.Services.AddHttpClient<NotificationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ISupportAiAgentService, SupportAiAgentService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
-// CORS configuration for React Web Admin and Flutter
+// ─── Booking Vertical DI ─────────────────────────────────────────────────────
 // Repositories
 builder.Services.AddScoped<IBookingScheduleRepository, BookingScheduleRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
@@ -56,9 +60,7 @@ builder.Services.AddScoped<Travyle.Api.Services.Agent.ISmartBookingAgentService,
 builder.Services.AddScoped<IFirebaseIdentityService, FirebaseIdentityService>();
 builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri("http://localhost:8000"); });
 
-// ─── CORS (allow Flutter dev) ────────────────────────────────────────────────
-
-// Allow dev clients (React admin + Flutter web) to call the API
+// ─── CORS Configuration ──────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -69,15 +71,13 @@ builder.Services.AddCors(options =>
     });
     options.AddPolicy("DevPolicy", policy =>
     {
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
-
 var app = builder.Build();
 
 app.UseSwagger();
@@ -92,6 +92,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseStaticFiles();
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.UseAuthorization();
@@ -114,4 +115,3 @@ catch (Exception ex)
 }
 
 app.Run();
-
