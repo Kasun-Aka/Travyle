@@ -43,10 +43,19 @@ dependencies:
   mobile_scanner: ^7.4.0
   flutter_riverpod: ^2.6.1
   image_picker: ^1.2.3
+  google_fonts: ^8.2.1
+  flutter_svg: ^2.3.0
+  image_cropper: ^12.2.1
+  path_provider: ^2.1.6
+  syncfusion_flutter_pdfviewer: ^34.2.9
+  file_saver: ^0.4.0
+  intl: ^0.20.2
+  flutter_stripe: ^14.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  mocktail: ^1.0.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

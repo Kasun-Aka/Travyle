@@ -8,4 +8,8 @@ public class User
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = "Traveler";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigation properties for related entities
+    public TravelerProfile? TravelerProfile { get; set; }
+    public ICollection<PersonalizedItinerary> PersonalizedItineraries { get; set; } = new List<PersonalizedItinerary>();
 }

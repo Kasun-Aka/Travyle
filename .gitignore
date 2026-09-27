@@ -1,6 +1,8 @@
 # ASP.NET Core
 backend/bin/
 backend/obj/
+backend.Tests/bin/
+backend.Tests/obj/
 backend/appsettings.Development.json
 backend/appsettings.Local.json
 
@@ -25,3 +27,17 @@ mobile/lib/firebase_options.dart
 *.log
 .vscode/
 .idea/
+
+Travyle - initial doc.docx
+# Flutter Build Artifacts
+mobile/build/
+mobile/android/build/
+mobile/ios/build/
+
+# Auto-generated documents and scripts
+architecture/
+doc_content.txt
+doc_content2.txt
+doc_tables.txt
+extracted_doc.txt
+test_gemini.csx
