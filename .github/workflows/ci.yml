@@ -1,0 +1,37 @@
+name: Travyle Backend CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build & Run Backend Automated Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore backend/Travyle.Api.csproj
+          dotnet restore backend.Tests/backend.Tests.csproj
+
+      - name: Build ASP.NET Core Backend
+        run: dotnet build backend/Travyle.Api.csproj --configuration Release --no-restore
+
+      - name: Build Test Project
+        run: dotnet build backend.Tests/backend.Tests.csproj --configuration Release --no-restore
+
+      - name: Run Automated Tests
+        run: dotnet test backend.Tests/backend.Tests.csproj --configuration Release --no-build --verbosity normal

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { authApi } from '../api/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -18,12 +19,17 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      if (!auth) {
+        throw new Error('Firebase is not configured. Add the VITE_FIREBASE_* values to web-admin/.env.');
+      }
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Update display name in Firebase
       await updateProfile(userCredential.user, { displayName: fullName });
       // The AuthContext onAuthStateChanged listener will automatically 
-      // trigger authApi.sync() to save the new user to PostgreSQL.
-      
+      // trigger authApi.sync() but it might run before updateProfile finishes.
+      // So we explicitly update the user name here to be safe.
+      await authApi.updateUser({ email, fullName });
+
       navigate('/catalog/packages');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');

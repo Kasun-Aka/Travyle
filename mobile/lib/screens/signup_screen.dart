@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
@@ -76,28 +77,38 @@ class _SignupScreenState extends State<SignupScreen> {
       if (user != null) {
         await user.updateDisplayName(fullName);
 
-        // 2. Sync to PostgreSQL database via API
+        // 2. Sync to PostgreSQL with Auth token before allowing the user into the app.
         try {
           final dio = Dio();
-          // Use 10.0.2.2 for Android emulator to reach localhost
+          final baseUrl =
+              kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          final idToken = await user.getIdToken();
+
           await dio.post(
-            'http://10.0.2.2:5085/api/auth/sync',
+            '$baseUrl/api/auth/sync',
             data: {
               'firebaseUid': user.uid,
               'email': email,
               'fullName': fullName,
               'role': _selectedRole,
             },
+            options: Options(
+              headers: {'Authorization': 'Bearer $idToken'},
+            ),
           );
-        } catch (apiError) {
-          debugPrint('Failed to sync user with DB: $apiError');
-          // We can proceed even if DB sync fails, but ideally it shouldn't
+        } catch (_) {
+          await FirebaseAuth.instance.signOut();
+          throw Exception(
+            'Account setup failed. Please try again when the server is available.',
+          );
         }
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const PreferenceScreen()),
+            MaterialPageRoute(
+              builder: (context) => const PreferenceScreen(),
+            ),
           );
         }
       }
@@ -250,7 +261,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _selectedRole,
+                value: _selectedRole,
                 borderRadius: BorderRadius.circular(30),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../theme/app_theme.dart';
-import '../widgets/gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../theme/app_theme.dart';
+import '../widgets/gradient_button.dart';
+import '../features/destinations/models/destination.dart';
+import '../features/bookings/screens/schedule_browse_screen.dart';
+
 class DestinationDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> destination;
+  final Destination destination;
 
   const DestinationDetailScreen({super.key, required this.destination});
 
@@ -23,9 +26,12 @@ class DestinationDetailScreen extends StatelessWidget {
             right: 0,
             height: MediaQuery.of(context).size.height * 0.45,
             child: Image.network(
-              destination['imageUrl'] ??
-                  'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&h=800&fit=crop',
+              destination.imageUrl,
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const ColoredBox(
+                color: AppTheme.borderLight,
+                child: Icon(Icons.landscape, size: 72),
+              ),
             ),
           ),
 
@@ -101,8 +107,7 @@ class DestinationDetailScreen extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        destination['name'] ??
-                                            'Unknown Destination',
+                                        destination.name,
                                         style: const TextStyle(
                                           fontSize: 22,
                                           fontWeight: FontWeight.bold,
@@ -111,12 +116,10 @@ class DestinationDetailScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        destination['region'] ??
-                                            'Unknown Region',
+                                        destination.region,
                                         style: TextStyle(
-                                          color: AppTheme.textGrey.withOpacity(
-                                            0.8,
-                                          ),
+                                          color: AppTheme.textGrey
+                                              .withOpacity(0.8),
                                           fontSize: 13,
                                         ),
                                       ),
@@ -136,7 +139,7 @@ class DestinationDetailScreen extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          (destination['averageRating'] ?? 0.0)
+                                          destination.averageRating
                                               .toStringAsFixed(1),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
@@ -150,9 +153,8 @@ class DestinationDetailScreen extends StatelessWidget {
                                     Text(
                                       'Reviews',
                                       style: TextStyle(
-                                        color: AppTheme.textGrey.withOpacity(
-                                          0.8,
-                                        ),
+                                        color: AppTheme.textGrey
+                                            .withOpacity(0.8),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -162,7 +164,7 @@ class DestinationDetailScreen extends StatelessWidget {
                             ),
                           ),
 
-                          // Content starts here
+                          // Main Content
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -177,8 +179,9 @@ class DestinationDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                destination['description'] ??
-                                    'No description available.',
+                                destination.description.isNotEmpty
+                                    ? destination.description
+                                    : 'No description available.',
                                 style: const TextStyle(
                                   fontSize: 15,
                                   color: AppTheme.textGrey,
@@ -200,14 +203,10 @@ class DestinationDetailScreen extends StatelessWidget {
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: [
-                                  _buildHighlightChip('Luxury Spas', true),
-                                  _buildHighlightChip('Private Beaches', true),
-                                  _buildHighlightChip(
-                                    'Cultural Heritage',
-                                    false,
-                                  ),
-                                ],
+                                children: destination.tags
+                                    .map((tag) =>
+                                        _buildHighlightChip(tag, true))
+                                    .toList(),
                               ),
                               const SizedBox(height: 32),
 
@@ -224,14 +223,14 @@ class DestinationDetailScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
+                                    const Row(
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.auto_awesome,
                                           color: AppTheme.primaryDark,
                                         ),
-                                        const SizedBox(width: 8),
-                                        const Text(
+                                        SizedBox(width: 8),
+                                        Text(
                                           'Wanderlust AI Planner',
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
@@ -252,7 +251,8 @@ class DestinationDetailScreen extends StatelessWidget {
                                     const SizedBox(height: 20),
                                     GradientButton(
                                       text: 'GENERATE AI ITINERARY',
-                                      onPressed: () => _generateAiItinerary(context),
+                                      onPressed: () =>
+                                          _generateAiItinerary(context),
                                     ),
                                   ],
                                 ),
@@ -277,26 +277,35 @@ class DestinationDetailScreen extends StatelessWidget {
                                   child: FlutterMap(
                                     options: MapOptions(
                                       initialCenter: LatLng(
-                                        (destination['latitude'] as num?)?.toDouble() ?? 7.8731, 
-                                        (destination['longitude'] as num?)?.toDouble() ?? 80.7718
+                                        destination.latitude != 0
+                                            ? destination.latitude
+                                            : 7.8731,
+                                        destination.longitude != 0
+                                            ? destination.longitude
+                                            : 80.7718,
                                       ),
                                       initialZoom: 12,
-                                      interactionOptions: const InteractionOptions(
-                                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                                      interactionOptions:
+                                          const InteractionOptions(
+                                        flags: InteractiveFlag.all &
+                                            ~InteractiveFlag.rotate,
                                       ),
                                     ),
                                     children: [
                                       TileLayer(
-                                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                        userAgentPackageName: 'com.travyle.app',
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName:
+                                            'com.travyle.app',
                                       ),
-                                      if (destination['latitude'] != null && destination['latitude'] != 0)
+                                      if (destination.latitude != 0 &&
+                                          destination.longitude != 0)
                                         MarkerLayer(
                                           markers: [
                                             Marker(
                                               point: LatLng(
-                                                (destination['latitude'] as num).toDouble(), 
-                                                (destination['longitude'] as num).toDouble()
+                                                destination.latitude,
+                                                destination.longitude,
                                               ),
                                               width: 40,
                                               height: 40,
@@ -312,14 +321,15 @@ class DestinationDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 32),
                             ],
-                          ), // closes inner column
+                          ),
                         ],
-                      ), // closes outer column
-                    ), // closes SingleChildScrollView
-                  ), // closes Positioned.fill
+                      ),
+                    ),
+                  ),
                 ],
-              ); // closes Stack
+              );
             },
           ),
         ],
@@ -372,7 +382,13 @@ class DestinationDetailScreen extends StatelessWidget {
               ],
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ScheduleBrowseScreen(),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryDark,
                 padding: const EdgeInsets.symmetric(
@@ -438,7 +454,8 @@ class DestinationDetailScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to generate itineraries.')),
+        const SnackBar(
+            content: Text('Please log in to generate itineraries.')),
       );
       return;
     }
@@ -458,12 +475,12 @@ class DestinationDetailScreen extends StatelessWidget {
           receiveTimeout: const Duration(seconds: 30),
         ),
       );
-      
+
       final response = await dio.post(
         'http://10.0.2.2:5085/api/agent/itinerary',
         data: {
           'email': user.email,
-          'destinationId': destination['id'],
+          'destinationId': destination.id,
         },
       );
 
@@ -488,7 +505,7 @@ class DestinationDetailScreen extends StatelessWidget {
     } else if (data is Map && data.containsKey('days')) {
       days = data['days'];
     } else {
-       ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid AI format received')),
       );
       return;
@@ -514,7 +531,7 @@ class DestinationDetailScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Your Smart Itinerary - ${destination['name']}',
+                    'Your Smart Itinerary - ${destination.name}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -572,5 +589,4 @@ class DestinationDetailScreen extends StatelessWidget {
       ),
     );
   }
-
 }

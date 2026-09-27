@@ -174,7 +174,7 @@ export default function MasterTourPackages() {
   };
 
   return (
-    <Layout>
+    <>
       {/* ── Modals ──────────────────────────────────────────── */}
       {showForm && (
         <DestinationFormModal
@@ -505,6 +505,6 @@ export default function MasterTourPackages() {
           </a>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

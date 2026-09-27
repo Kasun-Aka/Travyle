@@ -18,4 +18,5 @@ export interface User {
 
 export const authApi = {
   sync: (data: SyncRequest) => api.post<User>('/auth/sync', data),
+  updateUser: (data: { email: string; fullName: string }) => api.put<User>('/auth/user', data),
 };
