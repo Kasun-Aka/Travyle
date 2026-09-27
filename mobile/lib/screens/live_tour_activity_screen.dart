@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class LiveTourActivityScreen extends StatefulWidget {
   final bool isGuide;
@@ -131,59 +133,108 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
   }
 
   Widget _buildMapPlaceholder() {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF133E4D),
-        borderRadius: BorderRadius.circular(16.0),
-        image: const DecorationImage(
-          image: NetworkImage(
-              'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=800'),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-            Color(0xFF133E4D),
-            BlendMode.overlay,
-          ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16.0),
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF133E4D),
+          borderRadius: BorderRadius.circular(16.0),
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 16,
-            left: 16,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20.0),
+        child: Stack(
+          children: [
+            FlutterMap(
+              options: const MapOptions(
+                initialCenter: LatLng(6.8711, 81.0458),
+                initialZoom: 13.0,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  CircleAvatar(radius: 4, backgroundColor: Color(0xFF1FA88A)),
-                  SizedBox(width: 8),
-                  Text(
-                    'LIVE GPS ACTIVE',
-                    style: TextStyle(
-                      fontSize: 10.0,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF133E4D),
-                      letterSpacing: 0.5,
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.travyle.app',
+                ),
+                CircleLayer(
+                  circles: [
+                    CircleMarker(
+                      point: const LatLng(6.8811, 81.0358),
+                      color: Colors.green.withOpacity(0.2),
+                      borderStrokeWidth: 0,
+                      useRadiusInMeter: true,
+                      radius: 800,
                     ),
-                  ),
-                ],
+                    CircleMarker(
+                      point: const LatLng(6.8711, 81.0658),
+                      color: Colors.orange.withOpacity(0.2),
+                      borderStrokeWidth: 0,
+                      useRadiusInMeter: true,
+                      radius: 500,
+                    ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: const LatLng(6.8711, 81.0458),
+                      width: 100,
+                      height: 30,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade600,
+                          borderRadius: BorderRadius.circular(20.0),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'TOUR-5510',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20.0),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    CircleAvatar(radius: 4, backgroundColor: Color(0xFF1FA88A)),
+                    SizedBox(width: 8),
+                    Text(
+                      'LIVE GPS ACTIVE',
+                      style: TextStyle(
+                        fontSize: 10.0,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF133E4D),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const Center(
-            child: Text(
-              'Map Placeholder (Leaflet)',
-              style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-            ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }

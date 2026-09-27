@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { SupportTicketItem, TicketPriority, TicketStatus } from '../types/support';
 import { supportApi } from '../services/supportApi';
 import { TicketDetailModal } from '../components/support/TicketDetailModal';
-import './SupportDashboard.css';
-
 import { useNavigate } from 'react-router-dom';
 
 interface SupportDashboardProps {
@@ -81,68 +79,69 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
 
   const getPriorityBadgeClass = (priority: TicketPriority) => {
     switch (priority) {
-      case 'Critical': return 'badge-critical';
-      case 'High': return 'badge-high';
-      case 'Medium': return 'badge-medium';
-      case 'Low': return 'badge-low';
-      default: return 'badge-low';
+      case 'Critical': return 'bg-red-100 text-red-600';
+      case 'High': return 'bg-orange-100 text-orange-700';
+      case 'Medium': return 'bg-amber-100 text-amber-700';
+      case 'Low': return 'bg-slate-100 text-slate-600';
+      default: return 'bg-slate-100 text-slate-600';
     }
   };
 
   const getStatusBadge = (status: TicketStatus) => {
+    const baseClass = "inline-flex items-center gap-[6px] px-[10px] py-[4px] rounded-full text-[12px] font-semibold";
     switch (status) {
       case 'Pending_Admin_Voucher_Approval':
-        return <span className="status-badge status-pending-approval">⏳ Approval Needed</span>;
+        return <span className={`${baseClass} bg-amber-100 text-amber-800`}>⏳ Approval Needed</span>;
       case 'Pending_AI_Triage':
-        return <span className="status-badge status-pending-approval">🤖 AI Triaging</span>;
+        return <span className={`${baseClass} bg-amber-100 text-amber-800`}>🤖 AI Triaging</span>;
       case 'In_Review':
-        return <span className="status-badge status-in-review">🔍 In Review</span>;
+        return <span className={`${baseClass} bg-blue-50 text-blue-800`}>🔍 In Review</span>;
       case 'Resolved':
-        return <span className="status-badge status-resolved">✓ Resolved</span>;
+        return <span className={`${baseClass} bg-green-100 text-green-700`}>✓ Resolved</span>;
       case 'Closed':
-        return <span className="status-badge" style={{ background: '#E2E8F0', color: '#475569' }}>Closed</span>;
+        return <span className={`${baseClass} bg-slate-200 text-slate-600`}>Closed</span>;
       case 'Rejected':
-        return <span className="status-badge" style={{ background: '#FEE2E2', color: '#DC2626' }}>✕ Rejected</span>;
+        return <span className={`${baseClass} bg-red-100 text-red-600`}>✕ Rejected</span>;
       default:
-        return <span className="status-badge">{status || 'Unknown'}</span>;
+        return <span className={baseClass}>{status || 'Unknown'}</span>;
     }
   };
 
   return (
-    <div className="support-dashboard-layout" style={{ padding: 24 }}>
+    <div className="flex flex-col min-h-full w-full bg-[#F8F9FB] font-sans p-6">
       {/* Feature Sub-Navigation Header */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid #E2E8F0', paddingBottom: 12 }}>
+      <div className="flex gap-3 mb-5 border-b border-slate-200 pb-3">
         <button
-          style={{ padding: '8px 16px', borderRadius: 8, background: '#4F46E5', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+          className="px-4 py-2 rounded-lg bg-indigo-600 text-white border-none font-semibold cursor-pointer"
         >
           🎫 Support Queue
         </button>
         <button
           onClick={handleGoVouchers}
-          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+          className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 border-none font-semibold cursor-pointer"
         >
           🎁 Goodwill Vouchers
         </button>
         <button
           onClick={handleGoReviews}
-          style={{ padding: '8px 16px', borderRadius: 8, background: '#F1F5F9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}
+          className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 border-none font-semibold cursor-pointer"
         >
           ⭐ Customer Reviews
         </button>
       </div>
 
       {/* Header */}
-      <div className="main-header">
-        <div className="header-title">
-          <h1>Customer Support & Ticketing Queue</h1>
-          <p>Monitor customer disputes, review AI triage insights, and sign off on goodwill vouchers.</p>
+      <div className="flex items-center justify-between mb-7">
+        <div>
+          <h1 className="m-0 mb-1 text-[26px] font-extrabold text-slate-900">Customer Support & Ticketing Queue</h1>
+          <p className="m-0 text-[14px] text-slate-500">Monitor customer disputes, review AI triage insights, and sign off on goodwill vouchers.</p>
         </div>
-        <div className="header-actions">
-          <button className="btn-primary" onClick={fetchTickets}>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border-none text-[14px] font-semibold cursor-pointer transition-colors" onClick={fetchTickets}>
             🔄 Refresh Queue
           </button>
           {onLogout && (
-            <button className="btn-review" onClick={handleGoLogout}>
+            <button className="px-[14px] py-[8px] rounded-md border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white text-[13px] font-semibold cursor-pointer transition-colors" onClick={handleGoLogout}>
               Sign Out
             </button>
           )}
@@ -150,34 +149,35 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
       </div>
 
         {/* Stat Cards */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-label">Total Active Tickets</span>
-            <span className="stat-value">{totalCount}</span>
-            <span className="stat-subtext" style={{ color: '#64748B' }}>In support database</span>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5 mb-7">
+          <div className="flex flex-col gap-1.5 p-6 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-[13px] font-semibold text-slate-500">Total Active Tickets</span>
+            <span className="text-[28px] font-extrabold text-slate-900">{totalCount}</span>
+            <span className="text-[12px] font-medium text-slate-500">In support database</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Urgent / High Severity</span>
-            <span className="stat-value stat-danger">{highPriorityCount}</span>
-            <span className="stat-subtext stat-danger">Requires prompt attention</span>
+          <div className="flex flex-col gap-1.5 p-6 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-[13px] font-semibold text-slate-500">Urgent / High Severity</span>
+            <span className="text-[28px] font-extrabold text-red-600">{highPriorityCount}</span>
+            <span className="text-[12px] font-medium text-red-600">Requires prompt attention</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Pending Voucher Sign-off</span>
-            <span className="stat-value stat-warning">{pendingApprovalCount}</span>
-            <span className="stat-subtext stat-warning">AI $50 Voucher drafted</span>
+          <div className="flex flex-col gap-1.5 p-6 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-[13px] font-semibold text-slate-500">Pending Voucher Sign-off</span>
+            <span className="text-[28px] font-extrabold text-amber-600">{pendingApprovalCount}</span>
+            <span className="text-[12px] font-medium text-amber-600">AI $50 Voucher drafted</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Resolved / Satisfied</span>
-            <span className="stat-value stat-success">{resolvedCount}</span>
-            <span className="stat-subtext stat-success">Closed claims</span>
+          <div className="flex flex-col gap-1.5 p-6 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <span className="text-[13px] font-semibold text-slate-500">Resolved / Satisfied</span>
+            <span className="text-[28px] font-extrabold text-green-600">{resolvedCount}</span>
+            <span className="text-[12px] font-medium text-green-600">Closed claims</span>
           </div>
         </div>
 
         {/* Controls / Filter Bar */}
-        <div className="controls-bar">
-          <div className="search-box">
-            <span style={{ marginRight: 8, color: '#94A3B8' }}>🔍</span>
+        <div className="flex items-center justify-between gap-4 flex-wrap p-4 px-5 bg-white border border-slate-200 rounded-xl mb-7">
+          <div className="flex items-center px-[14px] py-[8px] bg-[#F8F9FB] border border-slate-300 rounded-lg min-w-[280px]">
+            <span className="mr-2 text-slate-400">🔍</span>
             <input
+              className="w-full bg-transparent border-none outline-none text-[14px] text-slate-900"
               type="text"
               placeholder="Search by customer, title, issue..."
               value={searchQuery}
@@ -185,12 +185,12 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
             />
           </div>
 
-          <div className="filter-group">
-            <div className="priority-tabs">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-lg">
               {['ALL', 'Critical', 'High', 'Medium', 'Low'].map((p) => (
                 <button
                   key={p}
-                  className={`tab-btn ${activePriority === p ? 'active' : ''}`}
+                  className={`px-3 py-1.5 rounded-md border-none text-[13px] font-semibold cursor-pointer transition-colors ${activePriority === p ? 'bg-white text-indigo-600 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}
                   onClick={() => setActivePriority(p)}
                 >
                   {p}
@@ -199,7 +199,7 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
             </div>
 
             <select
-              className="status-dropdown"
+              className="px-[14px] py-[8px] border border-slate-300 rounded-lg text-[13px] font-medium text-slate-700 bg-white outline-none"
               value={activeStatus}
               onChange={(e) => setActiveStatus(e.target.value)}
             >
@@ -215,77 +215,74 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
         </div>
 
         {/* Table Card */}
-        <div className="table-card">
-          <table className="ticket-table">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <table className="w-full border-collapse text-left">
             <thead>
               <tr>
-                <th>Ticket ID / Title</th>
-                <th>Traveler</th>
-                <th>Category</th>
-                <th>Priority</th>
-                <th>AI Sentiment</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">Ticket ID / Title</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">Traveler</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">Category</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">Priority</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">AI Sentiment</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide">Status</th>
+                <th className="px-5 py-3.5 bg-[#F8F9FB] border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>
+                  <td colSpan={7} className="text-center p-10 text-slate-500">
                     Loading support tickets...
                   </td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>
+                  <td colSpan={7} className="text-center p-10 text-slate-500">
                     No support tickets matching current filters.
                   </td>
                 </tr>
               ) : (
                 tickets.map((t) => (
-                  <tr key={t.id}>
-                    <td>
-                      <div className="ticket-row-title">{t.title}</div>
-                      <div className="ticket-row-desc">{t.description}</div>
+                  <tr key={t.id} className="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">
+                      <div className="font-bold text-slate-900 mb-1">{t.title}</div>
+                      <div className="text-[12px] text-slate-500 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap">{t.description}</div>
                     </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#0F172A' }}>{t.userName || 'Traveler'}</div>
-                      <div style={{ fontSize: 12, color: '#94A3B8' }}>{t.userEmail}</div>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">
+                      <div className="font-semibold text-slate-900">{t.userName || 'Traveler'}</div>
+                      <div className="text-[12px] text-slate-400">{t.userEmail}</div>
                     </td>
-                    <td>
-                      <span style={{ fontSize: 13, background: '#F1F5F9', padding: '4px 8px', borderRadius: 4, fontWeight: 500 }}>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">
+                      <span className="text-[13px] bg-slate-100 px-2 py-1 rounded font-medium">
                         {t.category}
                       </span>
                     </td>
-                    <td>
-                      <span className={`badge ${getPriorityBadgeClass(t.priority)}`}>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">
+                      <span className={`inline-block px-2.5 py-1 rounded-md text-[12px] font-bold ${getPriorityBadgeClass(t.priority)}`}>
                         {t.priority}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ 
-                          fontWeight: 700, 
-                          color: (t.sentimentScore ?? 0) < -0.3 ? '#DC2626' : ((t.sentimentScore ?? 0) > 0.3 ? '#16A34A' : '#64748B') 
-                        }}>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-bold ${(t.sentimentScore ?? 0) < -0.3 ? 'text-red-600' : ((t.sentimentScore ?? 0) > 0.3 ? 'text-green-600' : 'text-slate-500')}`}>
                           {(t.sentimentScore ?? 0).toFixed(2)}
                         </span>
-                        <span style={{ fontSize: 11, color: '#94A3B8' }}>
+                        <span className="text-[11px] text-slate-400">
                           ({(t.severityTier || 'Tier_1_Low').replace('Tier_', 'T')})
                         </span>
                       </div>
                     </td>
-                    <td>{getStatusBadge(t.status)}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700">{getStatusBadge(t.status)}</td>
+                    <td className="px-5 py-4 align-middle text-[14px] text-slate-700 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button 
-                          className="btn-review"
+                          className="px-[14px] py-[8px] rounded-md border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white text-[13px] font-semibold cursor-pointer transition-colors"
                           onClick={() => setSelectedTicket(t)}
                         >
                           {t.status === 'Pending_Admin_Voucher_Approval' ? '🎁 Review & Sign' : 'Inspect Details'}
                         </button>
                         <button
-                          style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 13, cursor: 'pointer', padding: '4px 6px' }}
+                          className="bg-transparent border-none text-red-500 text-[13px] cursor-pointer p-1.5 hover:bg-red-50 rounded"
                           onClick={() => handleDeleteTicket(t.id)}
                           title="Delete Ticket"
                         >
@@ -310,4 +307,4 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
       )}
     </div>
   );
-};
+};;

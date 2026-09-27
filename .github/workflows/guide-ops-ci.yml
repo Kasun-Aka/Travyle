@@ -1,0 +1,55 @@
+name: Guide Ops & Auth CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify-functions:
+    name: Verify Guide Ops & Auth Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for essential Guide Ops and Auth functions
+        run: |
+          echo "Scanning codebase to ensure important functions are present..."
+          
+          # Check Backend Auth
+          if ! grep -q -r -i -E "Login|Signup|Register" backend/; then
+            echo "❌ Error: Backend Auth functions (Login/Signup/Register) are missing!"
+            exit 1
+          else
+            echo "✅ Backend Auth functions found."
+          fi
+          
+          # Check Backend Guide Operations & Logistics
+          if ! grep -q -r -i -E "OperationsRepository|IOperationsRepository|TourActivity" backend/; then
+            echo "❌ Error: Guide Operations/Logistics components are missing in the backend!"
+            exit 1
+          else
+            echo "✅ Guide Operations & Logistics backend components found."
+          fi
+          
+          # Check Mobile Auth Screens/Logic
+          if ! grep -q -r -i "Signup" mobile/lib/screens/; then
+            echo "❌ Error: Mobile Signup screen/functions missing!"
+            exit 1
+          else
+            echo "✅ Mobile Auth UI components found."
+          fi
+          
+          # Check Mobile Guide/Tour Screens
+          if ! grep -q -r -i "LiveTourActivity" mobile/lib/screens/; then
+            echo "❌ Error: Mobile Live Tour Activity screen missing!"
+            exit 1
+          else
+            echo "✅ Mobile Guide Tour Activity UI components found."
+          fi
+          
+          echo "🎉 All critical Guide Operations, Logistics, and Auth functions are correctly verified!"

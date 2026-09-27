@@ -6,6 +6,7 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
 import 'features/bookings/screens/booking_history_screen.dart';
 import 'features/bookings/screens/discount_request_history_screen.dart';
 import 'features/bookings/screens/schedule_browse_screen.dart';

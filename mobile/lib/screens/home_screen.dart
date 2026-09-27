@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,8 +52,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final email = FirebaseAuth.instance.currentUser?.email;
     if (email == null) return;
     try {
+      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/notifications/traveler/$email',
+        '$baseUrl/api/notifications/traveler/$email',
       );
       if (response.statusCode == 200) {
         final List notifs = response.data;

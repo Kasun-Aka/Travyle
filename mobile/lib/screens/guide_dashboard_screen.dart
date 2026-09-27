@@ -29,9 +29,11 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       
       final dio = Dio();
       final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      final idToken = await user.getIdToken();
       final response = await dio.get(
         '$baseUrl/api/operations/dashboard',
         queryParameters: {'email': user.email},
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
 
       if (mounted) {
@@ -64,8 +66,8 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       );
     }
 
-    final headerName = _dashboardData!['headerName'];
-    final headerTitle = _dashboardData!['headerTitle'];
+    final headerName = _dashboardData!['headerName'] ?? 'Guide';
+    final headerTitle = _dashboardData!['headerTitle'] ?? 'LOCAL GUIDE';
     final stats = _dashboardData!['stats'] as List<dynamic>;
     final tours = _dashboardData!['tours'] as List<dynamic>;
     final isGuide = _dashboardData!['role'] == "Local Guide" || _dashboardData!['role'] == "Tour Operator";

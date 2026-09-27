@@ -1,6 +1,5 @@
 import { CalendarDays, Clock3, Pencil, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
-import './slot-manager.css'
 
 type Schedule = {
   id: string
@@ -108,26 +107,146 @@ export default function SlotManager({ schedules: initialSchedules, onCreated }: 
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Slot could not be deleted.') }
   }
 
-  return <div className="slot-page">
-    <div className="slot-page-intro"><div><span className="slot-kicker">Inventory / Experiences</span><h2>Booking slots</h2><p>Publish and monitor every date, time slot, and capacity state.</p></div>{notice && <div className="slot-notice" role="status">{notice}</div>}</div>
-    <div className="slot-layout">
-      <form className="slot-form" onSubmit={selected ? edit : create}>
-        <div className="slot-form-header"><div><span className="slot-kicker">{selectedSlot ? 'Individual slot' : selected ? 'Experience details' : 'New experience'}</span><h3>{selectedSlot ? 'Edit this slot' : selected ? 'Edit booking experience' : 'Create booking slots'}</h3></div><span className="slot-form-badge">{selected ? 'EDIT' : 'NEW'}</span></div>
-        <label>Experience name<input required value={form.title} onChange={event => setField('title', event.target.value)} /></label>
-        <label>Location<input required value={form.location} onChange={event => setField('location', event.target.value)} /></label>
-        <label>Guide<input required value={form.guide} onChange={event => setField('guide', event.target.value)} /></label>
-        <div className="slot-form-row"><label>Price per traveler<input required type="number" min="0" value={form.price} onChange={event => setField('price', event.target.value)} /></label><label>Capacity<input required type="number" min="1" value={form.capacity} onChange={event => setField('capacity', event.target.value)} /></label></div>
-        <label>Date(s)<input required value={form.dates} onChange={event => setField('dates', event.target.value)} placeholder="2026-10-01, 2026-10-02" /></label>
-        <label>Time slot(s)<input required value={form.slots} onChange={event => setField('slots', event.target.value)} placeholder="09:00 AM, 02:00 PM" /></label>
-        <button className="slot-primary" disabled={saving}>{saving ? 'Saving...' : selected ? 'Save changes' : 'Publish experience'} <span>→</span></button>
-        {selected && <button type="button" className="slot-secondary" onClick={() => { setSelected(null); setSelectedSlot(null); setForm(emptyForm) }}>Cancel edit</button>}
+  return <div className="p-6">
+    <div className="mb-6 flex justify-between items-start">
+      <div>
+        <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Inventory / Experiences</span>
+        <h2 className="text-2xl font-black mt-1 mb-1">Booking slots</h2>
+        <p className="text-sm text-slate-500 m-0">Publish and monitor every date, time slot, and capacity state.</p>
+      </div>
+      {notice && <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-semibold px-4 py-2.5 rounded-lg max-w-[300px]" role="status">{notice}</div>}
+    </div>
+    
+    <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 items-start">
+      <form className="bg-white border border-slate-200 rounded-2xl p-7 shadow-sm sticky top-6" onSubmit={selected ? edit : create}>
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">
+              {selectedSlot ? 'Individual slot' : selected ? 'Experience details' : 'New experience'}
+            </span>
+            <h3 className="text-lg font-bold m-0 text-slate-900">
+              {selectedSlot ? 'Edit this slot' : selected ? 'Edit booking experience' : 'Create booking slots'}
+            </h3>
+          </div>
+          <span className={`text-[10px] font-bold px-2 py-1 rounded-md tracking-wider ${selected ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+            {selected ? 'EDIT' : 'NEW'}
+          </span>
+        </div>
+        
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+            Experience name
+            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.title} onChange={event => setField('title', event.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+            Location
+            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.location} onChange={event => setField('location', event.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+            Guide
+            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.guide} onChange={event => setField('guide', event.target.value)} />
+          </label>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+              Price per traveler
+              <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required type="number" min="0" value={form.price} onChange={event => setField('price', event.target.value)} />
+            </label>
+            <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+              Capacity
+              <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required type="number" min="1" value={form.capacity} onChange={event => setField('capacity', event.target.value)} />
+            </label>
+          </div>
+          
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+            Date(s)
+            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.dates} onChange={event => setField('dates', event.target.value)} placeholder="2026-10-01, 2026-10-02" />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
+            Time slot(s)
+            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.slots} onChange={event => setField('slots', event.target.value)} placeholder="09:00 AM, 02:00 PM" />
+          </label>
+          
+          <button className="bg-indigo-600 text-white border-none py-3 px-5 rounded-lg font-bold text-[14px] cursor-pointer flex justify-center items-center gap-2 mt-4 hover:bg-indigo-700 hover:shadow-md transition-all active:translate-y-px disabled:opacity-70 disabled:cursor-wait" disabled={saving}>
+            {saving ? 'Saving...' : selected ? 'Save changes' : 'Publish experience'} <span>→</span>
+          </button>
+          
+          {selected && (
+            <button type="button" className="bg-transparent border border-slate-200 text-slate-600 py-3 px-5 rounded-lg font-bold text-[14px] cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-colors" onClick={() => { setSelected(null); setSelectedSlot(null); setForm(emptyForm) }}>
+              Cancel edit
+            </button>
+          )}
+        </div>
       </form>
 
-      <section className="slot-results"><div className="slot-results-header"><div><span className="slot-kicker">Live inventory</span><h3>Saved booking experiences</h3></div><span className="slot-total">{schedules.length} experiences</span></div>
-        <div className="experience-list">{schedules.map(schedule => <article className="experience-card" key={schedule.id}>
-          <div className="experience-header"><div><span className="experience-location">{schedule.location}</span><h4>{schedule.destinationTitle}</h4><p>{schedule.guideName} · LKR {schedule.pricePerPerson.toLocaleString()} · capacity {schedule.maxCapacityPerSlot}</p></div></div>
-          <div className="slot-date-grid">{(schedule.slots ?? schedule.availableDates.flatMap(date => schedule.availableTimeSlots.map(slot => ({ date, timeSlot: slot, booked: schedule.bookedSlotsMap[slotKey(date, slot)] ?? 0 })))).map(({ date, timeSlot: slot, booked }) => { const future = isFutureSlot(date, slot); return <div className={`slot-tile ${future ? 'upcoming' : 'past'}`} key={`${date}-${slot}`}><div className="slot-tile-top"><span><CalendarDays size={14} />{formatDate(date)}</span><span className="slot-state">{future ? 'Upcoming' : 'Started'}</span></div><strong><Clock3 size={17} />{slot}</strong><small><Users size={13} />{booked}/{schedule.maxCapacityPerSlot} booked</small><div className="slot-actions"><button type="button" onClick={() => openEdit(schedule, date, slot)} disabled={!future}><Pencil size={13} /> Edit</button><button type="button" onClick={() => removeSlot(schedule, date, slot)} disabled={!future || booked > 0}><Trash2 size={13} /> Delete</button></div></div> })}</div>
-        </article>)}</div>
+      <section className="flex flex-col gap-6">
+        <div className="flex justify-between items-end pb-3 border-b border-slate-200">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Live inventory</span>
+            <h3 className="text-xl font-extrabold m-0 mt-1 text-slate-900">Saved booking experiences</h3>
+          </div>
+          <span className="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{schedules.length} experiences</span>
+        </div>
+        
+        <div className="flex flex-col gap-8">
+          {schedules.map(schedule => (
+            <article className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" key={schedule.id}>
+              <div className="bg-slate-50 px-6 py-5 border-b border-slate-200 flex justify-between items-start">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 mb-1.5 block">{schedule.location}</span>
+                  <h4 className="text-lg font-black m-0 text-slate-900">{schedule.destinationTitle}</h4>
+                  <p className="text-sm text-slate-500 m-0 mt-1.5 font-medium">
+                    {schedule.guideName} <span className="mx-1 text-slate-300">•</span> LKR {schedule.pricePerPerson.toLocaleString()} <span className="mx-1 text-slate-300">•</span> capacity {schedule.maxCapacityPerSlot}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="p-6 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 bg-slate-50/50">
+                {(schedule.slots ?? schedule.availableDates.flatMap(date => schedule.availableTimeSlots.map(slot => ({ date, timeSlot: slot, booked: schedule.bookedSlotsMap[slotKey(date, slot)] ?? 0 })))).map(({ date, timeSlot: slot, booked }) => { 
+                  const future = isFutureSlot(date, slot); 
+                  return (
+                    <div className={`bg-white border rounded-xl p-4 flex flex-col gap-2 relative transition-all ${future ? 'border-slate-200 hover:border-indigo-300 hover:shadow-md' : 'border-slate-200 opacity-60 grayscale'}`} key={`${date}-${slot}`}>
+                      <div className="flex justify-between items-center text-[12px] font-semibold text-slate-500 mb-1">
+                        <span className="flex items-center gap-1.5"><CalendarDays size={14} />{formatDate(date)}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${future ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {future ? 'Upcoming' : 'Started'}
+                        </span>
+                      </div>
+                      
+                      <strong className="text-lg font-black flex items-center gap-1.5 text-slate-900">
+                        <Clock3 size={17} className="text-indigo-600" />{slot}
+                      </strong>
+                      
+                      <small className={`text-[13px] font-bold flex items-center gap-1.5 mb-3 ${booked >= schedule.maxCapacityPerSlot ? 'text-amber-600' : 'text-slate-600'}`}>
+                        <Users size={13} />
+                        {booked}/{schedule.maxCapacityPerSlot} booked
+                      </small>
+                      
+                      <div className="flex gap-2 mt-auto border-t border-slate-100 pt-3">
+                        <button 
+                          type="button" 
+                          className="flex-1 bg-slate-50 border border-slate-200 text-slate-600 py-1.5 px-0 rounded-md text-[11px] font-bold cursor-pointer flex justify-center items-center gap-1.5 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                          onClick={() => openEdit(schedule, date, slot)} 
+                          disabled={!future}
+                        >
+                          <Pencil size={13} /> Edit
+                        </button>
+                        <button 
+                          type="button" 
+                          className="flex-1 bg-slate-50 border border-slate-200 text-slate-600 py-1.5 px-0 rounded-md text-[11px] font-bold cursor-pointer flex justify-center items-center gap-1.5 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                          onClick={() => removeSlot(schedule, date, slot)} 
+                          disabled={!future || booked > 0}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  ) 
+                })}
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   </div>

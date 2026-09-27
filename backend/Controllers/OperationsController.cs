@@ -91,7 +91,7 @@ public class OperationsController : ControllerBase
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string email)
     {
-        var user = _db.Users.FirstOrDefault(u => u.Email == email);
+        var user = _db.Users.FirstOrDefault(u => u.Email.ToLower() == email.ToLower());
         if (user == null) return NotFound();
 
         bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator";

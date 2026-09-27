@@ -61,14 +61,23 @@ public class AuthController : ControllerBase
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
         }
-        else if (string.IsNullOrEmpty(user.FirebaseUid)) // In case existing DB users don't have FirebaseUid yet
+        else
         {
-            user.FirebaseUid = req.FirebaseUid;
-            await _db.SaveChangesAsync();
-        }
-        else if (!string.Equals(user.FirebaseUid, req.FirebaseUid, StringComparison.Ordinal))
-        {
-            return Conflict(new { error = "This email is already linked to another Firebase account." });
+            bool modified = false;
+            if (!string.Equals(user.FirebaseUid, req.FirebaseUid, StringComparison.Ordinal))
+            {
+                user.FirebaseUid = req.FirebaseUid;
+                modified = true;
+            }
+            if (!string.Equals(user.Email, req.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                user.Email = req.Email;
+                modified = true;
+            }
+            if (modified)
+            {
+                await _db.SaveChangesAsync();
+            }
         }
 
         return Ok(user);

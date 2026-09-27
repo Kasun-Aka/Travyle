@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'dart:typed_data';
@@ -47,8 +48,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           receiveTimeout: const Duration(seconds: 10),
         ),
       );
+      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      final idToken = await _currentUser!.getIdToken();
       final response = await dio.get(
-        'http://10.0.2.2:5085/api/auth/user?email=${_currentUser!.email}',
+        '$baseUrl/api/auth/user?email=${_currentUser!.email}',
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
 
       if (response.statusCode == 200 && response.data != null) {
@@ -102,8 +106,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
       
+      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/destinations/generate-itinerary-pdf',
+        '$baseUrl/api/destinations/generate-itinerary-pdf',
         data: {
           'email': user.email,
           'destinationName': 'Personalized AI Match',

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Zap, Map, AlertTriangle } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const LiveTourOperations = () => {
   const [data, setData] = useState<any>(null);
@@ -77,37 +80,84 @@ const LiveTourOperations = () => {
       </div>
 
       <div className="bg-white shadow-sm border border-gray-100 rounded-xl overflow-hidden mb-6">
-        <div className="p-5 border-b border-gray-100">
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
           <div className="flex items-center gap-2 mb-1">
             <Map className="text-gray-500" size={20} />
             <h2 className="text-lg font-bold text-gray-800">Live map dashboard</h2>
           </div>
-          <p className="text-gray-400 text-sm">Select a marker to inspect the tour's route log</p>
+          <p className="text-gray-400 text-sm">Real-time GPS tracking with weather overlay</p>
         </div>
-        <div className="relative bg-slate-50 overflow-hidden h-[400px]">
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-xs font-bold px-3 py-1.5 rounded-full shadow-sm text-gray-700 z-10">Live map - 1276 pings</div>
+        <div className="relative h-[400px] z-0">
+          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-xs font-bold px-3 py-1.5 rounded-full shadow-sm text-gray-700 z-[1000]">Live map - 1276 pings</div>
           
-          <div className="absolute w-[300px] h-[250px] bg-green-100 rounded-[40px] opacity-50 top-[10%] left-[5%] pointer-events-none"></div>
-          <div className="absolute w-[250px] h-[250px] bg-orange-100 rounded-full opacity-50 top-[30%] left-[45%] pointer-events-none"></div>
-          <div className="absolute w-[350px] h-[200px] bg-indigo-100 rounded-[40px] opacity-50 bottom-[5%] right-[5%] pointer-events-none"></div>
-          
-          <div className="absolute bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 hover:scale-105 transition-transform" style={{ top: '30%', left: '60%' }}>
-            <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-            TOUR-5502
-          </div>
-          <div className="absolute bg-blue-600 text-white px-3 py-1.5 rounded-full shadow-lg text-xs font-bold flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 scale-110 hover:scale-110 transition-transform" style={{ top: '50%', left: '70%' }}>
-            TOUR-5510
-          </div>
-          <div className="absolute bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 hover:scale-105 transition-transform" style={{ top: '70%', left: '40%' }}>
-            <span className="w-2 h-2 rounded-full bg-green-400"></span>
-            TOUR-5505
-          </div>
-          <div className="absolute bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 hover:scale-105 transition-transform" style={{ top: '80%', left: '80%' }}>
-            <span className="w-2 h-2 rounded-full bg-green-400"></span>
-            TOUR-5508
-          </div>
-          
-          <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-2.5 py-1 rounded-md text-[10px] text-gray-500 font-mono shadow-sm">Map: 12.345, 80.678 (WGS84)</div>
+          <MapContainer center={[6.8711, 81.0458]} zoom={13} scrollWheelZoom={false} className="h-full w-full">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            
+            {/* Weather / Traffic Zones using Circles */}
+            <Circle center={[6.8811, 81.0358]} pathOptions={{ fillColor: 'green', fillOpacity: 0.2, color: 'transparent' }} radius={800} />
+            <Circle center={[6.8711, 81.0658]} pathOptions={{ fillColor: 'orange', fillOpacity: 0.2, color: 'transparent' }} radius={500} />
+            <Circle center={[6.8511, 81.0458]} pathOptions={{ fillColor: 'indigo', fillOpacity: 0.2, color: 'transparent' }} radius={1000} />
+
+            {/* Custom Markers using divIcon */}
+            <Marker 
+              position={[6.8811, 81.0358]} 
+              icon={L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: `<div class="bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-orange-400"></span>TOUR-5502</div>`,
+                iconSize: [100, 30],
+                iconAnchor: [50, 15]
+              })}
+            >
+              <Popup>
+                <b>TOUR-5502</b><br/>Status: Delayed
+              </Popup>
+            </Marker>
+
+            <Marker 
+              position={[6.8711, 81.0458]} 
+              icon={L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: `<div class="bg-blue-600 text-white px-3 py-1.5 rounded-full shadow-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">TOUR-5510</div>`,
+                iconSize: [90, 30],
+                iconAnchor: [45, 15]
+              })}
+            >
+              <Popup>
+                <b>TOUR-5510</b><br/>Status: In Progress
+              </Popup>
+            </Marker>
+
+            <Marker 
+              position={[6.8611, 81.0558]} 
+              icon={L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: `<div class="bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-green-400"></span>TOUR-5505</div>`,
+                iconSize: [100, 30],
+                iconAnchor: [50, 15]
+              })}
+            >
+              <Popup>
+                <b>TOUR-5505</b><br/>Status: On Time
+              </Popup>
+            </Marker>
+
+            <Marker 
+              position={[6.8511, 81.0458]} 
+              icon={L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: `<div class="bg-white px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 whitespace-nowrap"><span class="w-2 h-2 rounded-full bg-green-400"></span>TOUR-5508</div>`,
+                iconSize: [100, 30],
+                iconAnchor: [50, 15]
+              })}
+            >
+              <Popup>
+                <b>TOUR-5508</b><br/>Status: On Time
+              </Popup>
+            </Marker>
+          </MapContainer>
         </div>
       </div>
 
