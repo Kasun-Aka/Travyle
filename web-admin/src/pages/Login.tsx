@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -10,6 +11,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { currentUser, dbUser, loading: authLoading } = useAuth();
+
+  // If already authenticated as Admin/Operator, navigate to dashboard
+  useEffect(() => {
+    if (!authLoading && currentUser && dbUser && ["admin", "operator"].includes(dbUser.role?.toLowerCase())) {
+      navigate('/welcome', { replace: true });
+    }
+  }, [currentUser, dbUser, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +32,16 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/welcome');
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      console.error("Login error:", err);
+      let msg = 'Failed to login';
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        msg = 'Invalid email or password. Please verify your credentials.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Too many attempts. Access temporarily disabled, please try again shortly.';
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
