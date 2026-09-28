@@ -53,8 +53,6 @@ public class AuthController : ControllerBase
                 FullName = req.FullName,
                 Role = req.Role switch
                 {
-                    "Admin" => "Admin",
-                    "Operator" => "Operator",
                     "Local Guide" => "Local Guide",
                     "Tour Operator" => "Tour Operator",
                     _ => "Traveler"
@@ -75,22 +73,6 @@ public class AuthController : ControllerBase
             {
                 user.Email = req.Email;
                 modified = true;
-            }
-            if (!string.IsNullOrWhiteSpace(req.Role) && (req.Role == "Admin" || req.Role == "Operator" || user.Role == "Traveler"))
-            {
-                var targetRole = req.Role switch
-                {
-                    "Admin" => "Admin",
-                    "Operator" => "Operator",
-                    "Local Guide" => "Local Guide",
-                    "Tour Operator" => "Tour Operator",
-                    _ => user.Role
-                };
-                if (!string.Equals(user.Role, targetRole, StringComparison.OrdinalIgnoreCase))
-                {
-                    user.Role = targetRole;
-                    modified = true;
-                }
             }
             if (modified)
             {
