@@ -1,6 +1,6 @@
 import re
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import TypedDict, List, Dict, Optional, Any
 from langgraph.graph import StateGraph, END
 
@@ -10,6 +10,15 @@ from ..schemas.booking_schemas import (
     ProposedBookingDto,
 )
 from ..tools.backend_client import backend_client
+
+# Sri Lanka timezone offset (UTC+5:30)
+SL_OFFSET = timedelta(hours=5, minutes=30)
+SL_TZ = timezone(SL_OFFSET)
+
+
+def now_sl() -> datetime:
+    """Return current datetime in Sri Lanka local time (UTC+5:30)."""
+    return datetime.now(SL_TZ).replace(tzinfo=None)
 
 # ============================================================================
 # Graph State Definition
@@ -99,6 +108,7 @@ def detect_prompt_injection(text: str) -> bool:
             return True
     return False
 
+
 def classify_conversation(text: str) -> Optional[str]:
     normalized = text.strip().lower()
     if re.fullmatch(r"(?:hello|hi|hey|good morning|good afternoon|good evening)", normalized):
@@ -108,6 +118,117 @@ def classify_conversation(text: str) -> Optional[str]:
     if re.search(r"\b(?:assign|book)\b.*\b(?:guide|tour guide)\b", normalized):
         return "I'm sorry, I can currently help with available tours, schedules and booking-related requests. I can't safely handle that request."
     return None
+
+
+# Month name → number mapping for natural-language date parsing
+_MONTH_MAP = {
+    "january": 1, "jan": 1, "february": 2, "feb": 2,
+    "march": 3, "mar": 3, "april": 4, "apr": 4,
+    "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+    "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
+    "october": 10, "oct": 10, "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+}
+
+_WEEKDAY_MAP = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+
+
+def _parse_natural_date(text: str) -> Optional[str]:
+    """Try to parse a natural-language date from text. Returns YYYY-MM-DD or None."""
+    now = now_sl()
+    today = now.date()
+
+    # Relative keywords
+    if re.search(r"\bday after tomorrow\b", text, re.IGNORECASE):
+        return (today + timedelta(days=2)).strftime("%Y-%m-%d")
+    if re.search(r"\btomorrow\b", text, re.IGNORECASE):
+        return (today + timedelta(days=1)).strftime("%Y-%m-%d")
+    if re.search(r"\btoday\b", text, re.IGNORECASE):
+        return today.strftime("%Y-%m-%d")
+
+    # ISO format: 2026-10-05
+    m = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+    if m:
+        return m.group(1)
+
+    # "next <weekday>" e.g. "next Monday"
+    m = re.search(r"\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+                  text, re.IGNORECASE)
+    if m:
+        target_wd = _WEEKDAY_MAP[m.group(1).lower()]
+        days_ahead = (target_wd - today.weekday() + 7) % 7 or 7
+        return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    # "October 5" or "5 October" or "5th October" or "Oct 5"
+    month_pattern = "|".join(_MONTH_MAP.keys())
+    m = re.search(
+        rf"\b({month_pattern})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b",
+        text, re.IGNORECASE
+    )
+    if not m:
+        m = re.search(
+            rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({month_pattern})\b",
+            text, re.IGNORECASE
+        )
+        if m:
+            # swap group order — day is group(1), month is group(2)
+            day_num = int(m.group(1))
+            month_num = _MONTH_MAP[m.group(2).lower()]
+        else:
+            day_num = None
+            month_num = None
+    else:
+        month_num = _MONTH_MAP[m.group(1).lower()]
+        day_num = int(m.group(2))
+
+    if day_num and month_num:
+        year = today.year
+        try:
+            candidate = date(year, month_num, day_num)
+        except ValueError:
+            return None
+        # If date already passed this year, try next year
+        if candidate < today:
+            try:
+                candidate = date(year + 1, month_num, day_num)
+            except ValueError:
+                return None
+        return candidate.strftime("%Y-%m-%d")
+
+    # DD/MM/YYYY or D/M/YYYY
+    m = re.search(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", text)
+    if m:
+        try:
+            candidate = date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+            return candidate.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    return None
+
+
+def _parse_time_slot(text: str) -> Optional[str]:
+    """Parse a time slot from text, returning a normalised '09:00 AM' style string or None."""
+    # Explicit HH:MM AM/PM (with optional space)
+    m = re.search(r"\b(\d{1,2}):(\d{2})\s*(AM|PM)\b", text, re.IGNORECASE)
+    if m:
+        return f"{int(m.group(1)):02d}:{m.group(2)} {m.group(3).upper()}"
+    # Bare hour like "9 AM", "10am"
+    m = re.search(r"\b(\d{1,2})\s*(AM|PM)\b", text, re.IGNORECASE)
+    if m:
+        return f"{int(m.group(1)):02d}:00 {m.group(2).upper()}"
+    # Natural
+    if re.search(r"\bmorning\b", text, re.IGNORECASE):
+        return "09:00 AM"
+    if re.search(r"\bafternoon\b", text, re.IGNORECASE):
+        return "02:00 PM"
+    if re.search(r"\bevening\b", text, re.IGNORECASE):
+        return "05:00 PM"
+    return None
+
 
 def parse_intent_from_objective(
     objective: str,
@@ -137,16 +258,12 @@ def parse_intent_from_objective(
             candidate = re.split(
                 r"\bfor\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*"
                 r"(?:people|persons?|guests|travelers|pax)\b",
-                candidate,
-                maxsplit=1,
-                flags=re.IGNORECASE,
+                candidate, maxsplit=1, flags=re.IGNORECASE,
             )[0]
             candidate = re.split(
                 r"\b(?:today|tomorrow|day after tomorrow|next available|morning|afternoon|evening|"
                 r"on\s+202\d-\d{2}-\d{2}|at\s+\d{1,2}:\d{2})\b",
-                candidate,
-                maxsplit=1,
-                flags=re.IGNORECASE,
+                candidate, maxsplit=1, flags=re.IGNORECASE,
             )[0].strip(" .,!?;:")
             if len(candidate) >= 3 and candidate.lower() not in {"a", "the", "tour", "trip", "me"}:
                 destination_kw = candidate
@@ -157,41 +274,21 @@ def parse_intent_from_objective(
         guest_count_match = re.search(
             r"\b(?:for\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*"
             r"(?:people|persons?|guests|travelers|pax)\b",
-            objective,
-            re.IGNORECASE,
+            objective, re.IGNORECASE,
         )
         if guest_count_match:
             guest_value = guest_count_match.group(1).lower()
-            guests = int(guest_value) if guest_value.isdigit() else NUMBER_WORDS[guest_value]
+            guests = int(guest_value) if guest_value.isdigit() else NUMBER_WORDS.get(guest_value, 1)
 
-    # Extract date
+    # Extract date using enhanced natural-language parser
     explicit_date_str = None
     if req_date:
         explicit_date_str = req_date.strftime("%Y-%m-%d")
     else:
-        now = datetime.utcnow()
-        if re.search(r"\bday after tomorrow\b", objective, re.IGNORECASE):
-            explicit_date_str = (now + timedelta(days=2)).strftime("%Y-%m-%d")
-        elif re.search(r"\btomorrow\b", objective, re.IGNORECASE):
-            explicit_date_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
-        else:
-            # ISO date pattern YYYY-MM-DD
-            dm = re.search(r"\b(202\d-\d{2}-\d{2})\b", objective)
-            if dm:
-                explicit_date_str = dm.group(1)
+        explicit_date_str = _parse_natural_date(objective)
 
-    # Extract time slot
-    explicit_slot = req_slot
-    if not explicit_slot:
-        slot_match = re.search(r"\b(\d{1,2}:\d{2}\s*(?:AM|PM))\b", objective, re.IGNORECASE)
-        if slot_match:
-            explicit_slot = re.sub(r"\s+", " ", slot_match.group(1).upper()).strip()
-        elif re.search(r"\bmorning\b", objective, re.IGNORECASE):
-            explicit_slot = "09:00 AM"
-        elif re.search(r"\bafternoon\b", objective, re.IGNORECASE):
-            explicit_slot = "02:00 PM"
-        elif re.search(r"\bevening\b", objective, re.IGNORECASE):
-            explicit_slot = "05:00 PM"
+    # Extract time slot using enhanced parser
+    explicit_slot = req_slot or _parse_time_slot(objective)
 
     return {
         "destination_keyword": destination_kw,
@@ -272,15 +369,14 @@ async def interpret_request_node(state: BookingWorkflowState) -> BookingWorkflow
     state["explicit_slot"] = intent["explicit_slot"]
     state["guests"] = intent["guests"] or 0
 
+    # Only destination and guests are required — date and slot are now optional.
+    # When date/slot are missing the agent will search the schedule and
+    # show available upcoming options with capacity info.
     missing_details = []
     if not state["destination_query"] and not state.get("preferred_schedule_id"):
         missing_details.append("the tour or destination")
     if intent["guests"] is None:
         missing_details.append("how many people are traveling")
-    if not intent["explicit_date"] and not re.search(r"\bnext available(?: date)?\b", state["objective"], re.IGNORECASE):
-        missing_details.append("your preferred date (or say 'next available date')")
-    if not intent["explicit_slot"] and not re.search(r"\b(?:any|next available)\s+(?:time|slot)\b", state["objective"], re.IGNORECASE):
-        missing_details.append("your preferred time (or say 'any available time')")
 
     if missing_details:
         state["validation_results"]["needs_more_info"] = True
@@ -288,8 +384,8 @@ async def interpret_request_node(state: BookingWorkflowState) -> BookingWorkflow
         state["approval_status"] = "NEEDS_INFO"
         state["error_message"] = (
             "I can help book this, but I still need "
-            + ", ".join(missing_details)
-            + ". Please add those details and submit again."
+            + " and ".join(missing_details)
+            + ". Please add those details and try again."
         )
         return state
 
@@ -360,69 +456,203 @@ async def find_available_schedules_node(state: BookingWorkflowState) -> BookingW
     return state
 
 
+def _slot_to_minutes(slot: str) -> int:
+    """Convert '09:00 AM' style string to minutes since midnight for sorting."""
+    m = re.match(r"(\d{1,2}):(\d{2})\s*(AM|PM)", slot.strip(), re.IGNORECASE)
+    if not m:
+        return 0
+    h, mn, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+    if period == "PM" and h != 12:
+        h += 12
+    if period == "AM" and h == 12:
+        h = 0
+    return h * 60 + mn
+
+
+def _build_availability_message(
+    schedule: Dict[str, Any],
+    guests: int,
+    booked_slots_map: Dict[str, int],
+    max_capacity: int,
+) -> str:
+    """Build a human-readable message listing upcoming dates and slot availability."""
+    now = now_sl()
+    today_str = now.date().strftime("%Y-%m-%d")
+    now_minutes = now.hour * 60 + now.minute
+
+    available_dates = sorted(set(d[:10] for d in schedule.get("availableDates", [])))
+    time_slots = sorted(schedule.get("availableTimeSlots", []), key=_slot_to_minutes)
+
+    # Collect per-date slot info, only future slots
+    lines = []
+    for date_str in available_dates:
+        if date_str < today_str:
+            continue
+        slot_lines = []
+        for slot in time_slots:
+            slot_min = _slot_to_minutes(slot)
+            # Skip past slots for today
+            if date_str == today_str and slot_min <= now_minutes:
+                continue
+            key = f"{date_str}_{slot}"
+            booked = booked_slots_map.get(key, 0)
+            remaining = max_capacity - booked
+            if remaining <= 0:
+                slot_lines.append(f"  • {slot} — FULL")
+            elif remaining < guests:
+                slot_lines.append(f"  • {slot} — Only {remaining} seat(s) left (need {guests})")
+            else:
+                slot_lines.append(f"  • {slot} — {remaining} seat(s) available ✓")
+        if slot_lines:
+            try:
+                d_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                day_label = d_obj.strftime("%A, %d %B %Y")  # e.g. Tuesday, 30 September 2026
+            except ValueError:
+                day_label = date_str
+            lines.append(f"📅 {day_label}")
+            lines.extend(slot_lines)
+
+    if not lines:
+        return (
+            f"I found the **{schedule.get('destinationTitle', 'tour')}** at "
+            f"{schedule.get('location', 'the selected location')}, but there are no upcoming "
+            f"available slots right now. Please check back later."
+        )
+
+    msg = (
+        f"I found **{schedule.get('destinationTitle', 'your requested tour')}** "
+        f"at {schedule.get('location', '')}!\n\n"
+        f"Here are the upcoming available dates and time slots for **{guests} guest(s)**:\n\n"
+    )
+    msg += "\n".join(lines)
+    msg += (
+        "\n\nTo book, just tell me which date and time slot you prefer. "
+        "For example: *'Book on 2026-10-05 at 09:00 AM'"
+    )
+    return msg
+
+
 async def check_capacity_node(state: BookingWorkflowState) -> BookingWorkflowState:
     """Step 3 & 4: Resolve date/slot and check real-time capacity."""
     state["completed_steps"].append("Step 3: Select schedule and verify time slot availability")
     schedule = state["selected_schedule"]
     available_dates = schedule.get("availableDates", [])
     available_slots = schedule.get("availableTimeSlots", [])
-    now_date = datetime.utcnow().date()
-
-    # Resolve date
-    target_date_str = state.get("explicit_date")
-    if target_date_str:
-        try:
-            req_d = datetime.strptime(target_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            req_d = now_date
-
-        # Check if date is offered by the schedule and is in future
-        date_offered = any(d.startswith(target_date_str) for d in available_dates)
-        if not date_offered or req_d < now_date:
-            state["validation_results"]["date_is_valid"] = False
-            state["status"] = "Failed"
-            # Polite response as required
-            state["error_message"] = (
-                "Thank you for your request. I couldn't find an available slot for that date. "
-                "I can help you check the available dates instead."
-            )
-            return state
-        target_date = target_date_str
-    else:
-        # Pick earliest upcoming offered date
-        upcoming = [d for d in available_dates if d[:10] >= now_date.strftime("%Y-%m-%d")]
-        target_date = upcoming[0][:10] if upcoming else (now_date + timedelta(days=1)).strftime("%Y-%m-%d")
-
-    state["validation_results"]["date_is_valid"] = True
-    state["target_date"] = target_date
-
-    # Resolve time slot
-    explicit_slot = state.get("explicit_slot")
-    if explicit_slot and any(s.lower() == explicit_slot.lower() for s in available_slots):
-        target_slot = explicit_slot
-    elif available_slots:
-        target_slot = available_slots[0]
-    else:
-        target_slot = "09:00 AM"
-
-    state["target_slot"] = target_slot
-
-    # Validate guest count
+    booked_slots_map = schedule.get("bookedSlotsMap", {})
+    max_capacity = schedule.get("maxCapacityPerSlot", 8)
     guests = state.get("guests", 1)
     state["guests"] = guests
-    state["validation_results"]["traveler_count_valid"] = (guests > 0)
+    now_sl_date = now_sl().date()
+    today_str = now_sl_date.strftime("%Y-%m-%d")
+    now_minutes = now_sl().hour * 60 + now_sl().minute
 
+    # Validate guest count
+    state["validation_results"]["traveler_count_valid"] = (guests > 0)
     if not state["validation_results"]["traveler_count_valid"]:
         state["status"] = "Failed"
         state["error_message"] = "Traveler count must be greater than zero."
         return state
 
-    # Step 4: Check real-time capacity
+    # --- Case A: No date given → Show all upcoming availability ---
+    target_date_str = state.get("explicit_date")
+    if not target_date_str:
+        avail_msg = _build_availability_message(schedule, guests, booked_slots_map, max_capacity)
+        state["validation_results"]["date_is_valid"] = False
+        state["status"] = "Failed"
+        state["approval_status"] = "NEEDS_DATE"
+        state["error_message"] = avail_msg
+        return state
+
+    # --- Case B: Date given → validate it ---
+    try:
+        req_d = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        req_d = now_sl_date
+
+    date_offered = any(d[:10] == target_date_str for d in available_dates)
+    if not date_offered or req_d < now_sl_date:
+        # Show availability instead of a bare error
+        avail_msg = _build_availability_message(schedule, guests, booked_slots_map, max_capacity)
+        state["validation_results"]["date_is_valid"] = False
+        state["status"] = "Failed"
+        state["error_message"] = (
+            f"The date **{target_date_str}** is not available for this tour.\n\n"
+            + avail_msg
+        )
+        return state
+
+    state["validation_results"]["date_is_valid"] = True
+    state["target_date"] = target_date_str
+
+    # --- Resolve time slot ---
+    explicit_slot = state.get("explicit_slot")
+    # Find closest matching slot (case-insensitive)
+    matched_slot = next(
+        (s for s in available_slots if s.strip().upper() == (explicit_slot or "").strip().upper()),
+        None
+    )
+
+    if not explicit_slot:
+        # No slot given: show available slots for that date with capacity
+        slot_info_lines = []
+        for slot in sorted(available_slots, key=_slot_to_minutes):
+            slot_min = _slot_to_minutes(slot)
+            if target_date_str == today_str and slot_min <= now_minutes:
+                continue
+            key = f"{target_date_str}_{slot}"
+            booked = booked_slots_map.get(key, 0)
+            remaining = max_capacity - booked
+            if remaining <= 0:
+                slot_info_lines.append(f"  • {slot} — FULL")
+            elif remaining < guests:
+                slot_info_lines.append(f"  • {slot} — Only {remaining} seat(s) left (need {guests})")
+            else:
+                slot_info_lines.append(f"  • {slot} — {remaining} seat(s) available ✓")
+
+        try:
+            d_obj = datetime.strptime(target_date_str, "%Y-%m-%d")
+            day_label = d_obj.strftime("%A, %d %B %Y")
+        except ValueError:
+            day_label = target_date_str
+
+        if slot_info_lines:
+            slot_text = "\n".join(slot_info_lines)
+            msg = (
+                f"Great choice! For **{schedule.get('destinationTitle','the tour')}** "
+                f"on **{day_label}**, here are the available time slots for {guests} guest(s):\n\n"
+                f"{slot_text}\n\n"
+                f"Which time slot would you like? Just reply with the slot, e.g. *'at 09:00 AM'*."
+            )
+        else:
+            msg = (
+                f"There are no upcoming slots available on {day_label}. "
+                "Please choose another date."
+            )
+        state["validation_results"]["date_is_valid"] = False
+        state["status"] = "Failed"
+        state["approval_status"] = "NEEDS_SLOT"
+        state["error_message"] = msg
+        return state
+
+    if not matched_slot:
+        # Slot given but not found in schedule — suggest available ones
+        slot_list = ", ".join(available_slots) if available_slots else "none listed"
+        state["validation_results"]["date_is_valid"] = False
+        state["status"] = "Failed"
+        state["error_message"] = (
+            f"The time slot **{explicit_slot}** is not available for this tour. "
+            f"Available slots are: {slot_list}."
+        )
+        return state
+
+    state["target_slot"] = matched_slot
+
+    # --- Step 4: Check real-time capacity for the chosen slot ---
     state["completed_steps"].append("Step 4: Check real-time slot capacity via backend tool")
     capacity_res = await backend_client.check_booking_capacity(
         schedule_id=str(schedule["id"]),
-        date=target_date,
-        time_slot=target_slot,
+        date=target_date_str,
+        time_slot=matched_slot,
         requested_guests=guests,
     )
     state["tool_results"]["check_booking_capacity"] = capacity_res
@@ -430,12 +660,31 @@ async def check_capacity_node(state: BookingWorkflowState) -> BookingWorkflowSta
     state["validation_results"]["capacity_sufficient"] = is_available
 
     if not is_available:
+        # Find other slots on the same date that still have room
+        alt_slots = []
+        for slot in sorted(available_slots, key=_slot_to_minutes):
+            if slot.strip().upper() == matched_slot.strip().upper():
+                continue
+            key = f"{target_date_str}_{slot}"
+            booked = booked_slots_map.get(key, 0)
+            remaining = max_capacity - booked
+            if remaining >= guests:
+                alt_slots.append(f"{slot} ({remaining} seats left)")
+
+        if alt_slots:
+            alt_text = ", ".join(alt_slots)
+            state["error_message"] = (
+                f"The **{matched_slot}** slot on {target_date_str} is fully booked or "
+                f"doesn't have enough seats for {guests} guest(s). "
+                f"Other available slots on the same day: {alt_text}."
+            )
+        else:
+            state["error_message"] = (
+                f"The **{matched_slot}** slot on {target_date_str} is fully booked and "
+                f"there are no other slots with enough capacity on that day. "
+                "Please choose a different date."
+            )
         state["status"] = "Failed"
-        # Polite response as required
-        state["error_message"] = (
-            "I'm sorry, but the selected schedule does not have enough remaining capacity "
-            "for your group. Please try another available schedule."
-        )
         return state
 
     return state

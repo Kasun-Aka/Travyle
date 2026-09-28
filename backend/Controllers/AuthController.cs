@@ -114,6 +114,24 @@ public class AuthController : ControllerBase
         public string[] Preferences { get; set; } = Array.Empty<string>();
     }
 
+    // GET /api/auth/guides
+    [HttpGet("guides")]
+    public async Task<IActionResult> GetGuides()
+    {
+        var guides = await _db.Users
+            .Where(u => u.Role == "Local Guide" || u.Role == "Tour Operator")
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.FullName,
+                u.Role
+            })
+            .ToListAsync();
+
+        return Ok(guides);
+    }
+
     // GET /api/auth/travelers
     [HttpGet("travelers")]
     public async Task<IActionResult> GetTravelers()

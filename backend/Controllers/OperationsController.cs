@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Travyle.Api.DTOs.Operations;
+using Travyle.Api.Models;
 using Travyle.Api.Services;
 
 namespace Travyle.Api.Controllers;
@@ -91,46 +93,88 @@ public class OperationsController : ControllerBase
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string email)
     {
-        var user = _db.Users.FirstOrDefault(u => u.Email.ToLower() == email.ToLower());
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
         if (user == null) return NotFound();
 
         bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator";
+
+        // Query real assigned schedules if any exist for this guide
+        var realAssignedSchedules = new List<BookingSchedule>();
+        if (isGuide)
+        {
+            var assignedScheduleIds = await _db.GuideAssignments
+                .Where(ga => ga.GuideUserId == user.Id)
+                .Select(ga => ga.BookingScheduleId)
+                .ToListAsync();
+
+            realAssignedSchedules = await _db.BookingSchedules
+                .Include(s => s.TimeSlots)
+                .Include(s => s.AvailableDates)
+                .Where(s => assignedScheduleIds.Contains(s.Id) || s.GuideName.ToLower() == user.FullName.ToLower())
+                .ToListAsync();
+        }
+
+        // Default mock tours fallback (preserves existing demo data)
+        var fallbackTours = new[]
+        {
+            new 
+            {
+                time = "09:00 AM - 12:00 PM",
+                travelers = isGuide ? "6 Travelers" : "You + 5 others",
+                title = "Sacred Ubud Forest Walk",
+                location = "Ubud Monkey Forest Main Entrance",
+                actionType = "CHECK_IN"
+            },
+            new
+            {
+                time = "04:30 PM - 07:30 PM",
+                travelers = isGuide ? "8 Travelers" : "You + 7 others",
+                title = "Sunset Tanah Lot Escape",
+                location = "Tanah Lot Temple Lobby",
+                actionType = "START_TOUR"
+            }
+        };
+
+        var dynamicTours = realAssignedSchedules.Count > 0
+            ? realAssignedSchedules.Select((s, idx) => new
+            {
+                time = s.TimeSlots.FirstOrDefault()?.SlotLabel != null
+                    ? $"{s.TimeSlots.FirstOrDefault()!.SlotLabel} - Onwards"
+                    : "09:00 AM - 01:00 PM",
+                travelers = $"{s.MaxCapacityPerSlot} Max Capacity",
+                title = s.DestinationTitle,
+                location = s.Location,
+                actionType = idx == 0 ? "CHECK_IN" : "START_TOUR"
+            }).ToArray()
+            : fallbackTours;
+
+        var dynamicStats = isGuide
+            ? (realAssignedSchedules.Count > 0 ? new[]
+                {
+                    new { value = realAssignedSchedules.Count.ToString(), label = "TOURS ASSIGNED" },
+                    new { value = realAssignedSchedules.Sum(s => s.MaxCapacityPerSlot).ToString(), label = "CAPACITY" },
+                    new { value = (realAssignedSchedules.Average(s => s.Rating) > 0 ? realAssignedSchedules.Average(s => s.Rating).ToString("0.0") : "5.0"), label = "MY RATING" }
+                }
+                : new[]
+                {
+                    new { value = "2", label = "TOURS TODAY" },
+                    new { value = "14", label = "TRAVELERS" },
+                    new { value = "4.9", label = "MY RATING" }
+                })
+            : new[]
+            {
+                new { value = "1", label = "UPCOMING TOUR" },
+                new { value = "3", label = "COMPLETED" },
+                new { value = "4.9", label = "GUIDE RATING" }
+            };
 
         var result = new
         {
             role = user.Role,
             headerName = isGuide ? user.FullName : "Ketut Alit",
             headerTitle = isGuide ? "LOCAL GUIDE" : "ASSIGNED GUIDE",
-            stats = isGuide ? new[]
-            {
-                new { value = "2", label = "TOURS TODAY" },
-                new { value = "14", label = "TRAVELERS" },
-                new { value = "4.9", label = "MY RATING" }
-            } : new[]
-            {
-                new { value = "1", label = "UPCOMING TOUR" },
-                new { value = "3", label = "COMPLETED" },
-                new { value = "4.9", label = "GUIDE RATING" }
-            },
-            tours = new[]
-            {
-                new 
-                {
-                    time = "09:00 AM - 12:00 PM",
-                    travelers = isGuide ? "6 Travelers" : "You + 5 others",
-                    title = "Sacred Ubud Forest Walk",
-                    location = "Ubud Monkey Forest Main Entrance",
-                    actionType = "CHECK_IN"
-                },
-                new
-                {
-                    time = "04:30 PM - 07:30 PM",
-                    travelers = isGuide ? "8 Travelers" : "You + 7 others",
-                    title = "Sunset Tanah Lot Escape",
-                    location = "Tanah Lot Temple Lobby",
-                    actionType = "START_TOUR"
-                }
-            }
+            stats = dynamicStats,
+            tours = dynamicTours
         };
 
         return Ok(result);

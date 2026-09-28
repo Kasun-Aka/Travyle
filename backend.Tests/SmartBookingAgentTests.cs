@@ -89,7 +89,7 @@ public class SmartBookingAgentTests
 
         var scheduleRepo = new BookingScheduleRepository(db);
         var bookingRepo = new BookingRepository(db);
-        var scheduleService = new BookingScheduleService(scheduleRepo, bookingRepo);
+        var scheduleService = new BookingScheduleService(scheduleRepo, bookingRepo, db);
         var bookingService = new BookingService(bookingRepo, scheduleRepo);
 
         var agentTools = new BookingAgentTools(scheduleService, bookingService, scheduleRepo);
