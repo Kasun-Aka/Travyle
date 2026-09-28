@@ -53,6 +53,8 @@ public class AuthController : ControllerBase
                 FullName = req.FullName,
                 Role = req.Role switch
                 {
+                    "Admin" => "Admin",
+                    "Operator" => "Operator",
                     "Local Guide" => "Local Guide",
                     "Tour Operator" => "Tour Operator",
                     _ => "Traveler"
@@ -73,6 +75,22 @@ public class AuthController : ControllerBase
             {
                 user.Email = req.Email;
                 modified = true;
+            }
+            if (!string.IsNullOrWhiteSpace(req.Role) && (req.Role == "Admin" || req.Role == "Operator" || user.Role == "Traveler"))
+            {
+                var targetRole = req.Role switch
+                {
+                    "Admin" => "Admin",
+                    "Operator" => "Operator",
+                    "Local Guide" => "Local Guide",
+                    "Tour Operator" => "Tour Operator",
+                    _ => user.Role
+                };
+                if (!string.Equals(user.Role, targetRole, StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Role = targetRole;
+                    modified = true;
+                }
             }
             if (modified)
             {
@@ -112,6 +130,24 @@ public class AuthController : ControllerBase
     {
         public string Email { get; set; } = string.Empty;
         public string[] Preferences { get; set; } = Array.Empty<string>();
+    }
+
+    // GET /api/auth/guides
+    [HttpGet("guides")]
+    public async Task<IActionResult> GetGuides()
+    {
+        var guides = await _db.Users
+            .Where(u => u.Role == "Local Guide" || u.Role == "Tour Operator")
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.FullName,
+                u.Role
+            })
+            .ToListAsync();
+
+        return Ok(guides);
     }
 
     // GET /api/auth/travelers

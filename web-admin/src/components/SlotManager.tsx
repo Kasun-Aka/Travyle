@@ -1,5 +1,5 @@
 import { CalendarDays, Clock3, Pencil, Trash2, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type Schedule = {
   id: string
@@ -19,6 +19,7 @@ type Props = { schedules: Schedule[]; onCreated: (schedule: Schedule) => void }
 type SlotSelection = { scheduleId: string; date: string; slot: string } | null
 
 type FormState = { title: string; location: string; guide: string; price: string; capacity: string; dates: string; slots: string }
+type GuideUser = { id: string; fullName: string; email: string; role: string }
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api'
 const emptyForm: FormState = { title: '', location: '', guide: '', price: '', capacity: '8', dates: '', slots: '09:00 AM' }
@@ -41,6 +42,25 @@ export default function SlotManager({ schedules: initialSchedules, onCreated }: 
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState<FormState>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [guides, setGuides] = useState<GuideUser[]>([])
+  const [guidesLoading, setGuidesLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchGuides = async () => {
+      try {
+        const response = await fetch(`${API}/auth/guides`)
+        if (response.ok) {
+          const data = await response.json() as GuideUser[]
+          setGuides(data)
+        }
+      } catch {
+        // API unavailable – fall back to free-text input
+      } finally {
+        setGuidesLoading(false)
+      }
+    }
+    fetchGuides()
+  }, [])
 
   const setField = (field: keyof FormState, value: string) => setForm(current => ({ ...current, [field]: value }))
   const formPayload = (id: string) => ({ destinationId: id, destinationTitle: form.title, location: form.location, guideName: form.guide, pricePerPerson: Number(form.price), maxCapacityPerSlot: Number(form.capacity), rating: 0, reviewsCount: 0, availableDates: form.dates.split(',').map(value => new Date(value.trim()).toISOString()), availableTimeSlots: form.slots.split(',').map(value => value.trim()) })
@@ -144,7 +164,29 @@ export default function SlotManager({ schedules: initialSchedules, onCreated }: 
           </label>
           <label className="flex flex-col gap-1.5 text-[13px] font-bold text-slate-700">
             Guide
-            <input className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium" required value={form.guide} onChange={event => setField('guide', event.target.value)} />
+            {!guidesLoading && guides.length > 0 ? (
+              <select
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium cursor-pointer"
+                required
+                value={form.guide}
+                onChange={event => setField('guide', event.target.value)}
+              >
+                <option value="">— Select a registered guide —</option>
+                {guides.map(g => (
+                  <option key={g.id} value={g.fullName}>
+                    {g.fullName} ({g.role})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-inherit font-medium"
+                required
+                placeholder={guidesLoading ? 'Loading guides…' : 'Enter guide name'}
+                value={form.guide}
+                onChange={event => setField('guide', event.target.value)}
+              />
+            )}
           </label>
           
           <div className="grid grid-cols-2 gap-4">

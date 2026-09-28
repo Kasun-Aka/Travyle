@@ -15,9 +15,13 @@ import 'features/bookings/theme/booking_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e, stack) {
+    debugPrint('Firebase initialization error: $e\n$stack');
+  }
   runApp(const ProviderScope(child: TravyleApp()));
 }
 

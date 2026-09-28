@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Shield, Activity, Users } from 'lucide-react';
+import { UserPlus, Activity, Users } from 'lucide-react';
 
 const StaffAccessControl = () => {
   const [staff, setStaff] = useState<any[]>([]);

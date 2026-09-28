@@ -1,6 +1,8 @@
+using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
 using Travyle.Api.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text.Json;
 
@@ -115,11 +117,13 @@ public class BookingScheduleService : IBookingScheduleService
 {
     private readonly IBookingScheduleRepository _scheduleRepo;
     private readonly IBookingRepository _bookingRepo;
+    private readonly TravyleDbContext _db;
 
-    public BookingScheduleService(IBookingScheduleRepository scheduleRepo, IBookingRepository bookingRepo)
+    public BookingScheduleService(IBookingScheduleRepository scheduleRepo, IBookingRepository bookingRepo, TravyleDbContext db)
     {
         _scheduleRepo = scheduleRepo;
         _bookingRepo = bookingRepo;
+        _db = db;
     }
 
     public async Task<IEnumerable<BookingScheduleResponse>> GetSchedulesAsync(string? search, DateTime? filterDate, CancellationToken ct = default)
@@ -166,6 +170,46 @@ public class BookingScheduleService : IBookingScheduleService
         };
 
         var created = await _scheduleRepo.CreateAsync(schedule, ct);
+
+        // Inter-component integration: Link with GuideAssignment system
+        try
+        {
+            User? guideUser = null;
+            if (request.GuideUserId.HasValue && request.GuideUserId.Value != Guid.Empty)
+            {
+                guideUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.GuideUserId.Value, ct);
+            }
+            else if (!string.IsNullOrWhiteSpace(request.GuideName))
+            {
+                var lower = request.GuideName.Trim().ToLower();
+                guideUser = await _db.Users.FirstOrDefaultAsync(u =>
+                    u.FullName.ToLower() == lower &&
+                    (u.Role == "Local Guide" || u.Role == "Guide" || u.Role == "Tour Operator"), ct);
+            }
+
+            if (guideUser != null)
+            {
+                var existingAssignment = await _db.GuideAssignments
+                    .FirstOrDefaultAsync(ga => ga.BookingScheduleId == created.Id && ga.GuideUserId == guideUser.Id, ct);
+
+                if (existingAssignment == null)
+                {
+                    _db.GuideAssignments.Add(new GuideAssignment
+                    {
+                        BookingScheduleId = created.Id,
+                        GuideUserId = guideUser.Id,
+                        Status = "Assigned",
+                        AssignedAt = DateTime.UtcNow
+                    });
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+        }
+        catch
+        {
+            // Non-blocking for schedule creation
+        }
+
         return BookingMapper.ToResponse(created, new Dictionary<string, int>());
     }
 

@@ -41,3 +41,9 @@ doc_content2.txt
 doc_tables.txt
 extracted_doc.txt
 test_gemini.csx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+

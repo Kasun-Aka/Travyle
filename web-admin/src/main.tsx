@@ -22,9 +22,21 @@ import Signup from './pages/Signup';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, dbUser, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-screen items-center justify-center bg-[#071b33] text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-slate-300">Loading admin console...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) return <Navigate to="/login" replace />;
-  if (!dbUser || !["Admin", "Operator"].includes(dbUser.role)) {
+
+  const isStaff = dbUser && ["Admin", "Operator"].some(r => r.toLowerCase() === dbUser.role?.toLowerCase());
+  if (!isStaff) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;

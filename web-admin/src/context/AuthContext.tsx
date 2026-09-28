@@ -8,6 +8,7 @@ interface AuthContextType {
   dbUser: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   dbUser: null,
   loading: true,
   logout: async () => {},
+  refreshUser: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -24,6 +26,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [dbUser, setDbUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const syncUserWithBackend = async (user: FirebaseUser): Promise<User> => {
+    try {
+      const res = await authApi.sync({
+        firebaseUid: user.uid,
+        email: user.email || '',
+        fullName: user.displayName || user.email?.split('@')[0] || 'Admin',
+        role: 'Admin', // Web app is Admin
+      });
+      return res.data;
+    } catch (error) {
+      console.warn("Could not sync user with backend DB, using fallback admin profile:", error);
+      return {
+        id: user.uid,
+        firebaseUid: user.uid,
+        email: user.email || '',
+        fullName: user.displayName || user.email?.split('@')[0] || 'Admin',
+        role: 'Admin',
+        createdAt: new Date().toISOString(),
+      };
+    }
+  };
+
   useEffect(() => {
     if (!auth) {
       setLoading(false);
@@ -31,19 +55,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       setCurrentUser(user);
       if (user && user.email) {
-        try {
-          const res = await authApi.sync({
-            firebaseUid: user.uid,
-            email: user.email,
-            fullName: user.displayName || user.email.split('@')[0],
-            role: 'Admin', // Web app is Admin
-          });
-          setDbUser(res.data);
-        } catch (error) {
-          console.error("Failed to sync user with DB", error);
-        }
+        const synced = await syncUserWithBackend(user);
+        setDbUser(synced);
       } else {
         setDbUser(null);
       }
@@ -57,11 +73,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (auth) {
       await signOut(auth);
     }
+    setCurrentUser(null);
+    setDbUser(null);
+  };
+
+  const refreshUser = async (): Promise<User | null> => {
+    if (auth?.currentUser) {
+      const synced = await syncUserWithBackend(auth.currentUser);
+      setDbUser(synced);
+      return synced;
+    }
+    return null;
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, dbUser, loading, logout }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ currentUser, dbUser, loading, logout, refreshUser }}>
+      {children}
     </AuthContext.Provider>
   );
 };

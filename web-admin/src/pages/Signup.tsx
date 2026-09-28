@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { authApi } from '../api/auth';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -12,6 +13,14 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { currentUser, dbUser, loading: authLoading } = useAuth();
+
+  // If already authenticated as Admin/Operator, navigate to dashboard
+  useEffect(() => {
+    if (!authLoading && currentUser && dbUser && ["admin", "operator"].includes(dbUser.role?.toLowerCase())) {
+      navigate('/welcome', { replace: true });
+    }
+  }, [currentUser, dbUser, authLoading, navigate]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,11 +33,32 @@ export default function Signup() {
       }
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: fullName });
-      await authApi.updateUser({ email, fullName });
+
+      try {
+        await authApi.sync({
+          firebaseUid: userCredential.user.uid,
+          email: userCredential.user.email || email,
+          fullName: fullName || email.split('@')[0],
+          role: 'Admin',
+        });
+      } catch (syncErr) {
+        console.warn("Backend sync notice:", syncErr);
+      }
 
       navigate('/welcome');
     } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+      console.error("Signup error:", err);
+      let msg = 'Failed to create account';
+      if (err.code === 'auth/email-already-in-use') {
+        msg = 'This email is already registered. Please sign in instead.';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'Password should be at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Please enter a valid email address.';
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
