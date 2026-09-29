@@ -20,4 +20,5 @@ public interface IOperationsRepository
 
     // DisruptionAlerts
     Task<List<DisruptionAlert>> GetActiveAlertsAsync(Guid? bookingScheduleId);
+    Task<DisruptionAlert> CreateDisruptionAlertAsync(DisruptionAlert alert);
 }

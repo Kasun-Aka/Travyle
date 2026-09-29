@@ -19,7 +19,11 @@ public interface IOperationsService
 
     // DisruptionAlerts
     Task<List<DisruptionAlertResponseDto>> GetActiveAlertsAsync(Guid? bookingScheduleId);
+    Task<DisruptionAlertResponseDto> CreateDisruptionAlertAsync(CreateDisruptionAlertDto dto);
 
     // Route Optimization
     Task<RouteOptimizationResponseDto> ReorderRouteOptimizationAsync(RouteOptimizationRequestDto dto);
+
+    // AI Agent Integration
+    Task<MonitorOperationsResponseDto?> MonitorOperationsAsync(MonitorOperationsRequestDto dto);
 }

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 class LiveTourActivityScreen extends StatefulWidget {
@@ -11,6 +13,8 @@ class LiveTourActivityScreen extends StatefulWidget {
 }
 
 class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
+  String? _activeAlertMessage;
+  bool _isLoadingMonitor = false;
   final List<Map<String, dynamic>> _checklist = [
     {'title': 'Tanah Lot Temple Sunrise', 'estimatedTime': 'Estimated: 06:15 AM', 'status': CheckStatus.completed},
     {'title': 'Kopi Luwak Estate', 'estimatedTime': 'Estimated: 08:30 AM • CURRENT STOP', 'status': CheckStatus.current},
@@ -101,6 +105,55 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
               );
             }).toList(),
             const SizedBox(height: 32.0),
+            const SizedBox(height: 16.0),
+            if (_activeAlertMessage != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16.0),
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12.0),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.red),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: Text(
+                        _activeAlertMessage!,
+                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoadingMonitor ? null : _monitorOperations,
+                icon: _isLoadingMonitor
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.satellite_alt, color: Colors.white),
+                label: Text(
+                  _isLoadingMonitor ? 'ANALYZING ROUTE...' : 'AI MONITOR ROUTE & WEATHER',
+                  style: const TextStyle(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  backgroundColor: const Color(0xFF133E4D),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24.0),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16.0),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -130,6 +183,37 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _monitorOperations() async {
+    setState(() => _isLoadingMonitor = true);
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:5200/api/operations/monitor'), // Adjust base URL as needed
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'bookingScheduleId': '00000000-0000-0000-0000-000000000000', // Mock UUID
+          'lat': 6.8711,
+          'lon': 81.0458,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          if (data['status'] == 'DISRUPTION_DETECTED') {
+            _activeAlertMessage = data['message'] ?? 'Disruption detected on route!';
+          } else {
+            _activeAlertMessage = 'Route is clear. No disruptions.';
+          }
+        });
+      } else {
+        setState(() => _activeAlertMessage = 'Failed to reach Operations AI.');
+      }
+    } catch (e) {
+      setState(() => _activeAlertMessage = 'Error connecting to server.');
+    } finally {
+      setState(() => _isLoadingMonitor = false);
+    }
   }
 
   Widget _buildMapPlaceholder() {

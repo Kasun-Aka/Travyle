@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 const LiveTourOperations = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [monitoring, setMonitoring] = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -20,6 +21,35 @@ const LiveTourOperations = () => {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  const handleMonitorOperations = async () => {
+    setMonitoring(true);
+    try {
+      // Mock tour ID for testing
+      const payload = {
+        bookingScheduleId: '00000000-0000-0000-0000-000000000000',
+        lat: 6.8711,
+        lon: 81.0458
+      };
+      // Note: Assuming backend API runs on localhost:5200 for the main API
+      const res = await fetch('http://localhost:5200/api/operations/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('AI Monitor completed successfully!');
+        fetchData(); // refresh to show new alerts
+      } else {
+        alert('AI Monitor failed.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error connecting to backend.');
+    } finally {
+      setMonitoring(false);
+    }
   };
 
   useEffect(() => {
@@ -43,9 +73,18 @@ const LiveTourOperations = () => {
         <p className="text-gray-500 max-w-[800px] leading-relaxed mb-4">
           Track every tour in progress against its planned route, triage weather and traffic disruptions, and approve agent-proposed stop re-ordering.
         </p>
-        <button className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm mb-2" onClick={fetchData}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? 'Refreshing...' : 'Refresh pings'}
-        </button>
+        <div className="flex gap-2 mb-2">
+          <button className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm" onClick={fetchData}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? 'Refreshing...' : 'Refresh pings'}
+          </button>
+          <button 
+            className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm" 
+            onClick={handleMonitorOperations}
+            disabled={monitoring}
+          >
+            <Zap size={14} className={monitoring ? 'animate-pulse' : ''} /> {monitoring ? 'Running AI Scan...' : 'Scan with AI Operations Agent'}
+          </button>
+        </div>
         <div className="flex gap-3 mt-4 flex-wrap">
           <div className="inline-flex items-center bg-white border border-gray-200 rounded-full py-1 pr-3 pl-1 text-xs font-mono text-gray-500">
             <span className="font-bold text-[0.7rem] px-2 py-0.5 rounded-full mr-2 bg-green-100 text-green-700">POST</span>/api/operations/route-logs
