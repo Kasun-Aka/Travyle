@@ -11,6 +11,7 @@ public interface ISupportService
     Task<TicketResponseDto?> UpdateTicketStatusAsync(Guid id, UpdateTicketStatusDto dto, CancellationToken cancellationToken = default);
     Task<bool> DeleteTicketAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AutoResolveResultDto?> AutoResolveClaimAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<string> UploadAttachmentAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default);
 
     Task<VoucherResponseDto> IssueVoucherAsync(CreateVoucherDto dto, CancellationToken cancellationToken = default);
     Task<VoucherResponseDto?> GetVoucherByIdAsync(Guid id, CancellationToken cancellationToken = default);

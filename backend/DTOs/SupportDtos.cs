@@ -24,6 +24,12 @@ public class CreateTicketDto
     public string? AttachmentUrl { get; set; }
 }
 
+public class UploadTicketAttachmentDto
+{
+    [Required]
+    public IFormFile File { get; set; } = null!;
+}
+
 public class UpdateTicketDto
 {
     [Required]

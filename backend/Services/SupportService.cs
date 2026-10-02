@@ -349,6 +349,35 @@ public class SupportService : ISupportService
         return await _aiAgentService.TriageTicketAsync(ticket, cancellationToken);
     }
 
+    public async Task<string> UploadAttachmentAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default)
+    {
+        if (file == null || file.Length == 0)
+        {
+            throw new ArgumentException("No file uploaded or file is empty.");
+        }
+
+        var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var attachmentsPath = Path.Combine(webRootPath, "support-attachments");
+
+        if (!Directory.Exists(attachmentsPath))
+        {
+            Directory.CreateDirectory(attachmentsPath);
+        }
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+        var fileName = $"evidence_{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(attachmentsPath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var baseUrl = $"{request.Scheme}://{request.Host.Value}";
+        return $"{baseUrl}/support-attachments/{fileName}";
+    }
+
     public async Task<VoucherResponseDto> IssueVoucherAsync(CreateVoucherDto dto, CancellationToken cancellationToken = default)
     {
         var user = await EnsureUserAsync(dto.UserId, cancellationToken);

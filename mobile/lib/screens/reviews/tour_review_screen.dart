@@ -57,10 +57,12 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    final userId = await _apiService.getCurrentUserId();
     final created = await _apiService.createReview(
       tourId: widget.tourId,
       rating: _selectedRating,
       comment: _commentController.text.trim(),
+      userId: userId,
     );
 
     if (!mounted) return;

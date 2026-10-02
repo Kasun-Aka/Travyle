@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/support_ticket.dart';
 import '../models/voucher.dart';
 import '../models/customer_review.dart';
 
 class SupportApiService {
+  static String? currentUserId;
+
   static String get baseUrl {
     const String envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return '$envUrl/api';
@@ -30,6 +33,49 @@ class SupportApiService {
 
   // Default Demo Traveler ID
   static const String defaultTravelerId = '11111111-1111-1111-1111-111111111111';
+
+  /// Resolves real app-level user ID (Users.Id) for signed-in Firebase traveler.
+  Future<String?> getCurrentUserId() async {
+    if (currentUserId != null && currentUserId!.isNotEmpty) {
+      return currentUserId;
+    }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email != null) {
+        final idToken = await user.getIdToken();
+        final response = await _dio.get(
+          '/auth/user',
+          queryParameters: {'email': user.email},
+          options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final id = (response.data['id'] ?? response.data['Id'])?.toString();
+          if (id != null && id.isNotEmpty) {
+            currentUserId = id;
+            return id;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SupportApiService] Error fetching current user ID with token: $e');
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user?.email != null) {
+          final response = await _dio.get('/auth/user', queryParameters: {'email': user!.email});
+          if (response.statusCode == 200 && response.data != null) {
+            final id = (response.data['id'] ?? response.data['Id'])?.toString();
+            if (id != null && id.isNotEmpty) {
+              currentUserId = id;
+              return id;
+            }
+          }
+        }
+      } catch (fallbackErr) {
+        debugPrint('[SupportApiService] Fallback user fetch failed: $fallbackErr');
+      }
+    }
+    return null;
+  }
 
   // Support Tickets
   Future<List<SupportTicketModel>> getTickets({String? priority, String? status, String? search}) async {
@@ -133,6 +179,35 @@ class SupportApiService {
         debugPrint('[SupportApiService] Fallback connection failed: $fallbackError');
       }
 
+      return null;
+    }
+  }
+
+  Future<String?> uploadTicketAttachment(Uint8List imageBytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(imageBytes, filename: filename),
+      });
+      final response = await _dio.post('/support/tickets/upload-attachment', data: formData);
+      if (response.statusCode == 200 && response.data != null) {
+        return response.data['url'] as String?;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error uploading attachment: $e');
+      try {
+        final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
+        final fallbackDio = Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5)));
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(imageBytes, filename: filename),
+        });
+        final response = await fallbackDio.post('/support/tickets/upload-attachment', data: formData);
+        if (response.statusCode == 200 && response.data != null) {
+          return response.data['url'] as String?;
+        }
+      } catch (fallbackError) {
+        debugPrint('[SupportApiService] Fallback uploadAttachment failed: $fallbackError');
+      }
       return null;
     }
   }

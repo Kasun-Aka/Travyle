@@ -152,4 +152,29 @@ public class SupportTicketsController : ControllerBase
             return StatusCode(500, new { message = "Failed to run AI triage on the requested claim." });
         }
     }
+
+    /// <summary>
+    /// Upload a photo attachment (incident photo evidence) for a support ticket.
+    /// Returns the accessible public image URL.
+    /// </summary>
+    [HttpPost("upload-attachment")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<object>> UploadAttachment([FromForm] UploadTicketAttachmentDto dto, CancellationToken cancellationToken)
+    {
+        if (dto.File == null || dto.File.Length == 0)
+        {
+            return BadRequest(new { message = "Please select a valid image file to upload." });
+        }
+
+        try
+        {
+            var url = await _supportService.UploadAttachmentAsync(dto.File, Request, cancellationToken);
+            return Ok(new { url });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading ticket attachment photo");
+            return StatusCode(500, new { message = "An error occurred while saving the attachment image." });
+        }
+    }
 }
