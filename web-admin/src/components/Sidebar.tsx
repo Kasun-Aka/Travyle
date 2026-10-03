@@ -14,6 +14,11 @@ import {
 
 export default function Sidebar() {
   const { currentUser, logout } = useAuth();
+
+  const linkBase = "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium text-sm";
+  const activeClass = "bg-brand-50 text-brand-900 shadow-sm border border-brand-100";
+  const inactiveClass = "text-gray-500 hover:bg-gray-50 hover:text-gray-900";
+
   return (
     <aside className="admin-sidebar">
       {/* Brand Header */}
