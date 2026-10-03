@@ -2,6 +2,7 @@ import httpx
 import logging
 import os
 from typing import Any, Dict
+from google import genai
 from ..config import settings
 from ..schemas.operations_schemas import MonitorOperationsRequest, MonitorOperationsResponse
 
@@ -75,38 +76,45 @@ async def run_operations_monitor(request: MonitorOperationsRequest) -> MonitorOp
     )
 
 async def check_weather(lat: float, lon: float) -> Dict[str, Any]:
-    # Use OpenWeatherMap API here. We'll use a mocked approach or real if key provided.
-    # To use real: https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}
-    
-    # Since API key might not be available, we simulate a disruption if lat/lon are within a specific range,
-    # or just return a dummy alert for demonstration.
-    # Let's say if lat > 0, we trigger a storm alert.
-    
-    # Real integration — key loaded from environment (set via appsettings.Development.json)
     api_key = os.getenv("OPENWEATHERMAP_API_KEY", "")
-    if not api_key:
-        logger.warning("OPENWEATHERMAP_API_KEY not set, skipping real weather check.")
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}"
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            # We don't fail if OpenWeatherMap is unauthorized, just fallback to dummy logic
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                data = resp.json()
-                weather_main = data.get("weather", [{}])[0].get("main", "")
-                if weather_main in ["Thunderstorm", "Rain", "Snow", "Extreme"]:
-                    return {
-                        "severity": "High",
-                        "description": f"OpenWeatherMap Alert: {weather_main} at location."
-                    }
-    except Exception:
-        pass
+    weather_condition = None
+    
+    if api_key:
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    weather_main = data.get("weather", [{}])[0].get("main", "")
+                    if weather_main in ["Thunderstorm", "Rain", "Snow", "Extreme"]:
+                        weather_condition = weather_main
+        except Exception:
+            pass
 
-    # Dummy logic to always test disruption if no real API key
-    if lat > 5.0 and lon > 5.0:
+    # Dummy logic to always test disruption if no real API key or no weather
+    if not weather_condition and lat > 5.0 and lon > 5.0:
+        weather_condition = "Heavy Traffic and Storm"
+
+    if weather_condition:
+        gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        if gemini_api_key and "YOUR_GEMINI_API_KEY" not in gemini_api_key:
+            try:
+                ai_client = genai.Client(api_key=gemini_api_key)
+                chat = ai_client.chats.create(model='gemini-3.8-flash')
+                response = chat.send_message(
+                    f'Generate a short, professional, 2-sentence alert for a travel disruption caused by {weather_condition} at coordinates {lat}, {lon}.'
+                )
+                description = response.text.strip()
+            except Exception as e:
+                logger.error(f"Gemini API error: {e}")
+                description = f"Disruption Alert: {weather_condition} at location."
+        else:
+            description = f"Disruption Alert: {weather_condition} at location."
+            
         return {
-            "severity": "Medium",
-            "description": "Simulated heavy traffic/weather disruption near location."
+            "severity": "High" if weather_condition in ["Thunderstorm", "Extreme"] else "Medium",
+            "description": description
         }
     
     return {}

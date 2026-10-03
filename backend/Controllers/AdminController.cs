@@ -37,46 +37,165 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("live-operations")]
-    public IActionResult GetLiveOperations()
+    public async Task<IActionResult> GetLiveOperations()
     {
-        var data = new
+        try
         {
-            stats = new
+            // Stats
+            var toursInProgress = await _db.TourActivities
+                .Where(a => a.Status == "InProgress")
+                .Select(a => a.BookingScheduleId)
+                .Distinct()
+                .CountAsync();
+
+            var flagged = await _db.DisruptionAlerts
+                .Where(d => d.ResolvedAt == null)
+                .Select(d => d.BookingScheduleId)
+                .Distinct()
+                .CountAsync();
+
+            var guidesOnDuty = await _db.GuideAssignments
+                .Where(ga => ga.Status == "Active")
+                .CountAsync();
+
+            var guidesAvailable = await _db.Users
+                .Where(u => u.Role == "Local Guide" && !_db.GuideAssignments.Any(ga => ga.GuideUserId == u.Id && ga.Status == "Active"))
+                .CountAsync();
+
+            var activeAlertsCount = await _db.DisruptionAlerts
+                .CountAsync(d => d.ResolvedAt == null);
+
+            var totalPings = await _db.RouteLogs.CountAsync();
+
+            var stats = new
             {
-                toursInProgress = 4,
-                flagged = 2,
-                guidesOnDuty = 4,
-                guidesAvailable = 2,
-                activeAlerts = 2,
-                avgScheduleDrift = "+11 min"
-            },
-            activeTours = new[]
+                toursInProgress,
+                flagged,
+                guidesOnDuty,
+                guidesAvailable,
+                activeAlerts = activeAlertsCount,
+                avgScheduleDrift = "+0 min",
+                totalPings
+            };
+
+            // Active Tours — enriched with guide name, progress, last ping
+            var activeSchedules = await _db.BookingSchedules
+                .Include(bs => bs.TourActivities)
+                .Include(bs => bs.RouteLogs)
+                .Include(bs => bs.DisruptionAlerts)
+                .Include(bs => bs.GuideAssignments)
+                    .ThenInclude(ga => ga.Guide)
+                .Where(bs => bs.TourActivities.Any(ta => ta.Status == "InProgress"))
+                .ToListAsync();
+
+            var activeToursData = activeSchedules.Select(bs =>
             {
-                new { id = "TOUR-5510", name = "Ella Highlands & Tea Trails", guide = "Ravi Perera", progress = "3/6", progressPercent = 50, status = "Disruption", lastPing = "40 s ago" },
-                new { id = "TOUR-5508", name = "Galle Fort Coastal Loop", guide = "Nadia Silva", progress = "5/7", progressPercent = 71, status = "On schedule", lastPing = "1 min ago" },
-                new { id = "TOUR-5505", name = "Yala Wildlife Expedition", guide = "Ishara Bandara", progress = "1/4", progressPercent = 25, status = "On schedule", lastPing = "6 min ago" },
-                new { id = "TOUR-5502", name = "Sigiriya & Ancient Cities", guide = "Tharindu Jay", progress = "4/8", progressPercent = 50, status = "Disruption", lastPing = "12 min ago" }
-            },
-            alerts = new[]
+                var totalStops = bs.TourActivities.Count;
+                var completedStops = bs.TourActivities.Count(a => a.Status == "Completed");
+                var inProgressStops = bs.TourActivities.Count(a => a.Status == "InProgress");
+                var doneStops = completedStops + inProgressStops;
+                var percent = totalStops > 0 ? (int)Math.Round(100.0 * doneStops / totalStops) : 0;
+                var lastLog = bs.RouteLogs.OrderByDescending(r => r.Timestamp).FirstOrDefault();
+                var guide = bs.GuideAssignments.FirstOrDefault()?.Guide;
+                var hasAlert = bs.DisruptionAlerts.Any(d => d.ResolvedAt == null);
+
+                return new
+                {
+                    id = bs.Id,
+                    name = bs.DestinationTitle,
+                    title = bs.DestinationTitle,
+                    guide = guide?.FullName ?? bs.GuideName,
+                    location = bs.Location,
+                    progress = $"{doneStops}/{totalStops}",
+                    progressPercent = percent,
+                    lastPing = lastLog != null ? lastLog.Timestamp.ToString("HH:mm") : "—",
+                    currentLocation = lastLog != null
+                        ? new { lat = lastLog.Latitude, lon = lastLog.Longitude }
+                        : (object?)null,
+                    status = hasAlert ? "Delayed" : "On Time"
+                };
+            }).ToList();
+
+            // Alerts — enriched with title, tour info, proposal text
+            var alertsRaw = await _db.DisruptionAlerts
+                .Include(d => d.BookingSchedule)
+                .Where(d => d.ResolvedAt == null)
+                .ToListAsync();
+
+            var alertsData = alertsRaw.Select(d => new
             {
-                new { id = "ALT-841", tourId = "TOUR-5510", title = "Heavy rain warning around Nine Arches Bridge until 15:00", source = "OpenWeatherMap", time = "5 min ago", severity = "High", proposal = "Reorder stops 4 & 6, move viewpoint to late afternoon (+18 min total)", status = "Pending" },
-                new { id = "ALT-912", tourId = "TOUR-5502", title = "Road closure on A9 near Dambulla junction", source = "Traffic", time = "22 min ago", severity = "Medium", proposal = "Detour via B152, swap lunch stop earlier (+8 min total)", status = "Pending" },
-                new { id = "ALT-908", tourId = "TOUR-5508", title = "High UV index, afternoon walking segment flagged", source = "OpenWeatherMap", time = "1 hr ago", severity = "Low", proposal = "Add 20 min shade break after stop 4", status = "Approved" }
-            }
-        };
-        return Ok(data);
+                id = d.Id,
+                title = $"{d.Type} Alert — {d.BookingSchedule?.DestinationTitle ?? "Unknown Tour"}",
+                type = d.Type,
+                tour = d.BookingSchedule?.DestinationTitle ?? "Unknown",
+                tourId = d.BookingScheduleId,
+                source = d.Type == "Weather" ? "OpenWeatherMap" : "Traffic API",
+                description = d.Description,
+                severity = d.Severity,
+                time = d.TriggeredAt.ToString("HH:mm"),
+                proposal = d.Severity == "High"
+                    ? $"Re-order stops to avoid {d.Type.ToLower()} disruption. TSP solver suggests postponing affected activities."
+                    : d.Severity == "Medium"
+                        ? $"Consider rescheduling afternoon activities. {d.Description}"
+                        : $"Monitor situation. {d.Description}",
+                status = "Pending"
+            }).ToList();
+
+            return Ok(new { stats, activeTours = activeToursData, alerts = alertsData });
+        }
+        catch (System.Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    // GET /api/admin/route-log/{scheduleId}
+    [HttpGet("route-log/{scheduleId}")]
+    public async Task<IActionResult> GetRouteLog(Guid scheduleId)
+    {
+        var schedule = await _db.BookingSchedules
+            .Include(bs => bs.TourActivities)
+            .Include(bs => bs.GuideAssignments).ThenInclude(ga => ga.Guide)
+            .Include(bs => bs.DisruptionAlerts)
+            .FirstOrDefaultAsync(bs => bs.Id == scheduleId);
+
+        if (schedule == null) return NotFound();
+
+        var guide = schedule.GuideAssignments.FirstOrDefault()?.Guide;
+        var hasAlert = schedule.DisruptionAlerts.Any(d => d.ResolvedAt == null);
+
+        var stops = schedule.TourActivities
+            .OrderBy(a => a.ScheduledTime)
+            .Select(a => new
+            {
+                name = a.ActivityName,
+                location = a.Location,
+                time = a.ScheduledTime.ToString("HH:mm"),
+                status = a.Status
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            tourName = schedule.DestinationTitle,
+            guideName = guide?.FullName ?? schedule.GuideName,
+            hasDisruption = hasAlert,
+            stops
+        });
     }
 
     [HttpGet("guide-matrix")]
     public async Task<IActionResult> GetGuideMatrix()
     {
         var guides = await _db.Users
-            .Where(u => u.Role == "Guide" || u.Role == "Local Guide")
+            .Where(u => u.Role == "Guide" || u.Role == "Local Guide" || u.Role == "Suspended")
             .Select(u => new
             {
                 Id = u.Id,
                 Name = u.FullName,
-                Meta = "Verified • " + u.Email
+                Meta = "Verified   " + u.Email,
+                AssignedTours = _db.GuideAssignments.Count(ga => ga.GuideUserId == u.Id),
+                Status = _db.GuideAssignments.Any(ga => ga.GuideUserId == u.Id && ga.Status == "Active") ? "Active" : "Available"
             })
             .ToListAsync();
 
@@ -95,11 +214,37 @@ public class AdminController : ControllerBase
                 meta = g.Meta,
                 languages = new[] { "EN", "SI" },
                 verification = "Verified",
-                load = "3 tours",
-                status = "Available"
-            })
+                load = $"{g.AssignedTours} tours",
+                status = g.Status
+            }),
+            agentSuggestion = new { title = "Operations Agent", message = "No urgent guide reassignments needed at this time." }
         };
 
         return Ok(data);
     }
+
+    [HttpPut("staff/{id}/role")]
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest req)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null) return NotFound();
+        user.Role = req.Role;
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+
+    [HttpPut("staff/{id}/suspend")]
+    public async Task<IActionResult> SuspendStaff(Guid id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null) return NotFound();
+        user.Role = "Suspended";
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+}
+
+public class UpdateRoleRequest
+{
+    public string Role { get; set; } = string.Empty;
 }

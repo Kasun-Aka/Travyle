@@ -62,7 +62,9 @@ builder.Services.AddScoped<IPaymentEscrowService, PaymentEscrowService>();
 builder.Services.AddScoped<Travyle.Api.Services.Agent.IBookingAgentTools, Travyle.Api.Services.Agent.BookingAgentTools>();
 builder.Services.AddScoped<Travyle.Api.Services.Agent.ISmartBookingAgentService, Travyle.Api.Services.Agent.SmartBookingAgentProxyService>();
 builder.Services.AddScoped<IFirebaseIdentityService, FirebaseIdentityService>();
-builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri("http://localhost:8000"); });
+
+var aiAgentBaseUrl = builder.Configuration.GetValue<string>("AI_AGENT_BASE_URL") ?? "http://localhost:8000";
+builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri(aiAgentBaseUrl); });
 
 // ─── Firebase Admin SDK ──────────────────────────────────────────────────────
 try

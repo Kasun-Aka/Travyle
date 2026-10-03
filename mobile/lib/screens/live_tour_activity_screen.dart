@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
@@ -15,16 +16,165 @@ class LiveTourActivityScreen extends StatefulWidget {
 class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
   String? _activeAlertMessage;
   bool _isLoadingMonitor = false;
-  final List<Map<String, dynamic>> _checklist = [
-    {'title': 'Tanah Lot Temple Sunrise', 'estimatedTime': 'Estimated: 06:15 AM', 'status': CheckStatus.completed},
-    {'title': 'Kopi Luwak Estate', 'estimatedTime': 'Estimated: 08:30 AM • CURRENT STOP', 'status': CheckStatus.current},
-    {'title': 'Bratan Volcanic Caldera', 'estimatedTime': 'Estimated: 11:00 AM', 'status': CheckStatus.upcoming},
-    {'title': 'Ubud Art Market Lounge', 'estimatedTime': 'Estimated: 02:00 PM', 'status': CheckStatus.upcoming},
-  ];
+  bool _isLoadingData = true;
+  String _tourName = 'Loading...';
+  String _guideName = '';
+  bool _hasDisruption = false;
+  String? _selectedScheduleId;
+  List<Map<String, dynamic>> _checklist = [];
+  List<Map<String, dynamic>> _activeTours = [];
+  List<Map<String, dynamic>> _allAlerts = [];
 
+  String get _baseUrl => kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLiveData();
+  }
+
+  Future<void> _fetchLiveData() async {
+    setState(() => _isLoadingData = true);
+    try {
+      // 1. Fetch active tours from live-operations
+      final opsResponse = await http.get(
+        Uri.parse('$_baseUrl/api/admin/live-operations'),
+      );
+
+      if (opsResponse.statusCode == 200) {
+        final opsData = jsonDecode(opsResponse.body);
+        final tours = (opsData['activeTours'] as List?) ?? [];
+        final alerts = (opsData['alerts'] as List?) ?? [];
+
+        setState(() {
+          _allAlerts = alerts.map<Map<String, dynamic>>((a) => a as Map<String, dynamic>).toList();
+          _activeTours = tours.map<Map<String, dynamic>>((t) => {
+            'id': t['id'] as String,
+            'name': t['name'] as String? ?? 'Unknown Tour',
+            'guide': t['guide'] as String? ?? '',
+            'lat': t['currentLocation'] != null
+                ? double.tryParse(t['currentLocation']['lat'].toString()) ?? 0.0
+                : 0.0,
+            'lon': t['currentLocation'] != null
+                ? double.tryParse(t['currentLocation']['lon'].toString()) ?? 0.0
+                : 0.0,
+            'status': t['status'] as String? ?? 'On Time',
+            'progress': t['progress'] as String? ?? '0/0',
+          }).toList();
+        });
+
+        // 2. Auto-select first tour and fetch its route log
+        if (tours.isNotEmpty) {
+          final firstTourId = tours[0]['id'] as String;
+          await _fetchRouteLog(firstTourId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching live data: $e');
+    } finally {
+      setState(() => _isLoadingData = false);
+    }
+  }
+
+  Future<void> _fetchRouteLog(String scheduleId) async {
+    setState(() => _selectedScheduleId = scheduleId);
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/api/admin/route-log/$scheduleId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final stops = (data['stops'] as List?) ?? [];
+
+        setState(() {
+          _tourName = data['tourName'] as String? ?? 'Unknown Tour';
+          _guideName = data['guideName'] as String? ?? '';
+          _hasDisruption = data['hasDisruption'] as bool? ?? false;
+          
+          if (_hasDisruption) {
+            try {
+              final alert = _allAlerts.firstWhere((a) => a['tourId'] == scheduleId);
+              _activeAlertMessage = alert['description'] as String?;
+            } catch (_) {
+              _activeAlertMessage = 'Disruption active on route.';
+            }
+          } else if (!_isLoadingMonitor) {
+            _activeAlertMessage = null;
+          }
+          
+          _checklist = stops.map<Map<String, dynamic>>((s) {
+            final status = s['status'] as String? ?? 'Scheduled';
+            CheckStatus checkStatus;
+            switch (status) {
+              case 'Completed':
+                checkStatus = CheckStatus.completed;
+                break;
+              case 'InProgress':
+                checkStatus = CheckStatus.current;
+                break;
+              default:
+                checkStatus = CheckStatus.upcoming;
+            }
+            return {
+              'title': s['name'] as String? ?? '',
+              'estimatedTime': 'Estimated: ${s['time'] ?? ''} • ${s['location'] ?? ''}',
+              'status': checkStatus,
+            };
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching route log: $e');
+    }
+  }
+
+  Future<void> _monitorOperations() async {
+    setState(() => _isLoadingMonitor = true);
+    try {
+      // Use real schedule ID and coordinates from selected tour
+      final tourId = _selectedScheduleId ?? '00000000-0000-0000-0001-000000000001';
+      final tour = _activeTours.firstWhere(
+        (t) => t['id'] == tourId,
+        orElse: () => {'lat': 6.8711, 'lon': 81.0458},
+      );
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/operations/monitor'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'bookingScheduleId': tourId,
+          'lat': tour['lat'] ?? 6.8711,
+          'lon': tour['lon'] ?? 81.0458,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          if (data['status'] == 'DISRUPTION_DETECTED') {
+            _activeAlertMessage = data['message'] ?? 'Disruption detected on route!';
+          } else {
+            _activeAlertMessage = data['message'] ?? 'Route is clear. No disruptions.';
+          }
+        });
+      } else {
+        setState(() => _activeAlertMessage = 'AI Monitor returned status ${response.statusCode}. Check agent server.');
+      }
+    } catch (e) {
+      setState(() => _activeAlertMessage = 'Error connecting to server. Make sure both backend and agent are running.');
+    } finally {
+      setState(() => _isLoadingMonitor = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Compute map center from first tour with coordinates
+    final toursWithCoords = _activeTours.where((t) => (t['lat'] as double) != 0.0).toList();
+    final mapLat = toursWithCoords.isNotEmpty ? toursWithCoords[0]['lat'] as double : 6.8711;
+    final mapLon = toursWithCoords.isNotEmpty ? toursWithCoords[0]['lon'] as double : 81.0458;
+    final mapZoom = toursWithCoords.length > 2 ? 8.0 : 13.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
@@ -48,8 +198,8 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Live Tour Activity',
               style: TextStyle(
                 color: Color(0xFF133E4D),
@@ -58,8 +208,8 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
               ),
             ),
             Text(
-              'Tanah Lot & Ubud Day Tour',
-              style: TextStyle(
+              _tourName,
+              style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 13.0,
               ),
@@ -67,156 +217,249 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildMapPlaceholder(),
-            const SizedBox(height: 24.0),
-            const Text(
-              'TOUR STOPS & CHECKLIST',
-              style: TextStyle(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF133E4D),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 16.0),
-            ..._checklist.asMap().entries.map((entry) {
-              int idx = entry.key;
-              var item = entry.value;
-              return _buildChecklistItem(
-                title: item['title'] as String,
-                estimatedTime: item['estimatedTime'] as String,
-                status: item['status'] as CheckStatus,
-                onTap: widget.isGuide ? () {
-                  setState(() {
-                    if (item['status'] == CheckStatus.upcoming) {
-                      _checklist[idx]['status'] = CheckStatus.current;
-                    } else if (item['status'] == CheckStatus.current) {
-                      _checklist[idx]['status'] = CheckStatus.completed;
-                    } else {
-                      _checklist[idx]['status'] = CheckStatus.upcoming;
-                    }
-                  });
-                } : null,
-              );
-            }).toList(),
-            const SizedBox(height: 32.0),
-            const SizedBox(height: 16.0),
-            if (_activeAlertMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16.0),
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning, color: Colors.red),
-                    const SizedBox(width: 12.0),
-                    Expanded(
-                      child: Text(
-                        _activeAlertMessage!,
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+      body: _isLoadingData
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tour selector chips (if multiple active tours)
+                  if (_activeTours.length > 1) ...[
+                    SizedBox(
+                      height: 40,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _activeTours.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final tour = _activeTours[index];
+                          final isSelected = tour['id'] == _selectedScheduleId;
+                          final shortName = (tour['name'] as String).split(' ').take(3).join(' ');
+                          return GestureDetector(
+                            onTap: () => _fetchRouteLog(tour['id'] as String),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF133E4D) : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFF133E4D) : Colors.grey.shade300,
+                                ),
+                              ),
+                              child: Text(
+                                shortName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : const Color(0xFF133E4D),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
+                    const SizedBox(height: 16),
                   ],
-                ),
-              ),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isLoadingMonitor ? null : _monitorOperations,
-                icon: _isLoadingMonitor
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.satellite_alt, color: Colors.white),
-                label: Text(
-                  _isLoadingMonitor ? 'ANALYZING ROUTE...' : 'AI MONITOR ROUTE & WEATHER',
-                  style: const TextStyle(
-                    fontSize: 14.0,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+
+                  // Live Map with dynamic markers
+                  _buildLiveMap(mapLat, mapLon, mapZoom),
+                  const SizedBox(height: 24.0),
+
+                  // Guide info
+                  if (_guideName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, size: 18, color: Color(0xFF133E4D)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Guide: $_guideName',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF133E4D),
+                            ),
+                          ),
+                          if (_hasDisruption) ...[
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.warning_amber, size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Disruption',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                  const Text(
+                    'TOUR STOPS & CHECKLIST',
+                    style: TextStyle(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF133E4D),
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  backgroundColor: const Color(0xFF133E4D),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24.0),
+                  const SizedBox(height: 16.0),
+
+                  if (_checklist.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'No active tour stops found',
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._checklist.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      var item = entry.value;
+                      return _buildChecklistItem(
+                        title: item['title'] as String,
+                        estimatedTime: item['estimatedTime'] as String,
+                        status: item['status'] as CheckStatus,
+                        onTap: widget.isGuide ? () {
+                          setState(() {
+                            if (item['status'] == CheckStatus.upcoming) {
+                              _checklist[idx]['status'] = CheckStatus.current;
+                            } else if (item['status'] == CheckStatus.current) {
+                              _checklist[idx]['status'] = CheckStatus.completed;
+                            } else {
+                              _checklist[idx]['status'] = CheckStatus.upcoming;
+                            }
+                          });
+                        } : null,
+                      );
+                    }),
+
+                  const SizedBox(height: 32.0),
+                  const SizedBox(height: 16.0),
+
+                  // Alert display
+                  if (_activeAlertMessage != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16.0),
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: _activeAlertMessage!.contains('clear')
+                            ? Colors.green.shade50
+                            : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12.0),
+                        border: Border.all(
+                          color: _activeAlertMessage!.contains('clear')
+                              ? Colors.green.shade200
+                              : Colors.red.shade200,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _activeAlertMessage!.contains('clear')
+                                ? Icons.check_circle
+                                : Icons.warning,
+                            color: _activeAlertMessage!.contains('clear')
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            child: Text(
+                              _activeAlertMessage!,
+                              style: TextStyle(
+                                color: _activeAlertMessage!.contains('clear')
+                                    ? Colors.green.shade800
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // AI Monitor button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoadingMonitor ? null : _monitorOperations,
+                      icon: _isLoadingMonitor
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.satellite_alt, color: Colors.white),
+                      label: Text(
+                        _isLoadingMonitor ? 'ANALYZING ROUTE...' : 'AI MONITOR ROUTE & WEATHER',
+                        style: const TextStyle(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        backgroundColor: const Color(0xFF133E4D),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24.0),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16.0),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.warning_amber_rounded,
+                          color: Color(0xFFDD8866)),
+                      label: const Text(
+                        'REPORT INCIDENT / DISRUPTION',
+                        style: TextStyle(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFDD8866),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        side: const BorderSide(color: Color(0xFFDD8866)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24.0),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24.0),
+                ],
               ),
             ),
-            const SizedBox(height: 16.0),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFDD8866)),
-                label: const Text(
-                  'REPORT INCIDENT / DISRUPTION',
-                  style: TextStyle(
-                    fontSize: 14.0,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFDD8866),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  side: const BorderSide(color: Color(0xFFDD8866)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24.0),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24.0),
-          ],
-        ),
-      ),
     );
   }
 
-  Future<void> _monitorOperations() async {
-    setState(() => _isLoadingMonitor = true);
-    try {
-      final response = await http.post(
-        Uri.parse('http://localhost:5200/api/operations/monitor'), // Adjust base URL as needed
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'bookingScheduleId': '00000000-0000-0000-0000-000000000000', // Mock UUID
-          'lat': 6.8711,
-          'lon': 81.0458,
-        }),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          if (data['status'] == 'DISRUPTION_DETECTED') {
-            _activeAlertMessage = data['message'] ?? 'Disruption detected on route!';
-          } else {
-            _activeAlertMessage = 'Route is clear. No disruptions.';
-          }
-        });
-      } else {
-        setState(() => _activeAlertMessage = 'Failed to reach Operations AI.');
-      }
-    } catch (e) {
-      setState(() => _activeAlertMessage = 'Error connecting to server.');
-    } finally {
-      setState(() => _isLoadingMonitor = false);
-    }
-  }
-
-  Widget _buildMapPlaceholder() {
+  Widget _buildLiveMap(double lat, double lon, double zoom) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16.0),
       child: Container(
@@ -229,71 +472,98 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
         child: Stack(
           children: [
             FlutterMap(
-              options: const MapOptions(
-                initialCenter: LatLng(6.8711, 81.0458),
-                initialZoom: 13.0,
+              options: MapOptions(
+                initialCenter: LatLng(lat, lon),
+                initialZoom: zoom,
               ),
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.travyle.app',
                 ),
+                // Weather/status zones from active tours
                 CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: const LatLng(6.8811, 81.0358),
-                      color: Colors.green.withOpacity(0.2),
+                  circles: _activeTours.where((t) => (t['lat'] as double) != 0.0).map((t) {
+                    final isDelayed = t['status'] == 'Delayed';
+                    return CircleMarker(
+                      point: LatLng(t['lat'] as double, t['lon'] as double),
+                      color: isDelayed
+                          ? Colors.orange.withAlpha(51)
+                          : Colors.green.withAlpha(51),
                       borderStrokeWidth: 0,
                       useRadiusInMeter: true,
                       radius: 800,
-                    ),
-                    CircleMarker(
-                      point: const LatLng(6.8711, 81.0658),
-                      color: Colors.orange.withOpacity(0.2),
-                      borderStrokeWidth: 0,
-                      useRadiusInMeter: true,
-                      radius: 500,
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
+                // Dynamic tour markers
                 MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: const LatLng(6.8711, 81.0458),
-                      width: 100,
+                  markers: _activeTours.where((t) => (t['lat'] as double) != 0.0).map((t) {
+                    final isSelected = t['id'] == _selectedScheduleId;
+                    final isDelayed = t['status'] == 'Delayed';
+                    final shortName = (t['name'] as String).split(' ').take(2).join(' ');
+                    return Marker(
+                      point: LatLng(t['lat'] as double, t['lon'] as double),
+                      width: 130,
                       height: 30,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade600,
-                          borderRadius: BorderRadius.circular(20.0),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'TOUR-5510',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.0,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      child: GestureDetector(
+                        onTap: () => _fetchRouteLog(t['id'] as String),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.blue.shade600
+                                : isDelayed
+                                    ? Colors.white
+                                    : Colors.white,
+                            borderRadius: BorderRadius.circular(20.0),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                            ],
+                            border: isSelected ? null : Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isDelayed && !isSelected)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.orange,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              Flexible(
+                                child: Text(
+                                  shortName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : const Color(0xFF133E4D),
+                                    fontSize: 10.0,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
               ],
             ),
+            // Live GPS badge
             Positioned(
               top: 16,
               left: 16,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withAlpha(230),
                   borderRadius: BorderRadius.circular(20.0),
                   boxShadow: const [
                     BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
@@ -301,12 +571,12 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    CircleAvatar(radius: 4, backgroundColor: Color(0xFF1FA88A)),
-                    SizedBox(width: 8),
+                  children: [
+                    const CircleAvatar(radius: 4, backgroundColor: Color(0xFF1FA88A)),
+                    const SizedBox(width: 8),
                     Text(
-                      'LIVE GPS ACTIVE',
-                      style: TextStyle(
+                      '${_activeTours.length} TOURS LIVE',
+                      style: const TextStyle(
                         fontSize: 10.0,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF133E4D),
