@@ -101,4 +101,11 @@ public class OperationsRepository : IOperationsRepository
             .OrderByDescending(d => d.TriggeredAt)
             .ToListAsync();
     }
+
+    public async Task<DisruptionAlert> CreateDisruptionAlertAsync(DisruptionAlert alert)
+    {
+        _db.DisruptionAlerts.Add(alert);
+        await _db.SaveChangesAsync();
+        return alert;
+    }
 }

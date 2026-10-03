@@ -11,4 +11,5 @@ public class RouteLog
 
     // Navigation
     public User? Recorder { get; set; }
+    public BookingSchedule? BookingSchedule { get; set; }
 }

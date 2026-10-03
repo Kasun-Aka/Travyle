@@ -19,6 +19,10 @@ public class BookingSchedule
     public ICollection<ScheduleAvailableDate> AvailableDates { get; set; } = new List<ScheduleAvailableDate>();
     public ICollection<ScheduleTimeSlot> TimeSlots { get; set; } = new List<ScheduleTimeSlot>();
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<GuideAssignment> GuideAssignments { get; set; } = new List<GuideAssignment>();
+    public ICollection<TourActivity> TourActivities { get; set; } = new List<TourActivity>();
+    public ICollection<RouteLog> RouteLogs { get; set; } = new List<RouteLog>();
+    public ICollection<DisruptionAlert> DisruptionAlerts { get; set; } = new List<DisruptionAlert>();
 }
 
 public class ScheduleAvailableDate

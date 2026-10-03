@@ -8,4 +8,7 @@ public class TourActivity
     public DateTime ScheduledTime { get; set; }
     public string Location { get; set; } = string.Empty;
     public string Status { get; set; } = "Scheduled";
+
+    // Navigation
+    public BookingSchedule? BookingSchedule { get; set; }
 }

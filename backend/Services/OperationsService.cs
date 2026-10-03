@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Travyle.Api.DTOs.Operations;
 using Travyle.Api.Models;
 using Travyle.Api.Repositories;
@@ -7,10 +8,14 @@ namespace Travyle.Api.Services;
 public class OperationsService : IOperationsService
 {
     private readonly IOperationsRepository _repo;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _config;
 
-    public OperationsService(IOperationsRepository repo)
+    public OperationsService(IOperationsRepository repo, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         _repo = repo;
+        _httpClientFactory = httpClientFactory;
+        _config = config;
     }
 
     // ── TourActivities ──────────────────────────────────────
@@ -92,6 +97,20 @@ public class OperationsService : IOperationsService
         return items.Select(MapToDto).ToList();
     }
 
+    public async Task<DisruptionAlertResponseDto> CreateDisruptionAlertAsync(CreateDisruptionAlertDto dto)
+    {
+        var entity = new DisruptionAlert
+        {
+            BookingScheduleId = dto.BookingScheduleId,
+            Type = dto.Type,
+            Severity = dto.Severity,
+            Description = dto.Description,
+            TriggeredAt = DateTime.UtcNow
+        };
+        var created = await _repo.CreateDisruptionAlertAsync(entity);
+        return MapToDto(created);
+    }
+
     // ── Route Optimization (Nearest-Neighbour TSP stub) ─────
 
     public Task<RouteOptimizationResponseDto> ReorderRouteOptimizationAsync(RouteOptimizationRequestDto dto)
@@ -125,6 +144,27 @@ public class OperationsService : IOperationsService
         }
 
         return Task.FromResult(new RouteOptimizationResponseDto(optimized, Math.Round(totalDistance, 2)));
+    }
+
+    // ── AI Agent Integration ────────────────────────────────
+    
+    public async Task<MonitorOperationsResponseDto?> MonitorOperationsAsync(MonitorOperationsRequestDto dto)
+    {
+        var client = _httpClientFactory.CreateClient();
+        var agentUrl = _config["AI_AGENT_BASE_URL"] ?? "http://localhost:8000";
+        var agentEndpoint = $"{agentUrl.TrimEnd('/')}/agent/operations/monitor";
+        
+        var requestPayload = new
+        {
+            booking_schedule_id = dto.BookingScheduleId.ToString(),
+            lat = dto.Lat,
+            lon = dto.Lon
+        };
+        
+        var response = await client.PostAsJsonAsync(agentEndpoint, requestPayload);
+        response.EnsureSuccessStatusCode();
+        
+        return await response.Content.ReadFromJsonAsync<MonitorOperationsResponseDto>();
     }
 
     // ── Private helpers ─────────────────────────────────────
