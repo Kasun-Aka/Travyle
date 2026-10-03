@@ -52,10 +52,10 @@ async def run_tests():
     assert intent["explicit_slot"] == "09:00 AM"
     print(f"Parsed intent: {intent}\n")
 
-    print("--- Test 4: Ask for Missing Date and Time ---")
+    print("--- Test 4: Ask for Missing Details (e.g. guest count) ---")
     req_missing = StartAgentBookingRequest(
         TravelerId=uuid.uuid4(),
-        Objective="I want to book for Botanical Garden for two people",
+        Objective="I want to book for Botanical Garden",
         TravelerName="Traveler One",
         TravelerEmail="traveler@test.com",
     )
@@ -66,8 +66,7 @@ async def run_tests():
     ):
         response = await run_smart_booking_workflow(req_missing)
     assert response.validation_results["needs_more_info"] is True
-    assert "preferred date" in (response.error_message or "")
-    assert "preferred time" in (response.error_message or "")
+    assert "how many people are traveling" in (response.error_message or "")
     print(f"Follow-up: {response.error_message}\n")
 
     print("--- Test 5: Reject Unsafe Persisted Workflow at Approval ---")
@@ -101,6 +100,54 @@ async def run_tests():
     # Should give friendly message
     assert "couldn't find" in (res2.error_message or "").lower() or "verify" in (res2.error_message or "").lower() or "safely" in (res2.error_message or "").lower()
     print("Unknown destination test passed!\n")
+
+    print("--- Test 7: Inquiry for Extra Discounts ---")
+    req_discount = StartAgentBookingRequest(
+        TravelerId=uuid.uuid4(),
+        Objective="hey can i have ectra discounts or something",
+        TravelerName="Traveler One",
+        TravelerEmail="traveler@test.com"
+    )
+    res_discount = await run_smart_booking_workflow(req_discount)
+    print(f"Discount response: {res_discount.error_message}")
+    assert res_discount.approval_status == "INFO"
+    assert res_discount.validation_results["is_informational"] is True
+    assert "website" in (res_discount.error_message or "").lower()
+    assert "eligibilit" in (res_discount.error_message or "").lower()
+    assert "privacy" in (res_discount.error_message or "").lower()
+    print("Extra discounts inquiry test passed!\n")
+
+    print("--- Test 8: Inquiry for Booking Verification Status ---")
+    req_verify = StartAgentBookingRequest(
+        TravelerId=uuid.uuid4(),
+        Objective="i booked through you ( i mean agent) but still my booking didn't veryfied yet",
+        TravelerName="Traveler One",
+        TravelerEmail="traveler@test.com"
+    )
+    res_verify = await run_smart_booking_workflow(req_verify)
+    print(f"Verification response: {res_verify.error_message}")
+    assert res_verify.approval_status == "INFO"
+    assert res_verify.validation_results["is_informational"] is True
+    assert "verification" in (res_verify.error_message or "").lower() or "verify" in (res_verify.error_message or "").lower()
+    assert "bookings" in (res_verify.error_message or "").lower()
+    print("Booking verification status inquiry test passed!\n")
+
+    print("--- Test 9: Cancellation Requires Manual Support ---")
+    req_cancel = StartAgentBookingRequest(
+        TravelerId=uuid.uuid4(),
+        Objective="Please cancel my booking because I cannot travel",
+        TravelerName="Traveler One",
+        TravelerEmail="traveler@test.com"
+    )
+    res_cancel = await run_smart_booking_workflow(req_cancel)
+    print(f"Cancellation response: {res_cancel.error_message}")
+    assert res_cancel.approval_status == "INFO"
+    assert res_cancel.validation_results["is_informational"] is True
+    assert res_cancel.validation_results["booking_request"] is False
+    assert "cash" in (res_cancel.error_message or "").lower()
+    assert "manually" in (res_cancel.error_message or "").lower()
+    assert "support team" in (res_cancel.error_message or "").lower()
+    print("Cancellation manual-support test passed!\n")
 
     print("ALL TESTS PASSED SUCCESSFULLY!")
 
