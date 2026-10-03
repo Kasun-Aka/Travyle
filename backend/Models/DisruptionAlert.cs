@@ -9,4 +9,7 @@ public class DisruptionAlert
     public string Description { get; set; } = string.Empty;
     public DateTime TriggeredAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }
+
+    // Navigation
+    public BookingSchedule? BookingSchedule { get; set; }
 }
