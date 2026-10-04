@@ -23,7 +23,7 @@ interface NotificationHistory {
   destinationRegion: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
 export default function TravelerConcierge() {
   const [email, setEmail] = useState('');
