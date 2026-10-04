@@ -76,7 +76,8 @@ internal static class BookingMapper
             b.ReceiptReference,
             b.ReceiptImageData,
             b.EscrowReleaseDate,
-            b.CreatedAt
+            b.CreatedAt,
+            DateTime.SpecifyKind(b.UpdatedAt, DateTimeKind.Utc)
         );
     }
 
@@ -351,11 +352,16 @@ public class BookingService : IBookingService
 {
     private readonly IBookingRepository _bookingRepo;
     private readonly IBookingScheduleRepository _scheduleRepo;
+    private readonly IPaymentEscrowRepository _escrowRepo;
 
-    public BookingService(IBookingRepository bookingRepo, IBookingScheduleRepository scheduleRepo)
+    public BookingService(
+        IBookingRepository bookingRepo,
+        IBookingScheduleRepository scheduleRepo,
+        IPaymentEscrowRepository escrowRepo)
     {
         _bookingRepo = bookingRepo;
         _scheduleRepo = scheduleRepo;
+        _escrowRepo = escrowRepo;
     }
 
     public async Task<IEnumerable<BookingResponse>> GetTravelerBookingsAsync(Guid travelerId, int page, int pageSize, CancellationToken ct = default)
@@ -374,6 +380,42 @@ public class BookingService : IBookingService
     {
         var booking = await _bookingRepo.GetByIdAsync(id, ct);
         return booking == null ? null : BookingMapper.ToResponse(booking);
+    }
+
+    public async Task<(BookingResponse? Booking, string? Error)> UpdateBookingDetailsAsync(
+        Guid id,
+        UpdateBookingDetailsRequest request,
+        CancellationToken ct = default)
+    {
+        var booking = await _bookingRepo.GetByIdAsync(id, ct);
+        if (booking == null) return (null, "Booking not found.");
+        if (booking.Status is BookingStatus.Completed or BookingStatus.Cancelled)
+            return (null, "Completed or cancelled bookings cannot be edited.");
+
+        var schedule = await _scheduleRepo.GetByIdAsync(booking.ScheduleId, ct);
+        if (schedule == null) return (null, "Booking schedule not found.");
+
+        var requestedDate = request.BookingDate.Date;
+        var dateExists = schedule.AvailableDates.Any(d => d.Date == requestedDate);
+        var slotExists = schedule.TimeSlots.Any(t => t.SlotLabel == request.TimeSlot);
+        if (!dateExists || !slotExists)
+            return (null, "The requested time slot or date is not available for this schedule.");
+
+        var bookedMap = await _scheduleRepo.GetBookedSlotsMapAsync(booking.ScheduleId, ct);
+        var requestedKey = $"{requestedDate:yyyy-MM-dd}_{request.TimeSlot}";
+        var occupied = bookedMap.GetValueOrDefault(requestedKey, 0);
+        if (booking.BookingDate.Date == requestedDate && booking.TimeSlot == request.TimeSlot)
+            occupied -= booking.Guests;
+        if (occupied + booking.Guests > schedule.MaxCapacityPerSlot)
+            return (null, "There is not enough capacity in the selected time slot.");
+
+        booking.BookingDate = DateTime.SpecifyKind(requestedDate, DateTimeKind.Utc);
+        booking.TimeSlot = request.TimeSlot;
+        booking.Notes = request.Notes;
+        var updated = await _bookingRepo.UpdateAsync(booking, ct);
+        return updated == null
+            ? (null, "Booking could not be updated.")
+            : (BookingMapper.ToResponse(updated), null);
     }
 
     public async Task<(BookingResponse? Booking, string? Error)> CreateBookingAsync(CreateBookingRequest request, CancellationToken ct = default)
@@ -460,15 +502,65 @@ public class BookingService : IBookingService
         var booking = await _bookingRepo.GetByIdAsync(id, ct);
         if (booking == null) return null;
 
+        if (booking.Status != parsedStatus && !IsAllowedTransition(booking.Status, parsedStatus))
+            return null;
+
         booking.Status = parsedStatus;
         var updated = await _bookingRepo.UpdateAsync(booking, ct);
         return updated == null ? null : BookingMapper.ToResponse(updated);
     }
 
+    public async Task<(BookingResponse? Booking, string? Error)> ConfirmManualAgentPaymentAsync(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var booking = await _bookingRepo.GetByIdAsync(id, ct);
+        if (booking == null) return (null, "Booking not found.");
+        if (booking.Notes?.Contains("Smart Booking Agent", StringComparison.OrdinalIgnoreCase) != true)
+            return (null, "Manual payment confirmation is only available for AI agent bookings.");
+        if (booking.Status is BookingStatus.Cancelled or BookingStatus.Completed)
+            return (null, "Cancelled or completed bookings cannot be marked as paid.");
+
+        if (booking.PaymentStatus == EscrowStatus.Paid && booking.Status == BookingStatus.Confirmed)
+            return (BookingMapper.ToResponse(booking), null);
+
+        booking.Status = BookingStatus.Confirmed;
+        booking.PaymentStatus = EscrowStatus.Paid;
+        var updated = await _bookingRepo.UpdateAsync(booking, ct);
+        return updated == null
+            ? (null, "Booking payment could not be confirmed.")
+            : (BookingMapper.ToResponse(updated), null);
+    }
+
     public async Task<bool> CancelBookingAsync(Guid id, CancellationToken ct = default)
     {
-        return await _bookingRepo.DeleteAsync(id, ct);
+        var booking = await _bookingRepo.GetByIdAsync(id, ct);
+        if (booking == null || booking.Status == BookingStatus.Completed)
+            return false;
+
+        var cancelled = await _bookingRepo.DeleteAsync(id, ct);
+        if (!cancelled) return false;
+
+        var escrow = await _escrowRepo.GetByBookingIdAsync(id, ct);
+        if (escrow != null && escrow.Status == EscrowStatus.HeldInEscrow)
+        {
+            escrow.Status = EscrowStatus.Refunded;
+            escrow.RefundedAmount = escrow.Amount;
+            await _escrowRepo.UpdateAsync(escrow, ct);
+        }
+
+        return true;
     }
+
+    private static bool IsAllowedTransition(BookingStatus current, BookingStatus next) =>
+        (current, next) switch
+        {
+            (BookingStatus.Pending, BookingStatus.Confirmed) => true,
+            (BookingStatus.Pending, BookingStatus.Cancelled) => true,
+            (BookingStatus.Confirmed, BookingStatus.Completed) => true,
+            (BookingStatus.Confirmed, BookingStatus.Cancelled) => true,
+            _ => false
+        };
 }
 
 // ─── DiscountRequestService ──────────────────────────────────────────────────
