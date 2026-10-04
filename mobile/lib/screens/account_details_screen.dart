@@ -62,11 +62,15 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
       // 2. Update PostgreSQL Backend
       final dio = Dio();
-      await dio.put('http://10.0.2.2:5085/api/auth/user', data: {
-        'email': _currentUser?.email,
-        'fullName': newName,
-        'role': _selectedRole,
-      });
+      final token = await _currentUser!.getIdToken();
+      await dio.put('http://10.0.2.2:5085/api/auth/user', 
+        data: {
+          'email': _currentUser?.email,
+          'fullName': newName,
+          'role': _selectedRole,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'})
+      );
 
       setState(() {
         _successMessage = 'Profile updated successfully!';

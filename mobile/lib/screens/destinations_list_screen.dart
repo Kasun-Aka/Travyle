@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
-import '../features/destinations/models/destination.dart';
 import 'destination_detail_screen.dart';
 
 class DestinationsListScreen extends StatefulWidget {
@@ -118,15 +118,15 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
                     ),
                   )
                 : _destinations.isEmpty
-                    ? const Center(child: Text('No destinations found.'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(24.0),
-                        itemCount: _destinations.length,
-                        itemBuilder: (context, index) {
-                          final dest = _destinations[index];
-                          return _buildListCard(context, dest);
-                        },
-                      ),
+                ? const Center(child: Text('No destinations found.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(24.0),
+                    itemCount: _destinations.length,
+                    itemBuilder: (context, index) {
+                      final dest = _destinations[index];
+                      return _buildListCard(context, dest);
+                    },
+                  ),
           ),
         ],
       ),
@@ -137,7 +137,8 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
     final title = dest['name'] ?? 'Unknown';
     final region = dest['region'] ?? 'Unknown Region';
     final rating = (dest['averageRating'] ?? 0.0).toStringAsFixed(1);
-    final imageUrl = dest['imageUrl'] ??
+    final imageUrl =
+        dest['imageUrl'] ??
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop';
 
     return GestureDetector(
@@ -145,9 +146,7 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DestinationDetailScreen(
-              destination: Destination.fromJson(dest),
-            ),
+            builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(dest)),
           ),
         );
       },
