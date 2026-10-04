@@ -52,7 +52,7 @@ type Request = {
   createdAt: string;
 };
 
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:5085/api";
+const API = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:5085/api";
 
 const money = (value: number) =>
   `LKR ${value.toLocaleString("en-LK", { maximumFractionDigits: 0 })}`;

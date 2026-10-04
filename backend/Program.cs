@@ -88,12 +88,6 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
-    options.AddPolicy("DevPolicy", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
 });
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
@@ -112,8 +106,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+
+// 1. CORS MUST come BEFORE Routing / Authorization / Redirections
 app.UseCors("AllowAll");
-app.UseHttpsRedirection();
+
+app.UseRouting();
 app.UseAuthorization();
 app.MapControllers();
 

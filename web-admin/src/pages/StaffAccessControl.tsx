@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Users } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
 const StaffAccessControl = () => {
   const [staff, setStaff] = useState<any[]>([]);
