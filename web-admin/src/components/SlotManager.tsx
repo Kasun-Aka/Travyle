@@ -21,7 +21,7 @@ type SlotSelection = { scheduleId: string; date: string; slot: string } | null
 type FormState = { title: string; location: string; guide: string; price: string; capacity: string; dates: string; slots: string }
 type GuideUser = { id: string; fullName: string; email: string; role: string }
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api'
+const API = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api'
 const emptyForm: FormState = { title: '', location: '', guide: '', price: '', capacity: '8', dates: '', slots: '09:00 AM' }
 const formatDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 const slotDateTime = (date: string, slot: string) => {

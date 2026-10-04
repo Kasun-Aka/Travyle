@@ -18,7 +18,7 @@ interface RouteLogData {
   stops: RouteStop[];
 }
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+const API = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
 const LiveTourOperations = () => {
   const [data, setData] = useState<any>(null);
