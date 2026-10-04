@@ -15,7 +15,7 @@ public class GeminiService
         _apiKey = config["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API Key is missing");
     }
 
-    public async Task<string> GetRecommendationAsync(string preferences, string budget, string tripHistory, string destinationsJson)
+    public virtual async Task<string> GetRecommendationAsync(string preferences, string budget, string tripHistory, string destinationsJson)
     {
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={_apiKey}";
         
@@ -69,7 +69,7 @@ public class GeminiService
 
         return text ?? "{}";
     }
-    public async Task<string> GetItineraryAsync(string destinationName, string region, string preferences, string budget, string tripHistory)
+    public virtual async Task<string> GetItineraryAsync(string destinationName, string region, string preferences, string budget, string tripHistory)
     {
         var prompt = $@"
 You are a master travel concierge AI.

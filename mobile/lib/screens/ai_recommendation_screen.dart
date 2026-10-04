@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
-import '../features/destinations/models/destination.dart';
 import 'destination_detail_screen.dart';
 
 class AiRecommendationScreen extends StatefulWidget {
   const AiRecommendationScreen({super.key});
 
   @override
-  State<AiRecommendationScreen> createState() =>
-      _AiRecommendationScreenState();
+  State<AiRecommendationScreen> createState() => _AiRecommendationScreenState();
 }
 
-class _AiRecommendationScreenState extends State<AiRecommendationScreen>
-    with SingleTickerProviderStateMixin {
+class _AiRecommendationScreenState extends State<AiRecommendationScreen> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   String _errorMessage = '';
   Map<String, dynamic>? _destination;
@@ -30,7 +28,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-
+    
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -85,14 +83,11 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
       if (mounted) {
         setState(() {
           if (e is DioException && e.response?.statusCode == 503) {
-            _errorMessage = e.response?.data?.toString() ??
-                'Google AI servers are overloaded right now. Please try again later.';
+             _errorMessage = e.response?.data?.toString() ?? 'Google AI servers are overloaded right now. Please try again later.';
           } else if (e is DioException && e.response?.data != null) {
-            _errorMessage =
-                e.response?.data?.toString() ?? 'Failed to analyze preferences.';
+             _errorMessage = e.response?.data?.toString() ?? 'Failed to analyze preferences.';
           } else {
-            _errorMessage =
-                'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
+             _errorMessage = 'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
           }
           _isLoading = false;
         });
@@ -105,8 +100,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('AI Travel Match',
-            style: TextStyle(color: AppTheme.primaryDark)),
+        title: const Text('AI Travel Match', style: TextStyle(color: AppTheme.primaryDark)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.primaryDark),
@@ -123,8 +117,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
           children: [
             ScaleTransition(
               scale: _pulseAnimation,
-              child: const Icon(Icons.auto_awesome,
-                  color: AppTheme.accentCopper, size: 80),
+              child: const Icon(Icons.auto_awesome, color: AppTheme.accentCopper, size: 80),
             ),
             const SizedBox(height: 32),
             const Text(
@@ -156,9 +149,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
               Icon(Icons.error_outline, color: Colors.red.shade400, size: 60),
               const SizedBox(height: 16),
               Text(
-                _errorMessage.isNotEmpty
-                    ? _errorMessage
-                    : 'Unknown error occurred.',
+                _errorMessage.isNotEmpty ? _errorMessage : 'Unknown error occurred.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppTheme.textDark, fontSize: 16),
               ),
@@ -171,10 +162,8 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                   });
                   _fetchRecommendation();
                 },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryDark),
-                child: const Text('Try Again',
-                    style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryDark),
+                child: const Text('Try Again', style: TextStyle(color: Colors.white)),
               )
             ],
           ),
@@ -182,8 +171,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
       );
     }
 
-    final imageUrl = _destination!['imageUrl'] ??
-        'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=800&q=80';
+    final imageUrl = _destination!['imageUrl'] ?? 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=800&q=80';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -202,17 +190,15 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                   offset: const Offset(0, 4),
                 ),
               ],
-              border: Border.all(
-                  color: AppTheme.accentCopper.withValues(alpha: 0.3),
-                  width: 2),
+              border: Border.all(color: AppTheme.accentCopper.withValues(alpha: 0.3), width: 2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: AppTheme.accentCopper),
-                    SizedBox(width: 8),
+                    const Icon(Icons.auto_awesome, color: AppTheme.accentCopper),
+                    const SizedBox(width: 8),
                     Text(
                       'Gemini Recommends',
                       style: TextStyle(
@@ -225,9 +211,9 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Why it\'s perfect for you:',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryDark,
@@ -235,8 +221,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _reasoning ??
-                      'Based on your preferences, this is a great match.',
+                  _reasoning ?? 'Based on your preferences, this is a great match.',
                   style: const TextStyle(
                     fontSize: 15,
                     height: 1.5,
@@ -247,9 +232,9 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
             ),
           ),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'Your Destination',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryDark,
@@ -261,9 +246,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DestinationDetailScreen(
-                    destination: Destination.fromJson(_destination!),
-                  ),
+                  builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(_destination!)),
                 ),
               );
             },
@@ -311,13 +294,11 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(Icons.location_on,
-                            color: Colors.white70, size: 16),
+                        const Icon(Icons.location_on, color: Colors.white70, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           _destination!['region'] ?? '',
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14),
+                          style: const TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                       ],
                     ),
@@ -334,9 +315,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => DestinationDetailScreen(
-                      destination: Destination.fromJson(_destination!),
-                    ),
+                    builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(_destination!)),
                   ),
                 );
               },
@@ -347,11 +326,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen>
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
-              child: const Text('Explore Details',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
+              child: const Text('Explore Details', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],

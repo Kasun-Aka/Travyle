@@ -25,5 +25,7 @@ public class PersonalizedItinerary
     
     public string Status { get; set; } = "Draft"; // Draft, Finalized
     
+        public string AiItineraryData { get; set; } = "[]";
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
