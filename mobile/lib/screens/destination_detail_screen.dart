@@ -560,7 +560,33 @@ class DestinationDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
+            if (planId != null)
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryDark),
+                      tooltip: 'Download PDF',
+                      onPressed: () async {
+                        try {
+                          final dio = Dio();
+                          final pdfResponse = await dio.get(
+                            'http://10.0.2.2:5085/api/travel-plans/$planId/pdf',
+                            options: Options(responseType: ResponseType.bytes),
+                          );
+                          if (context.mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PdfViewerScreen(pdfBytes: pdfResponse.data),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to download PDF: $e')),
+                          );
+                        }
+                      },
+                    ),
+                      IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
                 ),
