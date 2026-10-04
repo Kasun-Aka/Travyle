@@ -2,7 +2,7 @@ name: CI — Travyle IT24104383
 
 on:
   push:
-    branches: [ "IT24104383", "development" ]
+    branches: [ "IT24104383", "development", "it24104383-final" ]
   pull_request:
     branches: [ "development" ]
 
@@ -73,3 +73,29 @@ jobs:
           VITE_FIREBASE_API_KEY: stub
           VITE_FIREBASE_PROJECT_ID: stub
           VITE_FIREBASE_APP_ID: stub
+
+  mobile-build:
+    name: ?? Mobile Build (Flutter)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Analyze code
+        run: flutter analyze
+        working-directory: mobile
+        continue-on-error: true
+
+      - name: Build APK
+        run: flutter build apk --debug
+        working-directory: mobile
