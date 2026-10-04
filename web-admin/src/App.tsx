@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "./lib/firebase";
 import SlotManager from "./components/SlotManager";
 import AgentApprovals from "./components/AgentApprovals";
+import type { AgentWorkflow } from "./components/AgentApprovals";
 
 type View = "overview" | "bookings" | "slots" | "requests" | "agent";
 
@@ -180,17 +181,20 @@ function App() {
   const navigate = useNavigate();
   const [view, setView] = useState<View>("overview");
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [agentWorkflows, setAgentWorkflows] = useState<AgentWorkflow[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [notice, setNotice] = useState("");
 
   const loadData = async () => {
-    const [nextBookings, nextSchedules, nextRequests] = await Promise.all([
+    const [nextBookings, nextSchedules, nextRequests, nextAgentWorkflows] = await Promise.all([
       get<Booking[]>("/bookings/admin/all?page=1&pageSize=100", demoBookings),
       get<Schedule[]>("/booking-schedules", demoSchedules),
       get<Request[]>("/discount-requests", demoRequests),
+      get<AgentWorkflow[]>("/agent/workflows/history", []),
     ]);
     setBookings(nextBookings);
+    setAgentWorkflows(nextAgentWorkflows);
     setSchedules(nextSchedules);
     setRequests(nextRequests);
   };
@@ -243,7 +247,63 @@ function App() {
     );
   };
 
-  const pendingPayments = bookings.filter(
+  const confirmAgentPayment = async (workflow: AgentWorkflow) => {
+    const linkedBooking = bookings.find(
+      (booking) =>
+        booking.id.toLowerCase() === workflow.createdBookingId?.toLowerCase() ||
+        (workflow.bookingReference != null &&
+          booking.bookingReference === workflow.bookingReference),
+    );
+    const bookingId = workflow.createdBookingId ?? linkedBooking?.id;
+    if (!bookingId) {
+      setNotice("This AI workflow has no linked booking ID yet.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API}/bookings/${bookingId}/confirm-manual-payment`,
+        {
+          method: "POST",
+          headers: await authHeaders(),
+        },
+      );
+      if (!response.ok) throw new Error(`Request failed (${response.status}).`);
+
+      const updatedBooking = (await response.json()) as Booking;
+      setBookings((current) =>
+        current.some(
+          (booking) => booking.id.toLowerCase() === updatedBooking.id.toLowerCase(),
+        )
+          ? current.map((booking) =>
+              booking.id.toLowerCase() === updatedBooking.id.toLowerCase()
+                ? updatedBooking
+                : booking,
+            )
+          : [updatedBooking, ...current],
+      );
+      setNotice(
+        `${updatedBooking.bookingReference} payment confirmed manually. The traveler QR pass is now available.`,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? `Could not confirm AI booking payment: ${error.message}`
+          : "Could not confirm AI booking payment.",
+      );
+    }
+  };
+
+  const agentBookingIds = new Set(
+    agentWorkflows
+      .map((workflow) => workflow.createdBookingId)
+      .filter((id): id is string => Boolean(id))
+      .map((id) => id.toLowerCase()),
+  );
+  const regularBookings = bookings.filter(
+    (booking) => !agentBookingIds.has(booking.id.toLowerCase()),
+  );
+  const pendingPayments = regularBookings.filter(
     (booking) => booking.paymentStatus === "Pending",
   ).length;
 
@@ -341,14 +401,21 @@ function App() {
         )}
         {view === "overview" && (
           <Overview
-            bookings={bookings}
+            bookings={regularBookings}
+            agentWorkflows={agentWorkflows}
             schedules={schedules}
             requests={requests}
             go={setView}
           />
         )}
         {view === "bookings" && (
-          <Bookings bookings={bookings} onVerify={verifyPayment} />
+          <Bookings
+            bookings={regularBookings}
+            allBookings={bookings}
+            agentWorkflows={agentWorkflows}
+            onVerify={verifyPayment}
+            onConfirmAgentPayment={confirmAgentPayment}
+          />
         )}
         {view === "slots" && (
           <SlotManager
@@ -366,15 +433,7 @@ function App() {
           <AgentApprovals
             apiUrl={API}
             onBookingApproved={() => {
-              void authHeaders()
-                .then((headers) =>
-                  fetch(`${API}/bookings/admin/all?page=1&pageSize=50`, {
-                    headers,
-                  }),
-                )
-                .then((response) => (response.ok ? response.json() : []))
-                .then((data) => setBookings(data))
-                .catch(() => {});
+              void loadData();
             }}
           />
         )}
@@ -385,11 +444,13 @@ function App() {
 
 function Overview({
   bookings,
+  agentWorkflows,
   schedules,
   requests,
   go,
 }: {
   bookings: Booking[];
+  agentWorkflows: AgentWorkflow[];
   schedules: Schedule[];
   requests: Request[];
   go: (view: View) => void;
@@ -435,6 +496,12 @@ function Overview({
           value={String(receipts.length).padStart(2, "0")}
           trend="receipt submissions"
           tone="amber"
+        />
+        <Metric
+          label="AI booking history"
+          value={String(agentWorkflows.length).padStart(2, "0")}
+          trend="human-managed requests"
+          tone="blue"
         />
         <Metric
           label="Live schedules"
@@ -578,10 +645,16 @@ function Empty({ text }: { text: string }) {
 
 function Bookings({
   bookings,
+  allBookings,
+  agentWorkflows,
   onVerify,
+  onConfirmAgentPayment,
 }: {
   bookings: Booking[];
+  allBookings: Booking[];
+  agentWorkflows: AgentWorkflow[];
   onVerify: (booking: Booking) => void;
+  onConfirmAgentPayment: (workflow: AgentWorkflow) => void;
 }) {
   const [filter, setFilter] = useState("All");
   const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
@@ -589,6 +662,8 @@ function Bookings({
   const filtered =
     filter === "All"
       ? bookings
+      : filter === "AI history"
+        ? []
       : filter === "Receipts"
         ? bookings.filter((booking) => booking.paymentStatus === "Pending")
         : bookings.filter((booking) => booking.status === filter);
@@ -606,7 +681,7 @@ function Bookings({
         <button className="secondary-button">Export report ↓</button>
       </div>
       <div className="filter-bar">
-        {["All", "Pending", "Confirmed", "Receipts"].map((value) => (
+        {["All", "Pending", "Confirmed", "AI history", "Receipts"].map((value) => (
           <button
             className={filter === value ? "filter active" : "filter"}
             key={value}
@@ -617,7 +692,14 @@ function Bookings({
         ))}
         <span className="filter-count">{filtered.length} records</span>
       </div>
-      <div className="table-panel">
+      {filter === "AI history" && (
+        <AgentBookingHistory
+          workflows={agentWorkflows}
+          bookings={allBookings}
+          onConfirmPayment={onConfirmAgentPayment}
+        />
+      )}
+      {filter !== "AI history" && <div className="table-panel">
         <table>
           <thead>
             <tr>
@@ -692,7 +774,7 @@ function Bookings({
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
       {receiptBooking && (
         <ReceiptReview
           booking={receiptBooking}
@@ -703,6 +785,118 @@ function Bookings({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function AgentBookingHistory({
+  workflows,
+  bookings,
+  onConfirmPayment,
+}: {
+  workflows: AgentWorkflow[];
+  bookings: Booking[];
+  onConfirmPayment: (workflow: AgentWorkflow) => void;
+}) {
+  const workflowStatus = (workflow: AgentWorkflow, booking?: Booking) => {
+    const approval = workflow.approvalStatus.toUpperCase();
+    if (approval.startsWith("REJECTED")) return "Rejected";
+    if (workflow.status.toLowerCase() === "failed") return "Failed";
+    if (approval !== "APPROVED") return "Awaiting approval";
+    if (!booking) return "Booking successful · Payment pending";
+    if (booking.paymentStatus.toLowerCase() === "paid")
+      return "Booking successful · Paid";
+    if (booking.status === "Pending") return "Payment pending";
+    return booking.status;
+  };
+
+  return (
+    <div className="table-panel">
+      <div className="page-intro" style={{ padding: "18px 20px" }}>
+        <div>
+          <span className="eyebrow">AI AGENT BOOKINGS</span>
+          <p>Human-managed booking history. No receipt review is required.</p>
+        </div>
+        <span className="filter-count">{workflows.length} records</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Traveler</th>
+            <th>Experience</th>
+            <th>Date & time</th>
+            <th>Amount</th>
+            <th>Workflow</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {workflows.map((workflow) => {
+            const proposal = workflow.proposedBooking;
+            const booking = bookings.find(
+              (item) =>
+                item.id.toLowerCase() ===
+                  workflow.createdBookingId?.toLowerCase() ||
+                (workflow.bookingReference != null &&
+                  item.bookingReference === workflow.bookingReference),
+            );
+            const status = workflowStatus(workflow, booking);
+            const paymentDue =
+              workflow.approvalStatus.toUpperCase() === "APPROVED" &&
+              booking?.paymentStatus.toLowerCase() !== "paid" &&
+              booking?.status.toLowerCase() !== "cancelled" &&
+              booking?.status.toLowerCase() !== "completed";
+            return (
+              <tr key={workflow.id}>
+                <td>
+                  <b>{workflow.travelerName || "Traveler"}</b>
+                  <small>{workflow.bookingReference ?? "AI proposal"}</small>
+                </td>
+                <td>
+                  <b>{proposal?.destinationTitle ?? "Booking proposal"}</b>
+                  <small>{proposal?.location ?? workflow.objective}</small>
+                </td>
+                <td>
+                  <b>{proposal ? formatDate(proposal.bookingDate) : "-"}</b>
+                  <small>{proposal?.timeSlot ?? "Awaiting details"}</small>
+                </td>
+                <td>
+                  <b>{proposal ? money(proposal.totalAmount) : "-"}</b>
+                </td>
+                <td>
+                  <span className="pill pill-blue">AI agent</span>
+                  <small>
+                    {paymentDue
+                      ? "Manual payment awaiting confirmation"
+                      : booking?.paymentStatus.toLowerCase() === "paid"
+                        ? "Payment recorded by operations"
+                        : "Handled by operations"}
+                  </small>
+                </td>
+                <td>
+                  <span className={`status-dot ${status.toLowerCase()}`} />
+                  {status}
+                </td>
+                <td>
+                  {paymentDue && (
+                    <button
+                      className="verify-button"
+                      onClick={() => onConfirmPayment(workflow)}
+                    >
+                      Mark as paid
+                    </button>
+                  )}
+                  {booking?.paymentStatus.toLowerCase() === "paid" && (
+                    <span className="pill pill-green">Paid</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {workflows.length === 0 && <Empty text="No AI booking history yet." />}
     </div>
   );
 }

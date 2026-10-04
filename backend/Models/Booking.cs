@@ -11,6 +11,7 @@ public enum BookingStatus
 public enum EscrowStatus
 {
     Pending,
+    Paid,
     HeldInEscrow,
     Released,
     Refunded

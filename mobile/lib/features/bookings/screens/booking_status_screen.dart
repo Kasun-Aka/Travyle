@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
 import '../models/booking.dart';
 import '../providers/booking_providers.dart';
+import '../services/booking_api_service.dart';
 import '../theme/booking_theme.dart';
 import '../widgets/booking_status_tracker.dart';
 import '../widgets/error_state.dart';
@@ -13,10 +16,7 @@ import 'discount_request_screen.dart';
 class BookingStatusScreen extends ConsumerWidget {
   final String bookingId;
 
-  const BookingStatusScreen({
-    super.key,
-    required this.bookingId,
-  });
+  const BookingStatusScreen({super.key, required this.bookingId});
 
   void _showCancelDialog(BuildContext context, WidgetRef ref, Booking booking) {
     showDialog(
@@ -41,7 +41,9 @@ class BookingStatusScreen extends ConsumerWidget {
               if (context.mounted && success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Booking successfully cancelled and escrow refunded.'),
+                    content: Text(
+                      'Booking successfully cancelled and escrow refunded.',
+                    ),
                     backgroundColor: BookingTheme.errorRed,
                   ),
                 );
@@ -61,6 +63,8 @@ class BookingStatusScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final booking = ref.watch(bookingDetailProvider(bookingId));
+    final compactWidth = MediaQuery.sizeOf(context).width < 360;
+    final horizontalPadding = compactWidth ? 12.0 : 20.0;
     final currencyFormatter = NumberFormat.currency(
       symbol: 'LKR ',
       decimalDigits: 2,
@@ -80,9 +84,19 @@ class BookingStatusScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BookingTheme.background,
       appBar: AppBar(
-        title: Text('Booking #${booking.id}'),
+        title: Text(
+          'Booking #${booking.id}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh booking status',
+            onPressed: () =>
+                ref.read(travelerBookingsProvider.notifier).refresh(),
+          ),
           IconButton(
             icon: const Icon(Icons.history_rounded),
             tooltip: 'My Bookings',
@@ -95,20 +109,29 @@ class BookingStatusScreen extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          16,
+          horizontalPadding,
+          40,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Status Tracker Stepper (Pending -> Confirmed -> Completed / Cancelled)
             BookingStatusTracker(
               status: booking.status,
               escrowStatus: booking.paymentStatus,
+              isCompact: compactWidth,
             ),
+            const SizedBox(height: 20),
+
+            _buildTravelPass(booking),
             const SizedBox(height: 20),
 
             // Escrow Status Card
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(compactWidth ? 12 : 18),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -122,7 +145,8 @@ class BookingStatusScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: _escrowColor(booking.paymentStatus).withValues(alpha: 0.12),
+                          color: _escrowColor(booking.paymentStatus)
+                              .withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -148,9 +172,12 @@ class BookingStatusScreen extends ConsumerWidget {
                             Text(
                               booking.paymentStatus == EscrowStatus.heldInEscrow
                                   ? 'Funds locked in Stripe Escrow until tour completes'
-                                  : (booking.paymentStatus == EscrowStatus.refunded
-                                      ? 'Payment returned to traveler account'
-                                      : 'Financial status tracked by Travyle escrow'),
+                                  : (booking.paymentStatus == EscrowStatus.paid
+                                    ? 'Payment received and confirmed by our team'
+                                  : (booking.paymentStatus ==
+                                            EscrowStatus.refunded
+                                        ? 'Payment returned to traveler account'
+                                    : 'Financial status tracked by Travyle escrow')),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: BookingTheme.textMuted,
@@ -163,32 +190,15 @@ class BookingStatusScreen extends ConsumerWidget {
                   ),
                   if (booking.transactionRef != null) ...[
                     const Divider(height: 24, color: BookingTheme.border),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Transaction Ref',
-                          style: TextStyle(fontSize: 12, color: BookingTheme.textMuted),
-                        ),
-                        Text(
-                          booking.transactionRef!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: BookingTheme.forestDark,
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildDetailRow('Transaction Ref', booking.transactionRef!),
                   ],
                 ],
               ),
             ),
             const SizedBox(height: 20),
-
             // Tour Details Card
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(compactWidth ? 12 : 18),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -217,16 +227,25 @@ class BookingStatusScreen extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     booking.location,
-                    style: const TextStyle(fontSize: 13, color: BookingTheme.textMuted),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: BookingTheme.textMuted,
+                    ),
                   ),
                   const Divider(height: 24, color: BookingTheme.border),
-                  _buildDetailRow('Date', DateFormat('EEEE, d MMMM y').format(booking.date)),
+                  _buildDetailRow(
+                    'Date',
+                    DateFormat('EEEE, d MMMM y').format(booking.date),
+                  ),
                   const SizedBox(height: 8),
                   _buildDetailRow('Time Slot', booking.timeSlot),
                   const SizedBox(height: 8),
                   _buildDetailRow('Travelers', '${booking.guests} Person(s)'),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Booked By', '${booking.travelerName} (${booking.travelerEmail})'),
+                  _buildDetailRow(
+                    'Booked By',
+                    '${booking.travelerName} (${booking.travelerEmail})',
+                  ),
                   if (booking.notes != null && booking.notes!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     _buildDetailRow('Special Notes', booking.notes!),
@@ -238,7 +257,7 @@ class BookingStatusScreen extends ConsumerWidget {
 
             // Payment Summary Card
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(compactWidth ? 12 : 18),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -256,9 +275,15 @@ class BookingStatusScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Base Trip', currencyFormatter.format(booking.basePrice)),
+                  _buildDetailRow(
+                    'Base Trip',
+                    currencyFormatter.format(booking.basePrice),
+                  ),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Escrow & Platform Fee', currencyFormatter.format(booking.serviceFee)),
+                  _buildDetailRow(
+                    'Escrow & Platform Fee',
+                    currencyFormatter.format(booking.serviceFee),
+                  ),
                   if (booking.discountAmount > 0) ...[
                     const SizedBox(height: 8),
                     _buildDetailRow(
@@ -269,22 +294,29 @@ class BookingStatusScreen extends ConsumerWidget {
                   ],
                   const Divider(height: 24, color: BookingTheme.border),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Total Escrow Paid',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: BookingTheme.forestDark,
+                      const Expanded(
+                        child: Text(
+                          'Total Escrow Paid',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: BookingTheme.forestDark,
+                          ),
                         ),
                       ),
-                      Text(
-                        currencyFormatter.format(booking.totalAmount),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: BookingTheme.forestDark,
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          currencyFormatter.format(booking.totalAmount),
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: BookingTheme.forestDark,
+                          ),
                         ),
                       ),
                     ],
@@ -327,7 +359,9 @@ class BookingStatusScreen extends ConsumerWidget {
                 label: const Text('Cancel Booking & Refund Escrow'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: BookingTheme.errorRed,
-                  side: BorderSide(color: BookingTheme.errorRed.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: BookingTheme.errorRed.withValues(alpha: 0.5),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   minimumSize: const Size.fromHeight(50),
                   shape: RoundedRectangleBorder(
@@ -349,7 +383,11 @@ class BookingStatusScreen extends ConsumerWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.search_rounded, size: 18, color: Colors.white),
+              icon: const Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
               text: 'Explore More Schedules',
             ),
           ],
@@ -358,10 +396,152 @@ class BookingStatusScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildTravelPass(Booking booking) {
+    if (booking.status == BookingStatus.completed) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: BookingTheme.border),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle, color: BookingTheme.primary, size: 28),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Trip already finished',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: BookingTheme.forestDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (booking.status == BookingStatus.cancelled) {
+      final cancelledPassUrl = Uri.parse(
+        '$kBookingApiBaseUrl/api/bookings/${booking.id}/pass',
+      ).toString();
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: BookingTheme.border),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'Booking cancelled',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: BookingTheme.errorRed,
+              ),
+            ),
+            const SizedBox(height: 8),
+            QrImageView(
+              data: cancelledPassUrl,
+              version: QrVersions.auto,
+              size: 208,
+              backgroundColor: Colors.white,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Scanning this code will show that this booking is cancelled.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: BookingTheme.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isAgentBooking =
+      booking.notes?.contains('Smart Booking Agent') ?? false;
+    final paymentDue =
+      isAgentBooking && booking.paymentStatus == EscrowStatus.pending;
+
+    if (booking.status != BookingStatus.confirmed && !paymentDue) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: BookingTheme.border),
+        ),
+        child: Text(
+          isAgentBooking
+              ? 'AI booking: payment is due. Please contact our team to arrange payment. Your QR travel pass will be available after confirmation.'
+              : 'Your QR travel pass will be available once this booking is confirmed.',
+          style: const TextStyle(color: BookingTheme.textMuted),
+        ),
+      );
+    }
+
+    final revision = (booking.updatedAt ?? booking.createdAt)
+        .toUtc()
+        .toIso8601String();
+    final passData = Uri.parse(
+      '$kBookingApiBaseUrl/api/bookings/${booking.id}/pass',
+    ).replace(queryParameters: {'revision': revision}).toString();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: BookingTheme.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            paymentDue ? 'AI booking pass · Payment due' : 'Confirmed travel pass',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: paymentDue
+                  ? BookingTheme.warningOrange
+                  : BookingTheme.forestDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            booking.id,
+            style: const TextStyle(color: BookingTheme.textMuted),
+          ),
+          const SizedBox(height: 12),
+          QrImageView(
+            data: passData,
+            version: QrVersions.auto,
+            size: 208,
+            backgroundColor: Colors.white,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            paymentDue
+                ? 'Payment is due. Scan to view passenger and trip details.'
+                : 'Scan to view passenger and trip details',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: BookingTheme.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _escrowColor(EscrowStatus st) {
     switch (st) {
       case EscrowStatus.pending:
         return BookingTheme.warningOrange;
+      case EscrowStatus.paid:
+        return BookingTheme.primary;
       case EscrowStatus.heldInEscrow:
         return BookingTheme.primary;
       case EscrowStatus.released:
@@ -375,6 +555,8 @@ class BookingStatusScreen extends ConsumerWidget {
     switch (st) {
       case EscrowStatus.pending:
         return Icons.hourglass_top_rounded;
+      case EscrowStatus.paid:
+        return Icons.check_circle_outline_rounded;
       case EscrowStatus.heldInEscrow:
         return Icons.lock_clock_rounded;
       case EscrowStatus.released:
@@ -385,27 +567,43 @@ class BookingStatusScreen extends ConsumerWidget {
   }
 
   Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final labelText = Text(
           label,
           style: const TextStyle(fontSize: 13, color: BookingTheme.textMuted),
-        ),
-        const SizedBox(width: 16),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? BookingTheme.forestDark,
-            ),
+        );
+        final valueText = Text(
+          value,
+          textAlign: TextAlign.end,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: valueColor ?? BookingTheme.forestDark,
           ),
-        ),
-      ],
+        );
+
+        if (constraints.maxWidth < 300) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              labelText,
+              Align(alignment: Alignment.centerRight, child: valueText),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 2, child: labelText),
+            const SizedBox(width: 8),
+            Expanded(flex: 3, child: valueText),
+          ],
+        );
+      },
     );
   }
 }

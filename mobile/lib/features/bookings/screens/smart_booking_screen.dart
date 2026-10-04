@@ -352,6 +352,10 @@ class _SmartBookingScreenState extends ConsumerState<SmartBookingScreen> {
       statusColor = const Color(0xFFF59E0B);
       statusTitle = 'Awaiting Operator Approval';
       statusIcon = Icons.hourglass_top_rounded;
+    } else if (wf.isInformational) {
+      statusColor = const Color(0xFF2563EB);
+      statusTitle = 'Assistant Information';
+      statusIcon = Icons.info_outline_rounded;
     } else if (wf.needsMoreInfo) {
       statusColor = const Color(0xFFD97706);
       statusTitle = 'A Few More Details Needed';
@@ -489,8 +493,14 @@ class _SmartBookingScreenState extends ConsumerState<SmartBookingScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
-                border: Border.all(color: const Color(0xFFFED7AA)),
+                color: wf.isInformational
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFFFF7ED),
+                border: Border.all(
+                  color: wf.isInformational
+                      ? const Color(0xFFBFDBFE)
+                      : const Color(0xFFFED7AA),
+                ),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -501,24 +511,36 @@ class _SmartBookingScreenState extends ConsumerState<SmartBookingScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
+                          color: wf.isInformational
+                              ? const Color(0xFFDBEAFE)
+                              : const Color(0xFFFEF3C7),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
-                          Icons.sentiment_neutral_rounded,
-                          color: Color(0xFFD97706),
+                        child: Icon(
+                          wf.isInformational
+                              ? Icons.smart_toy_rounded
+                              : (wf.needsMoreInfo
+                                  ? Icons.sentiment_neutral_rounded
+                                  : Icons.error_outline_rounded),
+                          color: wf.isInformational
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFFD97706),
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        wf.needsMoreInfo
-                            ? 'Please Complete Your Request'
-                            : 'Unable to Process Request',
+                        wf.isInformational
+                            ? 'Assistant Response'
+                            : (wf.needsMoreInfo
+                                ? 'Please Complete Your Request'
+                                : 'Unable to Process Request'),
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
-                          color: Color(0xFF92400E),
+                          color: wf.isInformational
+                              ? const Color(0xFF1E40AF)
+                              : const Color(0xFF92400E),
                         ),
                       ),
                     ],
@@ -526,24 +548,35 @@ class _SmartBookingScreenState extends ConsumerState<SmartBookingScreen> {
                   const SizedBox(height: 10),
                   Text(
                     wf.errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFF92400E),
+                    style: TextStyle(
+                      color: wf.isInformational
+                          ? const Color(0xFF1E3A8A)
+                          : const Color(0xFF92400E),
                       fontSize: 13,
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.lightbulb_outline,
-                          size: 14, color: Color(0xFFD97706)),
-                      SizedBox(width: 6),
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 14,
+                        color: wf.isInformational
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Include the tour, number of travelers, date, and time. If flexible, say “next available date” or “any available time.”',
+                          wf.isInformational
+                              ? 'Tip: You can ask about tour schedules, extra discounts, or book a trip anytime.'
+                              : 'Include the tour, number of travelers, date, and time. If flexible, say “next available date” or “any available time.”',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFFB45309),
+                            color: wf.isInformational
+                                ? const Color(0xFF1D4ED8)
+                                : const Color(0xFFB45309),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -557,42 +590,44 @@ class _SmartBookingScreenState extends ConsumerState<SmartBookingScreen> {
           ],
 
           // Steps list expansion
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: Text(
-                'Agent Plan & Audit Trail (${wf.completedSteps.length}/${wf.plan.length} steps)',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: BookingTheme.forestDark,
-                ),
-              ),
-              children: wf.completedSteps.map((step) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: BookingTheme.primary,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          step,
-                          style: const TextStyle(fontSize: 12, height: 1.3),
-                        ),
-                      ),
-                    ],
+          if (!wf.isInformational && (wf.plan.isNotEmpty || wf.completedSteps.isNotEmpty)) ...[
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'Agent Plan & Audit Trail (${wf.completedSteps.length}/${wf.plan.length} steps)',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: BookingTheme.forestDark,
                   ),
-                );
-              }).toList(),
+                ),
+                children: wf.completedSteps.map((step) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: BookingTheme.primary,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            step,
+                            style: const TextStyle(fontSize: 12, height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
 
           // Actions based on state
           if (wf.isPendingApproval) ...[

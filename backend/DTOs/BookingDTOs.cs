@@ -81,7 +81,8 @@ public record BookingResponse(
     string? ReceiptReference,
     string? ReceiptImageData,
     DateTime? EscrowReleaseDate,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime UpdatedAt
 );
 
 public record CreateBookingRequest(
@@ -100,6 +101,12 @@ public record CreateBookingRequest(
 
 public record UpdateBookingStatusRequest(
     string Status
+);
+
+public record UpdateBookingDetailsRequest(
+    DateTime BookingDate,
+    string TimeSlot,
+    string? Notes
 );
 
 // ─── DiscountRequest DTOs ────────────────────────────────────────────────────

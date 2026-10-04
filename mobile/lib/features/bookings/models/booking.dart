@@ -24,6 +24,7 @@ enum BookingStatus {
 
 enum EscrowStatus {
   pending,
+  paid,
   heldInEscrow,
   released,
   refunded;
@@ -32,6 +33,8 @@ enum EscrowStatus {
     switch (this) {
       case EscrowStatus.pending:
         return 'Payment Pending';
+      case EscrowStatus.paid:
+        return 'Paid';
       case EscrowStatus.heldInEscrow:
         return 'Held in Escrow';
       case EscrowStatus.released:
@@ -106,6 +109,7 @@ class Booking {
   final EscrowStatus paymentStatus;
   final BookingPaymentMethod paymentMethod;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final String? notes;
   final String? transactionRef;
   final String? receiptReference;
@@ -131,6 +135,7 @@ class Booking {
     required this.paymentStatus,
     required this.paymentMethod,
     required this.createdAt,
+    this.updatedAt,
     this.notes,
     this.transactionRef,
     this.receiptReference,
@@ -157,6 +162,7 @@ class Booking {
     EscrowStatus? paymentStatus,
     BookingPaymentMethod? paymentMethod,
     DateTime? createdAt,
+    DateTime? updatedAt,
     String? notes,
     String? transactionRef,
     String? receiptReference,
@@ -182,6 +188,7 @@ class Booking {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
       transactionRef: transactionRef ?? this.transactionRef,
       receiptReference: receiptReference ?? this.receiptReference,
@@ -459,6 +466,10 @@ class AgentWorkflow {
   bool get isRejected => status.toLowerCase() == 'rejected';
   bool get isFailed => status.toLowerCase() == 'failed';
   bool get needsMoreInfo => validationResults['needs_more_info'] == true;
+  bool get isInformational =>
+      approvalStatus.toUpperCase() == 'INFO' ||
+      validationResults['is_informational'] == true ||
+      validationResults['booking_request'] == false;
 
   factory AgentWorkflow.fromJson(Map<String, dynamic> j) {
     return AgentWorkflow(

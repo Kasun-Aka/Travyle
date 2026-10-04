@@ -19,6 +19,9 @@ public interface ISmartBookingAgentService
     Task<IEnumerable<AgentWorkflowResponse>> GetPendingWorkflowsAsync(
         CancellationToken ct = default);
 
+    Task<IEnumerable<AgentWorkflowResponse>> GetAllWorkflowsAsync(
+        CancellationToken ct = default);
+
     Task<(AgentWorkflowResponse? Workflow, string? Error)> ApproveWorkflowAsync(
         Guid workflowId,
         ApproveWorkflowRequest request,

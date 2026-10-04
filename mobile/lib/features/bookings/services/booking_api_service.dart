@@ -198,6 +198,23 @@ class BookingApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateBookingDetails({
+    required String id,
+    required DateTime bookingDate,
+    required String timeSlot,
+    String? notes,
+  }) async {
+    final response = await _dio.put(
+      '/api/bookings/$id/details',
+      data: {
+        'bookingDate': bookingDate.toIso8601String(),
+        'timeSlot': timeSlot,
+        'notes': notes,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   // ── 7. DELETE /api/bookings/{id} ──────────────────────────────────────────
   Future<bool> cancelBooking(String id) async {
     try {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
@@ -89,13 +90,162 @@ public class SmartBookingAgentTests
 
         var scheduleRepo = new BookingScheduleRepository(db);
         var bookingRepo = new BookingRepository(db);
+        var escrowRepo = new PaymentEscrowRepository(db);
         var scheduleService = new BookingScheduleService(scheduleRepo, bookingRepo, db);
-        var bookingService = new BookingService(bookingRepo, scheduleRepo);
+        var bookingService = new BookingService(bookingRepo, scheduleRepo, escrowRepo);
 
         var agentTools = new BookingAgentTools(scheduleService, bookingService, scheduleRepo);
         var agentService = new SmartBookingAgentService(db, agentTools);
 
         return (agentService, db);
+    }
+
+    [Fact]
+    public async Task CancellingHeldBooking_RefundsEscrowAndKeepsBookingHistory()
+    {
+        await using var db = CreateInMemoryDbContext(nameof(CancellingHeldBooking_RefundsEscrowAndKeepsBookingHistory));
+        var bookingId = Guid.NewGuid();
+        var booking = new Booking
+        {
+            Id = bookingId,
+            BookingReference = "BKG-CANCEL-1",
+            TravelerId = Guid.NewGuid(),
+            ScheduleId = Guid.NewGuid(),
+            BookingDate = DateTime.UtcNow.Date.AddDays(1),
+            Guests = 2,
+            TotalAmount = 9450m,
+            Status = BookingStatus.Confirmed,
+            PaymentStatus = EscrowStatus.HeldInEscrow
+        };
+        db.Bookings.Add(booking);
+        db.PaymentEscrows.Add(new PaymentEscrow
+        {
+            BookingId = bookingId,
+            Amount = 9450m,
+            Status = EscrowStatus.HeldInEscrow,
+            TransactionRef = "txn-test"
+        });
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(
+            new BookingRepository(db),
+            new BookingScheduleRepository(db),
+            new PaymentEscrowRepository(db));
+
+        Assert.True(await service.CancelBookingAsync(bookingId));
+
+        var cancelled = await db.Bookings.FindAsync(bookingId);
+        var escrow = await db.PaymentEscrows.SingleAsync(e => e.BookingId == bookingId);
+        Assert.Equal(BookingStatus.Cancelled, cancelled!.Status);
+        Assert.Equal(EscrowStatus.Refunded, escrow.Status);
+        Assert.Equal(9450m, escrow.RefundedAmount);
+    }
+
+    [Fact]
+    public async Task PendingBooking_CannotSkipToCompleted()
+    {
+        await using var db = CreateInMemoryDbContext(nameof(PendingBooking_CannotSkipToCompleted));
+        var booking = new Booking
+        {
+            BookingReference = "BKG-TRANSITION-1",
+            TravelerId = Guid.NewGuid(),
+            ScheduleId = Guid.NewGuid(),
+            BookingDate = DateTime.UtcNow.Date.AddDays(1),
+            Guests = 1,
+            TotalAmount = 100m,
+            Status = BookingStatus.Pending
+        };
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(
+            new BookingRepository(db),
+            new BookingScheduleRepository(db),
+            new PaymentEscrowRepository(db));
+
+        var result = await service.UpdateBookingStatusAsync(booking.Id, nameof(BookingStatus.Completed));
+
+        Assert.Null(result);
+        Assert.Equal(BookingStatus.Pending, (await db.Bookings.FindAsync(booking.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task ConfirmManualAgentPayment_MarksPaidAndConfirmedWithoutEscrow()
+    {
+        await using var db = CreateInMemoryDbContext(nameof(ConfirmManualAgentPayment_MarksPaidAndConfirmedWithoutEscrow));
+        var booking = new Booking
+        {
+            BookingReference = "BKG-AI-PAY-1",
+            ScheduleId = Guid.NewGuid(),
+            TravelerId = Guid.NewGuid(),
+            BookingDate = DateTime.UtcNow.Date.AddDays(1),
+            TimeSlot = "09:00 AM",
+            Guests = 2,
+            TotalAmount = 9450m,
+            Notes = "Booked via Smart Booking Agent (Approved by Admin)",
+            Status = BookingStatus.Pending,
+            PaymentStatus = EscrowStatus.Pending
+        };
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(
+            new BookingRepository(db),
+            new BookingScheduleRepository(db),
+            new PaymentEscrowRepository(db));
+
+        var result = await service.ConfirmManualAgentPaymentAsync(booking.Id);
+
+        Assert.Null(result.Error);
+        Assert.NotNull(result.Booking);
+        Assert.Equal(nameof(BookingStatus.Confirmed), result.Booking.Status);
+        Assert.Equal(nameof(EscrowStatus.Paid), result.Booking.PaymentStatus);
+        Assert.Empty(db.PaymentEscrows);
+    }
+
+    [Fact]
+    public async Task UpdateBookingDetails_ChangesScheduleDetailsButKeepsSeatsAndPrice()
+    {
+        var (_, db) = SetupAgentService(
+            nameof(UpdateBookingDetails_ChangesScheduleDetailsButKeepsSeatsAndPrice),
+            out var travelerId,
+            out var scheduleId,
+            out var availableDate,
+            out var timeSlot);
+        var booking = new Booking
+        {
+            BookingReference = "BKG-EDIT-1",
+            ScheduleId = scheduleId,
+            DestinationTitle = "Ella Rock & Nine Arch Bridge Trek",
+            Location = "Ella, Badulla District",
+            TravelerId = travelerId,
+            TravelerName = "John Doe",
+            TravelerEmail = "john@test.com",
+            BookingDate = availableDate,
+            TimeSlot = timeSlot,
+            Guests = 2,
+            BasePrice = 9000m,
+            ServiceFee = 450m,
+            TotalAmount = 9450m,
+            Status = BookingStatus.Confirmed
+        };
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(
+            new BookingRepository(db),
+            new BookingScheduleRepository(db),
+            new PaymentEscrowRepository(db));
+        var result = await service.UpdateBookingDetailsAsync(
+            booking.Id,
+            new UpdateBookingDetailsRequest(availableDate, "02:00 PM", "Updated arrival note"));
+
+        Assert.Null(result.Error);
+        Assert.NotNull(result.Booking);
+        Assert.Equal("02:00 PM", result.Booking.TimeSlot);
+        Assert.Equal(2, result.Booking.Guests);
+        Assert.Equal(9450m, result.Booking.TotalAmount);
+        Assert.Equal("Updated arrival note", result.Booking.Notes);
     }
 
     // 1. Valid booking scenario -> generates proposal, pauses at PENDING_APPROVAL
@@ -130,6 +280,93 @@ public class SmartBookingAgentTests
         Assert.True(result.ValidationResults["date_is_valid"]);
         Assert.True(result.ValidationResults["traveler_exists"]);
         Assert.Null(result.CreatedBookingId); // Must not create booking before approval
+    }
+
+    [Fact]
+    public async Task MissingDate_AsksTravelerToChooseFromAvailableDates()
+    {
+        var (agent, _) = SetupAgentService(
+            nameof(MissingDate_AsksTravelerToChooseFromAvailableDates),
+            out var travelerId,
+            out var scheduleId,
+            out var date,
+            out _);
+
+        var result = await agent.StartWorkflowAsync(new StartAgentBookingRequest(
+            TravelerId: travelerId,
+            Objective: "Book Ella Rock for 2 people",
+            TravelerName: "John Doe",
+            TravelerEmail: "john@test.com",
+            PreferredScheduleId: scheduleId,
+            Guests: 2));
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal("NEEDS_DATE", result.ApprovalStatus);
+        Assert.True(result.ValidationResults["needs_more_info"]);
+        Assert.Contains(date.ToString("dd MMM yyyy"), result.ErrorMessage);
+        Assert.Null(result.ProposedBooking);
+    }
+
+    [Fact]
+    public async Task MissingTimeSlot_AsksTravelerToChooseAnAvailableSlot()
+    {
+        var (agent, _) = SetupAgentService(
+            nameof(MissingTimeSlot_AsksTravelerToChooseAnAvailableSlot),
+            out var travelerId,
+            out var scheduleId,
+            out var date,
+            out _);
+
+        var result = await agent.StartWorkflowAsync(new StartAgentBookingRequest(
+            TravelerId: travelerId,
+            Objective: $"Book Ella Rock for 2 people on {date:yyyy-MM-dd}",
+            TravelerName: "John Doe",
+            TravelerEmail: "john@test.com",
+            PreferredScheduleId: scheduleId,
+            PreferredDate: date,
+            Guests: 2));
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal("NEEDS_SLOT", result.ApprovalStatus);
+        Assert.True(result.ValidationResults["needs_more_info"]);
+        Assert.Contains("09:00 AM", result.ErrorMessage);
+        Assert.Contains("02:00 PM", result.ErrorMessage);
+        Assert.Null(result.ProposedBooking);
+    }
+
+    [Fact]
+    public async Task NaturalOrdinalDateAndCompactTime_CreateProposalWhenAllDetailsAreProvided()
+    {
+        var (agent, _) = SetupAgentService(
+            nameof(NaturalOrdinalDateAndCompactTime_CreateProposalWhenAllDetailsAreProvided),
+            out var travelerId,
+            out var scheduleId,
+            out var date,
+            out _);
+
+        var suffix = date.Day % 100 is >= 11 and <= 13
+            ? "th"
+            : (date.Day % 10) switch
+            {
+                1 => "st",
+                2 => "nd",
+                3 => "rd",
+                _ => "th"
+            };
+        var naturalDate = $"{date.ToString("dddd", CultureInfo.InvariantCulture)}, {date.Day:00}{suffix} {date.ToString("MMM yyyy", CultureInfo.InvariantCulture)}";
+        var result = await agent.StartWorkflowAsync(new StartAgentBookingRequest(
+            TravelerId: travelerId,
+            Objective: $"i want to book for 2 people for ella rock {naturalDate}, 9:00AM",
+            TravelerName: "John Doe",
+            TravelerEmail: "john@test.com",
+            PreferredScheduleId: scheduleId,
+            Guests: 2));
+
+        Assert.Equal("PendingApproval", result.Status);
+        Assert.Equal("PENDING", result.ApprovalStatus);
+        Assert.NotNull(result.ProposedBooking);
+        Assert.Equal(date.Date, result.ProposedBooking.BookingDate.Date);
+        Assert.Equal("09:00 AM", result.ProposedBooking.TimeSlot);
     }
 
     // 2. Insufficient capacity -> fails safely with clear capacity message
@@ -376,7 +613,8 @@ public class SmartBookingAgentTests
 
         var travelerBookingService = new BookingService(
             new BookingRepository(db),
-            new BookingScheduleRepository(db));
+            new BookingScheduleRepository(db),
+            new PaymentEscrowRepository(db));
         var travelerHistory = await travelerBookingService.GetTravelerBookingsAsync(
             travelerId,
             page: 1,
@@ -519,5 +757,52 @@ public class SmartBookingAgentTests
         // Check pending workflows query
         var pendingWorkflows = (await agent.GetPendingWorkflowsAsync()).ToList();
         Assert.Contains(pendingWorkflows, w => w.Id == result.Id);
+    }
+
+    // 14. Extra discounts inquiry -> polite guidance about eligibility proofs & privacy
+    [Fact]
+    public async Task Scenario14_ExtraDiscountInquiry_ReturnsPolitePrivacyGuidedResponse()
+    {
+        var (agent, db) = SetupAgentService(nameof(Scenario14_ExtraDiscountInquiry_ReturnsPolitePrivacyGuidedResponse), out var travelerId, out _, out _, out _);
+
+        var request = new StartAgentBookingRequest(
+            TravelerId: travelerId,
+            Objective: "hey can i have ectra discounts or something",
+            TravelerName: "Traveler One",
+            TravelerEmail: "traveler@test.com"
+        );
+
+        var result = await agent.StartWorkflowAsync(request);
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal("INFO", result.ApprovalStatus);
+        Assert.True(result.ValidationResults["is_informational"]);
+        Assert.False(result.ValidationResults["booking_request"]);
+        Assert.Contains("website", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("proof", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("privacy", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 15. Booking verification status inquiry -> polite guidance on approval and status
+    [Fact]
+    public async Task Scenario15_BookingVerificationStatusInquiry_ReturnsHelpfulStatusGuidance()
+    {
+        var (agent, db) = SetupAgentService(nameof(Scenario15_BookingVerificationStatusInquiry_ReturnsHelpfulStatusGuidance), out var travelerId, out _, out _, out _);
+
+        var request = new StartAgentBookingRequest(
+            TravelerId: travelerId,
+            Objective: "i booked through you ( i mean agent) but still my booking didn't veryfied yet",
+            TravelerName: "Traveler One",
+            TravelerEmail: "traveler@test.com"
+        );
+
+        var result = await agent.StartWorkflowAsync(request);
+
+        Assert.Equal("Failed", result.Status);
+        Assert.Equal("INFO", result.ApprovalStatus);
+        Assert.True(result.ValidationResults["is_informational"]);
+        Assert.False(result.ValidationResults["booking_request"]);
+        Assert.Contains("verification", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("My Bookings", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 }

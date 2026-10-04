@@ -75,6 +75,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(travelerBookingsProvider);
+    final compactWidth = MediaQuery.sizeOf(context).width < 360;
     final currencyFormatter = NumberFormat.currency(
       symbol: 'LKR ',
       decimalDigits: 0,
@@ -83,79 +84,88 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
     return Scaffold(
       backgroundColor: BookingTheme.background,
       appBar: AppBar(
-        title: const Text('My Saved Bookings'),
-        actions: [
-          IconButton(
-            tooltip: 'Smart Booking Agent',
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: BookingTheme.border),
-              ),
-              child: const Icon(
-                Icons.auto_awesome,
-                color: BookingTheme.primary,
-                size: 20,
-              ),
-            ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: 'Discount Requests',
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: BookingTheme.border),
-              ),
-              child: const Icon(
-                Icons.percent_rounded,
-                color: BookingTheme.primary,
-                size: 20,
-              ),
-            ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const DiscountRequestHistoryScreen(),
+        title: const Text(
+          'My Saved Bookings',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: compactWidth
+            ? const []
+            : [
+                IconButton(
+                  tooltip: 'Smart Booking Agent',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: BookingTheme.border),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: BookingTheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SmartBookingScreen(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: 'Browse Schedules',
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: BookingTheme.border),
-              ),
-              child: const Icon(
-                Icons.explore_outlined,
-                color: BookingTheme.primary,
-                size: 20,
-              ),
-            ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ScheduleBrowseScreen(),
+                IconButton(
+                  tooltip: 'Discount Requests',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: BookingTheme.border),
+                    ),
+                    child: const Icon(
+                      Icons.percent_rounded,
+                      color: BookingTheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const DiscountRequestHistoryScreen(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
+                IconButton(
+                  tooltip: 'Browse Schedules',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: BookingTheme.border),
+                    ),
+                    child: const Icon(
+                      Icons.explore_outlined,
+                      color: BookingTheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ScheduleBrowseScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           labelColor: BookingTheme.primary,
           unselectedLabelColor: BookingTheme.textMuted,
           indicatorColor: BookingTheme.primary,
@@ -176,14 +186,17 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
         backgroundColor: BookingTheme.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.auto_awesome),
-        label: const Text(
-          'Smart Booking Agent',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
+        label: compactWidth
+            ? const SizedBox.shrink()
+            : const Text(
+                'Smart Booking Agent',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+        isExtended: !compactWidth,
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SmartBookingScreen()),
-          );
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SmartBookingScreen()));
         },
       ),
       body: Column(
@@ -206,23 +219,27 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                       ),
                     ),
                     borderRadius: BorderRadius.circular(10),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.explore_rounded,
-                            size: 18,
+                            size: compactWidth ? 15 : 18,
                             color: BookingTheme.primary,
                           ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Browse Tours',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: BookingTheme.forestDark,
+                          SizedBox(width: compactWidth ? 3 : 6),
+                          Flexible(
+                            child: Text(
+                              'Browse Tours',
+                              style: TextStyle(
+                                fontSize: compactWidth ? 10 : 12,
+                                fontWeight: FontWeight.w700,
+                                color: BookingTheme.forestDark,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -239,23 +256,27 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                       ),
                     ),
                     borderRadius: BorderRadius.circular(10),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.auto_awesome,
-                            size: 18,
+                            size: compactWidth ? 15 : 18,
                             color: BookingTheme.primary,
                           ),
-                          SizedBox(width: 6),
-                          Text(
-                            'AI Agent',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: BookingTheme.forestDark,
+                          SizedBox(width: compactWidth ? 3 : 6),
+                          Flexible(
+                            child: Text(
+                              'AI Agent',
+                              style: TextStyle(
+                                fontSize: compactWidth ? 10 : 12,
+                                fontWeight: FontWeight.w700,
+                                color: BookingTheme.forestDark,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -272,23 +293,27 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                       ),
                     ),
                     borderRadius: BorderRadius.circular(10),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.percent_rounded,
-                            size: 18,
+                            size: compactWidth ? 15 : 18,
                             color: BookingTheme.primary,
                           ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Discounts',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: BookingTheme.forestDark,
+                          SizedBox(width: compactWidth ? 3 : 6),
+                          Flexible(
+                            child: Text(
+                              'Discounts',
+                              style: TextStyle(
+                                fontSize: compactWidth ? 10 : 12,
+                                fontWeight: FontWeight.w700,
+                                color: BookingTheme.forestDark,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -336,7 +361,12 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
                         ref.read(travelerBookingsProvider.notifier).refresh();
                       },
                       child: ListView.separated(
-                        padding: const EdgeInsets.all(20),
+                        padding: EdgeInsets.fromLTRB(
+                          compactWidth ? 12 : 20,
+                          compactWidth ? 12 : 20,
+                          compactWidth ? 12 : 20,
+                          compactWidth ? 96 : 20,
+                        ),
                         itemCount: filtered.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 16),
                         itemBuilder: (context, index) {
@@ -378,6 +408,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
     final canDelete =
         bookingDay.isBefore(todayOnly) ||
         booking.status == BookingStatus.completed;
+    final compactWidth = MediaQuery.sizeOf(context).width < 380;
 
     return InkWell(
       onTap: () {
@@ -409,12 +440,16 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '#${booking.id}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: BookingTheme.textMuted,
+                Expanded(
+                  child: Text(
+                    '#${booking.id}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: BookingTheme.textMuted,
+                    ),
                   ),
                 ),
                 _buildStatusChip(booking.status),
@@ -453,47 +488,108 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen>
             const SizedBox(height: 12),
 
             // Date, Guests, and Total Price
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 14,
-                  color: BookingTheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  DateFormat('EEE, d MMM').format(booking.date),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: BookingTheme.forestDark,
+            if (compactWidth)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: BookingTheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          DateFormat('EEE, d MMM').format(booking.date),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: BookingTheme.forestDark,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 14,
-                  color: BookingTheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  booking.timeSlot,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: BookingTheme.forestDark,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 14,
+                        color: BookingTheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        booking.timeSlot,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BookingTheme.forestDark,
+                        ),
+                      ),
+                      const Spacer(),
+                      Flexible(
+                        child: Text(
+                          currencyFormatter.format(booking.totalAmount),
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: BookingTheme.forestDark,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  currencyFormatter.format(booking.totalAmount),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: BookingTheme.forestDark,
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 14,
+                    color: BookingTheme.primary,
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateFormat('EEE, d MMM').format(booking.date),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: BookingTheme.forestDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: BookingTheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    booking.timeSlot,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: BookingTheme.forestDark,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    currencyFormatter.format(booking.totalAmount),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: BookingTheme.forestDark,
+                    ),
+                  ),
+                ],
+              ),
             if (isUpcoming || canDelete) ...[
               const SizedBox(height: 12),
               const Divider(height: 1, color: BookingTheme.border),
