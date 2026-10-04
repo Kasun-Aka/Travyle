@@ -102,6 +102,6 @@ jobs:
         working-directory: mobile
         continue-on-error: true
 
-      - name: Build APK
-        run: flutter build apk --debug
+      - name: Build Web (Verify Compilation)
+        run: flutter build web
         working-directory: mobile
