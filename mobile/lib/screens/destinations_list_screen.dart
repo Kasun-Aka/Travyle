@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
 import 'destination_detail_screen.dart';
@@ -145,7 +146,7 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DestinationDetailScreen(destination: dest),
+            builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(dest)),
           ),
         );
       },

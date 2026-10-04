@@ -6,6 +6,8 @@ class Destination {
   final List<String> tags;
   final String imageUrl;
   final double averageRating;
+  final double latitude;
+  final double longitude;
 
   const Destination({
     required this.id,
@@ -15,6 +17,8 @@ class Destination {
     required this.tags,
     required this.imageUrl,
     required this.averageRating,
+    this.latitude = 0,
+    this.longitude = 0,
   });
 
   factory Destination.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class Destination {
       tags: List<String>.from(json['tags'] as List? ?? const []),
       imageUrl: json['imageUrl'] as String? ?? '',
       averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../theme/app_theme.dart';
@@ -245,7 +246,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => DestinationDetailScreen(destination: _destination!),
+                  builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(_destination!)),
                 ),
               );
             },
@@ -314,7 +315,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => DestinationDetailScreen(destination: _destination!),
+                    builder: (context) => DestinationDetailScreen(destination: Destination.fromJson(_destination!)),
                   ),
                 );
               },
