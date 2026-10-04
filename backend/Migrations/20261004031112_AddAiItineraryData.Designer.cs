@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Travyle.Api.Data;
@@ -11,9 +12,11 @@ using Travyle.Api.Data;
 namespace Travyle.Api.Migrations
 {
     [DbContext(typeof(TravyleDbContext))]
-    partial class TravyleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004031112_AddAiItineraryData")]
+    partial class AddAiItineraryData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,13 +55,235 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SupportTicketId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.Booking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("BasePrice")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("BookingDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("BookingReference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DestinationTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("EscrowReleaseDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Guests")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReceiptImageData")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReceiptReference")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ServiceFee")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TimeSlot")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("TransactionRef")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TravelerEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TravelerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TravelerName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleId");
+
+                    b.ToTable("Bookings");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.BookingAgentWorkflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApproverNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApproverRole")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BookingReference")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompletedStepsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("CreatedBookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Objective")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlanJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProposedBookingJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ToolResultsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TravelerEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TravelerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TravelerName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ValidationResultsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BookingAgentWorkflows");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.BookingSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GuideName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxCapacityPerSlot")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PricePerPerson")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<double>("Rating")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("ReviewsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SlotOverrides")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BookingSchedules");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.CustomerReview", b =>
@@ -73,7 +298,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean");
@@ -85,7 +310,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -94,7 +319,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("CustomerReviews", (string)null);
+                    b.ToTable("CustomerReviews");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.Destination", b =>
@@ -107,7 +332,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("numeric");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -137,7 +362,50 @@ namespace Travyle.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Destinations", (string)null);
+                    b.ToTable("Destinations");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.DiscountRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<decimal>("OriginalPrice")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("RequestedDiscountPercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid>("ScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TravelerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique();
+
+                    b.ToTable("DiscountRequests");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.DisruptionAlert", b =>
@@ -154,14 +422,14 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Severity")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("TriggeredAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -171,7 +439,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("BookingScheduleId", "ResolvedAt");
 
-                    b.ToTable("DisruptionAlerts", (string)null);
+                    b.ToTable("DisruptionAlerts");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.GuideAssignment", b =>
@@ -181,7 +449,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("BookingScheduleId")
                         .HasColumnType("uuid");
@@ -197,7 +465,47 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("GuideUserId");
 
-                    b.ToTable("GuideAssignments", (string)null);
+                    b.ToTable("GuideAssignments");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.PaymentEscrow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("EscrowReleaseDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TransactionRef")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique();
+
+                    b.ToTable("PaymentEscrows");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.PersonalizedItinerary", b =>
@@ -206,8 +514,12 @@ namespace Travyle.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AiItineraryData")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("DestinationIds")
                         .IsRequired()
@@ -215,10 +527,6 @@ namespace Travyle.Api.Migrations
 
                     b.Property<int>("DurationDays")
                         .HasColumnType("integer");
-
-                    b.Property<string>("AiItineraryData")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<decimal>("EstimatedBudget")
                         .HasColumnType("numeric");
@@ -246,7 +554,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("TravelerId");
 
-                    b.ToTable("PersonalizedItineraries", (string)null);
+                    b.ToTable("PersonalizedItineraries");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.RouteLog", b =>
@@ -268,7 +576,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -276,7 +584,46 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("BookingScheduleId", "Timestamp");
 
-                    b.ToTable("RouteLogs", (string)null);
+                    b.ToTable("RouteLogs");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.ScheduleAvailableDate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingScheduleId");
+
+                    b.ToTable("ScheduleAvailableDates");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.ScheduleTimeSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SlotLabel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingScheduleId");
+
+                    b.ToTable("ScheduleTimeSlots");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.SupportTicket", b =>
@@ -303,7 +650,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -337,7 +684,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -346,7 +693,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("SupportTickets", (string)null);
+                    b.ToTable("SupportTickets");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.TourActivity", b =>
@@ -367,7 +714,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("ScheduledTime")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -375,7 +722,38 @@ namespace Travyle.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TourActivities", (string)null);
+                    b.ToTable("TourActivities");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.TravelerNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Pitch")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TravelerNotifications");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.TravelerProfile", b =>
@@ -405,7 +783,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -415,7 +793,7 @@ namespace Travyle.Api.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("TravelerProfiles", (string)null);
+                    b.ToTable("TravelerProfiles");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.User", b =>
@@ -425,7 +803,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -445,7 +823,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.Voucher", b =>
@@ -466,16 +844,16 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("IssuedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -483,7 +861,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("RedeemedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -492,7 +870,7 @@ namespace Travyle.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -506,7 +884,7 @@ namespace Travyle.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Vouchers", (string)null);
+                    b.ToTable("Vouchers");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.AuditLog", b =>
@@ -517,6 +895,17 @@ namespace Travyle.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("SupportTicket");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.Booking", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.BookingSchedule", "Schedule")
+                        .WithMany("Bookings")
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Schedule");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.CustomerReview", b =>
@@ -530,6 +919,17 @@ namespace Travyle.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Travyle.Api.Models.DiscountRequest", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.Booking", "Booking")
+                        .WithOne("DiscountRequest")
+                        .HasForeignKey("Travyle.Api.Models.DiscountRequest", "BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Booking");
+                });
+
             modelBuilder.Entity("Travyle.Api.Models.GuideAssignment", b =>
                 {
                     b.HasOne("Travyle.Api.Models.User", "Guide")
@@ -539,6 +939,17 @@ namespace Travyle.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Guide");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.PaymentEscrow", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.Booking", "Booking")
+                        .WithOne("PaymentEscrow")
+                        .HasForeignKey("Travyle.Api.Models.PaymentEscrow", "BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Booking");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.PersonalizedItinerary", b =>
@@ -563,6 +974,28 @@ namespace Travyle.Api.Migrations
                     b.Navigation("Recorder");
                 });
 
+            modelBuilder.Entity("Travyle.Api.Models.ScheduleAvailableDate", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.BookingSchedule", "BookingSchedule")
+                        .WithMany("AvailableDates")
+                        .HasForeignKey("BookingScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BookingSchedule");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.ScheduleTimeSlot", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.BookingSchedule", "BookingSchedule")
+                        .WithMany("TimeSlots")
+                        .HasForeignKey("BookingScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BookingSchedule");
+                });
+
             modelBuilder.Entity("Travyle.Api.Models.SupportTicket", b =>
                 {
                     b.HasOne("Travyle.Api.Models.User", "User")
@@ -570,6 +1003,25 @@ namespace Travyle.Api.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.TravelerNotification", b =>
+                {
+                    b.HasOne("Travyle.Api.Models.Destination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Travyle.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Destination");
 
                     b.Navigation("User");
                 });
@@ -601,6 +1053,22 @@ namespace Travyle.Api.Migrations
                     b.Navigation("SupportTicket");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.Booking", b =>
+                {
+                    b.Navigation("DiscountRequest");
+
+                    b.Navigation("PaymentEscrow");
+                });
+
+            modelBuilder.Entity("Travyle.Api.Models.BookingSchedule", b =>
+                {
+                    b.Navigation("AvailableDates");
+
+                    b.Navigation("Bookings");
+
+                    b.Navigation("TimeSlots");
                 });
 
             modelBuilder.Entity("Travyle.Api.Models.SupportTicket", b =>

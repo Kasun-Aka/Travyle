@@ -47,3 +47,14 @@ async def execute_booking(payload: dict, x_agent_execution_key: str | None = Hea
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Booking execution failed safely.")
+
+from .schemas.operations_schemas import MonitorOperationsRequest, MonitorOperationsResponse
+from .agents.operations_agent import run_operations_monitor
+
+@app.post("/agent/operations/monitor", response_model=MonitorOperationsResponse)
+async def monitor_operations(request: MonitorOperationsRequest):
+    try:
+        response = await run_operations_monitor(request)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -18,6 +18,32 @@ const GuideAssignmentMatrix = () => {
       });
   }, []);
 
+  const handleAssignGuide = (guideId: string, slotIndex: number, currentSlot: string) => {
+    const newSlot = prompt(`Assign or reassign slot (current: ${currentSlot}):`, currentSlot !== '-' ? currentSlot : '');
+    if (newSlot === null || newSlot === currentSlot) return;
+
+    fetch(`http://localhost:5085/api/operations/assignments/${guideId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slotIndex, newSlot })
+    })
+      .then(r => {
+        if (r.ok) {
+          alert('Assignment updated successfully');
+          setLoading(true);
+          fetch('http://localhost:5085/api/admin/guide-matrix')
+            .then(res => res.json())
+            .then(d => { setData(d); setLoading(false); });
+        } else {
+          alert('Failed to update assignment');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error updating assignment');
+      });
+  };
+
   if (loading && !data) {
     return <div className="p-10 text-center text-gray-500">Loading Matrix...</div>;
   }
@@ -35,10 +61,6 @@ const GuideAssignmentMatrix = () => {
         <p className="page-subtitle text-gray-500">
           See the whole week at once, spot double-bookings and idle capacity, and reassign guides or drivers to specific tours and slots.
         </p>
-        <div className="api-paths">
-          <div className="api-path"><span className="api-method get">GET</span>/api/admin/guide-matrix</div>
-          <div className="api-path"><span className="api-method put">PUT</span>/api/operations/assignments/&#123;id&#125;</div>
-        </div>
       </div>
 
       <div className="card matrix-card bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
@@ -76,7 +98,7 @@ const GuideAssignmentMatrix = () => {
                     <div className="guide-meta text-xs text-gray-400 mt-1">{guide.meta}</div>
                   </td>
                   {guide.schedule.map((slot: string, i: number) => (
-                    <td key={i} className="text-center p-2 border-r border-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                    <td key={i} onClick={() => handleAssignGuide(guide.id, i, slot)} className="text-center p-2 border-r border-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
                       {slot === '-' ? (
                         <span className="text-gray-300">-</span>
                       ) : (
@@ -94,23 +116,24 @@ const GuideAssignmentMatrix = () => {
         </div>
       </div>
 
-      <div className="agent-alert-box vertical bg-gradient-to-r from-blue-50 to-indigo-50/30 p-6 rounded-xl border border-blue-100 shadow-sm flex gap-4 mb-6">
-        <div className="agent-icon-bg bg-blue-100 p-3 rounded-full h-fit flex-shrink-0">
-          <Zap className="agent-icon text-blue-600" size={24} />
-        </div>
-        <div className="agent-content flex flex-col justify-between">
-          <div>
-            <div className="agent-title text-blue-900 font-bold mb-2">Operations Agent</div>
-            <p className="agent-text text-blue-800/80 text-sm leading-relaxed">
-              SLOT-8845 (Yala, Sep 14) still has no guide and Ishara Bandara is already on TOUR-5505 that morning. Kavindi Rathnayake is verified, EN/SI/JA, and has one tour this week — the lightest load available.
-            </p>
+      {data?.agentSuggestion && (
+        <div className="agent-alert-box vertical bg-gradient-to-r from-blue-50 to-indigo-50/30 p-6 rounded-xl border border-blue-100 shadow-sm flex gap-4 mb-6">
+          <div className="agent-icon-bg bg-blue-100 p-3 rounded-full h-fit flex-shrink-0">
+            <Zap className="agent-icon text-blue-600" size={24} />
           </div>
-          <div className="agent-actions mt-6 flex gap-3">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 transition-colors">Assign Kavindi</button>
-            <button className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors">Leave unassigned</button>
+          <div className="agent-content flex flex-col justify-between">
+            <div>
+              <div className="agent-title text-blue-900 font-bold mb-2">{data.agentSuggestion.title}</div>
+              <p className="agent-text text-blue-800/80 text-sm leading-relaxed">
+                {data.agentSuggestion.message}
+              </p>
+            </div>
+            <div className="agent-actions mt-6 flex gap-3">
+              <button className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors">Dismiss</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="card roster-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="roster-header p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:justify-between lg:items-center bg-gray-50/50 gap-4">

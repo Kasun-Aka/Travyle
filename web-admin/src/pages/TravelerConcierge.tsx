@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+
 import { Sparkles, Send, User, Map, CheckCircle2, Clock, ChevronDown, ChevronUp, Wallet, History } from 'lucide-react';
 import axios from 'axios';
 import { type Destination } from '../api/destinations';
@@ -106,7 +106,7 @@ export default function TravelerConcierge() {
   };
 
   return (
-    <Layout>
+    <div className="h-full">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 tracking-tight uppercase flex items-center gap-3">
@@ -296,6 +296,6 @@ export default function TravelerConcierge() {
           )}
         </div>
       </div>
-    </Layout>
+    </div>
   );
 }

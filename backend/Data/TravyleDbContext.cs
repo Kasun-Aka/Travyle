@@ -202,6 +202,10 @@ public class TravyleDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.GuideUserId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.BookingSchedule)
+                  .WithMany(bs => bs.GuideAssignments)
+                  .HasForeignKey(e => e.BookingScheduleId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RouteLog>(entity =>
@@ -211,10 +215,29 @@ public class TravyleDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.RecordedBy)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.BookingSchedule)
+                  .WithMany(bs => bs.RouteLogs)
+                  .HasForeignKey(e => e.BookingScheduleId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<TourActivity>().HasKey(e => e.Id);
-        modelBuilder.Entity<DisruptionAlert>().HasKey(e => e.Id);
+        modelBuilder.Entity<TourActivity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.BookingSchedule)
+                  .WithMany(bs => bs.TourActivities)
+                  .HasForeignKey(e => e.BookingScheduleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DisruptionAlert>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.BookingSchedule)
+                  .WithMany(bs => bs.DisruptionAlerts)
+                  .HasForeignKey(e => e.BookingScheduleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<BookingAgentWorkflow>(entity =>
         {

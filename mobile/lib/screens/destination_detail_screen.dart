@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pdf_viewer_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:dio/dio.dart';
@@ -484,9 +485,29 @@ class DestinationDetailScreen extends StatelessWidget {
         },
       );
 
+      final itineraryData = response.data;
+      String? savedPlanId;
+
+      try {
+        final saveResponse = await dio.post(
+          'http://10.0.2.2:5085/api/travel-plans',
+          data: {
+            'email': user.email,
+            'title': 'Trip to ${destination.name}',
+            'destinationId': destination.id,
+            'durationDays': 3,
+            'estimatedBudget': 500.0,
+            'aiItineraryData': itineraryData
+          },
+        );
+        savedPlanId = saveResponse.data['id'];
+      } catch (e) {
+        print('Failed to save travel plan: $e');
+      }
+
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
-        _showItineraryBottomSheet(context, response.data);
+        _showItineraryBottomSheet(context, itineraryData, savedPlanId);
       }
     } catch (e) {
       if (context.mounted) {
@@ -498,7 +519,7 @@ class DestinationDetailScreen extends StatelessWidget {
     }
   }
 
-  void _showItineraryBottomSheet(BuildContext context, dynamic data) {
+  void _showItineraryBottomSheet(BuildContext context, dynamic data, String? planId) {
     List<dynamic> days = [];
     if (data is List) {
       days = data;
@@ -539,7 +560,33 @@ class DestinationDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
+            if (planId != null)
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryDark),
+                      tooltip: 'Download PDF',
+                      onPressed: () async {
+                        try {
+                          final dio = Dio();
+                          final pdfResponse = await dio.get(
+                            'http://10.0.2.2:5085/api/travel-plans/$planId/pdf',
+                            options: Options(responseType: ResponseType.bytes),
+                          );
+                          if (context.mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PdfViewerScreen(pdfBytes: pdfResponse.data),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to download PDF: $e')),
+                          );
+                        }
+                      },
+                    ),
+                      IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
                 ),

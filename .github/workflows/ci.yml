@@ -1,37 +1,107 @@
-name: Travyle Backend CI Pipeline
+name: CI — Travyle IT24104383
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [ "IT24104383", "development", "it24104383-final" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "development" ]
 
 jobs:
-  build-and-test:
-    name: Build & Run Backend Automated Tests
+  backend-tests:
+    name: 🧪 Backend Tests (.NET)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.x'
 
-      - name: Restore dependencies
-        run: |
-          dotnet restore backend/Travyle.Api.csproj
-          dotnet restore backend.Tests/backend.Tests.csproj
+      - name: Restore backend dependencies
+        run: dotnet restore backend/Travyle.Api.csproj
 
-      - name: Build ASP.NET Core Backend
-        run: dotnet build backend/Travyle.Api.csproj --configuration Release --no-restore
+      - name: Build backend
+        run: dotnet build backend/Travyle.Api.csproj --no-restore --configuration Release
 
-      - name: Build Test Project
-        run: dotnet build backend.Tests/backend.Tests.csproj --configuration Release --no-restore
+      - name: Restore test project dependencies
+        run: dotnet restore backend.Tests/Travyle.Tests.csproj
 
-      - name: Run Automated Tests
-        run: dotnet test backend.Tests/backend.Tests.csproj --configuration Release --no-build --verbosity normal
+      - name: Run unit tests
+        run: dotnet test backend.Tests/Travyle.Tests.csproj --no-restore --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: backend.Tests/TestResults/test-results.trx
+
+  web-admin-build:
+    name: 🌐 Web Admin Build (React)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: web-admin
+
+      - name: Type check (TypeScript)
+        run: npx tsc --noEmit
+        working-directory: web-admin
+        continue-on-error: true
+
+      - name: Build web admin
+        run: npm run build
+        working-directory: web-admin
+        env:
+          # Stub values so build doesn't fail without real Firebase config
+          VITE_FIREBASE_API_KEY: stub
+          VITE_FIREBASE_PROJECT_ID: stub
+          VITE_FIREBASE_APP_ID: stub
+
+  mobile-build:
+    name: ?? Mobile Build (Flutter)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Analyze code
+        run: flutter analyze
+        working-directory: mobile
+        continue-on-error: true
+
+      - name: Build APK
+        run: flutter build apk --debug
+        working-directory: mobile

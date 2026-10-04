@@ -51,6 +51,13 @@ public record RouteLogResponseDto(
 );
 
 // ── DisruptionAlert ─────────────────────────────────────
+public record CreateDisruptionAlertDto(
+    Guid BookingScheduleId,
+    string Type,
+    string Severity,
+    string Description
+);
+
 public record DisruptionAlertResponseDto(
     Guid Id,
     Guid BookingScheduleId,
@@ -84,4 +91,19 @@ public record PaginatedResult<T>(
     int TotalCount,
     int Page,
     int PageSize
+);
+
+// ── Agent Integration ───────────────────────────────────
+public record MonitorOperationsRequestDto(
+    Guid BookingScheduleId,
+    double Lat,
+    double Lon
+);
+
+public record MonitorOperationsResponseDto(
+    string Status,
+    string Message,
+    string? DisruptionAlertId,
+    bool Rerouted,
+    List<WaypointDto>? OptimizedRoute
 );

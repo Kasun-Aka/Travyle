@@ -10,4 +10,5 @@ public class GuideAssignment
 
     // Navigation
     public User? Guide { get; set; }
+    public BookingSchedule? BookingSchedule { get; set; }
 }

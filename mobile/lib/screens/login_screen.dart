@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
@@ -41,39 +41,41 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      final user = userCredential.user;
+      final user = credential.user;
       if (user == null) throw Exception('Unable to load the signed-in account.');
+
       
-      int initialIndex = 0;
       if (user != null) {
         try {
           final dio = Dio();
           final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
-          final idToken = await user.getIdToken();
-          final response = await dio.get(
-            '$baseUrl/api/auth/user', 
-            queryParameters: {'email': email},
-            options: Options(headers: {'Authorization': 'Bearer $idToken'}),
-          );
-          if (response.statusCode == 200 && response.data != null) {
-            final role = response.data['role'];
-            if (role == 'Guide' || role == 'Local Guide' || role == 'Tour Operator') {
-              initialIndex = 2; // Route to GuideDashboardScreen within HomeScreen
-            }
+          final token = await user.getIdToken();
+          final options = Options(headers: {'Authorization': 'Bearer $token'});
+          // Fetch existing user data to preserve their role
+          try {
+            await dio.get('$baseUrl/api/auth/user', queryParameters: {'email': email}, options: options);
+          } catch (_) {
+            // User doesn't exist in DB yet - sync to create them
+            await dio.post('$baseUrl/api/auth/sync', data: {
+              'firebaseUid': user.uid,
+              'email': email,
+              'fullName': user.displayName ?? '',
+              'role': 'Traveler',
+            }, options: options);
           }
         } catch (apiError) {
-          debugPrint('Failed to fetch user role from DB on login: $apiError');
+          debugPrint('Failed to fetch/sync user with DB on login: $apiError');
         }
       }
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomeScreen(initialIndex: initialIndex),
+            builder: (context) => const HomeScreen(initialIndex: 1),
           ),
         );
       }
@@ -118,6 +120,64 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                 const SizedBox(height: 12),
               ],
+              Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {});
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Tourist',
+                            style: TextStyle(
+                              color: AppTheme.primaryDark,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {});
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Guide',
+                            style: TextStyle(
+                              color: AppTheme.textLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
               _buildLabel('EMAIL ADDRESS'),
               TextField(
                 controller: _emailController,
