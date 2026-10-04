@@ -1,0 +1,49 @@
+name: Booking Workflow CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - development
+      - main
+
+jobs:
+  backend-booking-tests:
+    name: Backend Booking Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run smart booking agent tests
+        run: dotnet test backend.Tests/backend.Tests.csproj --configuration Release --filter "FullyQualifiedName~SmartBookingAgentTests" --verbosity minimal
+
+  mobile-booking-tests:
+    name: Mobile Booking Widget Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Run booking widget tests
+        working-directory: mobile
+        run: flutter test test/features/bookings/booking_widgets_test.dart

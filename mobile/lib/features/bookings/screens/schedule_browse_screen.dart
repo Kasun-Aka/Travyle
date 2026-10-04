@@ -84,6 +84,8 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
   Widget build(BuildContext context) {
     final filterState = ref.watch(scheduleFilterProvider);
     final schedulesAsync = ref.watch(filteredSchedulesProvider);
+    final compact = MediaQuery.sizeOf(context).width < 360;
+    final horizontalPadding = compact ? 12.0 : 20.0;
 
     return Scaffold(
       backgroundColor: BookingTheme.background,
@@ -91,18 +93,22 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Explore Schedules',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: compact ? 18 : 22,
                 fontWeight: FontWeight.w900,
                 color: BookingTheme.forestDark,
               ),
             ),
             Text(
               'Book certified local tours & treks',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: compact ? 11 : 12,
                 color: BookingTheme.forestDark.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
               ),
@@ -164,7 +170,12 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  16,
+                  horizontalPadding,
+                  4,
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -172,77 +183,84 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: BookingTheme.border),
                   ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: BookingTheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: BookingTheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.auto_awesome,
+                              color: BookingTheme.primary,
+                              size: 20,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.auto_awesome,
+                          title: const Text(
+                            'Smart Booking Assistant',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: const Text(
+                            'Natural language booking with capacity & escrow protection',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SmartBookingScreen(),
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1, color: BookingTheme.border),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.confirmation_number_rounded,
                             color: BookingTheme.primary,
-                            size: 20,
+                          ),
+                          title: const Text(
+                            'My saved bookings',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: const Text(
+                            'View trips, payment and booking status',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const BookingHistoryScreen(),
+                            ),
                           ),
                         ),
-                        title: const Text(
-                          'Smart Booking Assistant',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: const Text(
-                          'Natural language booking with capacity & escrow protection',
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SmartBookingScreen(),
+                        const Divider(height: 1, color: BookingTheme.border),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.percent_rounded,
+                            color: BookingTheme.primary,
+                          ),
+                          title: const Text(
+                            'Discount request status',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: const Text(
+                            'Track review, refund or cancellation',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const DiscountRequestHistoryScreen(),
+                            ),
                           ),
                         ),
-                      ),
-                      const Divider(height: 1, color: BookingTheme.border),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.confirmation_number_rounded,
-                          color: BookingTheme.primary,
-                        ),
-                        title: const Text(
-                          'My saved bookings',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: const Text(
-                          'View trips, payment and booking status',
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const BookingHistoryScreen(),
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 1, color: BookingTheme.border),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.percent_rounded,
-                          color: BookingTheme.primary,
-                        ),
-                        title: const Text(
-                          'Discount request status',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: const Text(
-                          'Track review, refund or cancellation',
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const DiscountRequestHistoryScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -250,7 +268,12 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
             // Search & Filters Header
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  16,
+                  horizontalPadding,
+                  8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -426,7 +449,12 @@ class _ScheduleBrowseScreenState extends ConsumerState<ScheduleBrowseScreen> {
                 }
 
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    8,
+                    horizontalPadding,
+                    32,
+                  ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final schedule = schedules[index];

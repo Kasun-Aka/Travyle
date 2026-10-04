@@ -208,6 +208,11 @@ public class SmartBookingAgentProxyService : ISmartBookingAgentService
         return FallbackService.GetPendingWorkflowsAsync(ct);
     }
 
+    public Task<IEnumerable<AgentWorkflowResponse>> GetAllWorkflowsAsync(CancellationToken ct = default)
+    {
+        return FallbackService.GetAllWorkflowsAsync(ct);
+    }
+
     private static AgentWorkflowResponse ToResponse(BookingAgentWorkflow wf)
     {
         var plan = JsonSerializer.Deserialize<List<string>>(wf.PlanJson, JsonOpts) ?? new List<string>();

@@ -20,7 +20,9 @@ public interface IBookingService
     Task<IEnumerable<BookingResponse>> GetTravelerBookingsAsync(Guid travelerId, int page, int pageSize, CancellationToken ct = default);
     Task<BookingResponse?> GetBookingByIdAsync(Guid id, CancellationToken ct = default);
     Task<(BookingResponse? Booking, string? Error)> CreateBookingAsync(CreateBookingRequest request, CancellationToken ct = default);
+    Task<(BookingResponse? Booking, string? Error)> UpdateBookingDetailsAsync(Guid id, UpdateBookingDetailsRequest request, CancellationToken ct = default);
     Task<BookingResponse?> UpdateBookingStatusAsync(Guid id, string status, CancellationToken ct = default);
+    Task<(BookingResponse? Booking, string? Error)> ConfirmManualAgentPaymentAsync(Guid id, CancellationToken ct = default);
     Task<bool> CancelBookingAsync(Guid id, CancellationToken ct = default);
 }
 

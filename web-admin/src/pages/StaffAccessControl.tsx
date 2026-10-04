@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Users } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+
 const StaffAccessControl = () => {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5085/api/admin/staff')
+    fetch(`${API_BASE}/admin/staff`)
       .then(r => r.json())
       .then(data => {
         setStaff(data);
@@ -22,7 +24,7 @@ const StaffAccessControl = () => {
     const newRole = prompt(`Enter new role for ${staffMember.fullName} (current: ${staffMember.role}):`, staffMember.role);
     if (!newRole || newRole === staffMember.role) return;
 
-    fetch(`http://localhost:5085/api/admin/staff/${staffMember.id}/role`, {
+    fetch(`${API_BASE}/admin/staff/${staffMember.id}/role`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: newRole })
@@ -31,7 +33,7 @@ const StaffAccessControl = () => {
         if (r.ok) {
           alert('Role updated successfully');
           setLoading(true);
-          fetch('http://localhost:5085/api/admin/staff')
+          fetch(`${API_BASE}/admin/staff`)
             .then(res => res.json())
             .then(data => { setStaff(data); setLoading(false); });
         } else {
@@ -47,7 +49,7 @@ const StaffAccessControl = () => {
   const handleSuspend = (staffMember: any) => {
     if (!confirm(`Are you sure you want to suspend ${staffMember.fullName}?`)) return;
 
-    fetch(`http://localhost:5085/api/admin/staff/${staffMember.id}/suspend`, {
+    fetch(`${API_BASE}/admin/staff/${staffMember.id}/suspend`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' }
     })

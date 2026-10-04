@@ -81,6 +81,20 @@ public class SmartBookingAgentController : ControllerBase
     }
 
     /// <summary>
+    /// Returns the complete AI booking workflow history for staff operations review.
+    /// </summary>
+    [HttpGet("workflows/history")]
+    [ProducesResponseType(typeof(IEnumerable<AgentWorkflowResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetWorkflowHistory(CancellationToken ct)
+    {
+        if (await _identityService.VerifyStaffAsync(Request, ct) == null)
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "A verified Admin or Operator Firebase account is required." });
+
+        return Ok(await _agentService.GetAllWorkflowsAsync(ct));
+    }
+
+    /// <summary>
     /// Approves a pending booking proposal. Requires Admin or Operator role.
     /// Executes the final booking deterministically.
     /// </summary>

@@ -111,12 +111,66 @@ def detect_prompt_injection(text: str) -> bool:
 
 def classify_conversation(text: str) -> Optional[str]:
     normalized = text.strip().lower()
-    if re.fullmatch(r"(?:hello|hi|hey|good morning|good afternoon|good evening)", normalized):
+
+    # Cancellation requires manual handling because payment may involve cash or manual verification.
+    if re.search(
+        r"\b(?:cancel|cancell?ation)\b.*\b(?:booking|reservation|trip)\b|"
+        r"\b(?:booking|reservation|trip)\b.*\b(?:cancel|cancell?ation)\b",
+        normalized,
+    ):
+        return (
+            "I'm sorry, but I can't cancel a booking by myself because payment may involve cash "
+            "or manual verification. Please ask our team to cancel it manually so your payment can "
+            "be returned without any trouble. You can contact our support team with your booking "
+            "reference, and they will help you safely complete the cancellation."
+        )
+
+    # Greetings
+    if re.fullmatch(r"(?:hello|hi|hey|good morning|good afternoon|good evening)[!.]*", normalized):
         return "Hello! I can help you find available tours and booking schedules. What would you like to book?"
-    if re.fullmatch(r"(?:thanks|thank you|okay|ok|bye|goodbye)", normalized):
+
+    # Gratitude / farewell
+    if re.fullmatch(r"(?:thanks|thank you|okay|ok|bye|goodbye)[!.]*", normalized):
         return "You're welcome! I'm happy to help."
+
+    # Tour guide assignment
     if re.search(r"\b(?:assign|book)\b.*\b(?:guide|tour guide)\b", normalized):
         return "I'm sorry, I can currently help with available tours, schedules and booking-related requests. I can't safely handle that request."
+
+    # Inquiries about extra discounts, discount categories, or promo codes
+    if re.search(
+        r"\b(?:extra|ectra|exta|special|more|category|categories)?\s*"
+        r"(?:discounts?|discouts?|disocunts?|dicounts?|"
+        r"promo(?:tion)?|promo\s*codes?|coupons?|vouchers?)\b",
+        normalized,
+    ):
+        return (
+            "If you are booking through our website, you can request an extra discount through the booking area "
+            "by submitting your discount category eligibility proofs. After our admins process and review your documents, "
+            "they will provide you with the status of your discount request.\n\n"
+            "Please note that I cannot request or apply an extra discount for you directly because I prioritize your "
+            "data privacy regarding sensitive eligibility proofs. If you are unable to submit your request through our "
+            "website, you can also request it by contacting our team through our official contact channels."
+        )
+
+    # Inquiries about booking verification status (e.g. booked through agent but not verified yet)
+    if (
+        re.search(r"\b(?:booked\s+(?:through|with|via)\s+(?:you|the\s+agent|agent|assistant)).*(?:ver[iy]f|pending|status|confirm)", normalized)
+        or re.search(r"\b(?:my\s+)?booking\b.*(?:not\s+(?:yet\s+)?ver[iy]f|didn'?t\s+ver[iy]f|hasn'?t\s+been\s+ver[iy]f|still\s+(?:not\s+ver[iy]f|unver[iy]f|pending)|pending\s+verif|verification\s+status|awaiting\s+verif)", normalized)
+        or re.search(r"(?:not\s+(?:yet\s+)?ver[iy]f|didn'?t\s+(?:yet\s+)?ver[iy]f|hasn'?t\s+been\s+ver[iy]f|unver[iy]fied|still\s+not\s+ver[iy]fied).*\b(?:booking|booked)\b", normalized)
+        or re.search(r"\bwhy\b.*(?:booking|booked).*(?:ver[iy]f|pending)", normalized)
+        or re.search(r"\b(?:is|has)\s+(?:my\s+)?booking\s+(?:been\s+)?ver[iy]f", normalized)
+    ):
+        return (
+            "If you booked through our Smart Booking Assistant and your booking hasn't been verified yet, "
+            "please don't worry! All bookings submitted through the assistant undergo verification by our admin "
+            "and tour operator team to confirm schedule availability, slot capacity, and financial escrow before final confirmation.\n\n"
+            "You can check the real-time status of your booking anytime in your 'My Bookings' section. "
+            "If your booking has been pending verification for longer than expected or you need urgent confirmation, "
+            "please feel free to reach out to our support team with your booking reference or traveler details, "
+            "and our team will be delighted to assist you!"
+        )
+
     return None
 
 
@@ -314,13 +368,6 @@ async def interpret_request_node(state: BookingWorkflowState) -> BookingWorkflow
 
     state["validation_results"]["objective_valid"] = True
 
-    conversation_response = classify_conversation(state["objective"])
-    if conversation_response:
-        state["status"] = "Failed"
-        state["error_message"] = conversation_response
-        state["validation_results"]["booking_request"] = False
-        return state
-
     # Guardrail: prompt injection / untrusted bypass
     if detect_prompt_injection(state["objective"]):
         state["validation_results"]["prompt_injection_safe"] = False
@@ -333,6 +380,15 @@ async def interpret_request_node(state: BookingWorkflowState) -> BookingWorkflow
         return state
 
     state["validation_results"]["prompt_injection_safe"] = True
+
+    conversation_response = classify_conversation(state["objective"])
+    if conversation_response:
+        state["status"] = "Failed"
+        state["approval_status"] = "INFO"
+        state["error_message"] = conversation_response
+        state["validation_results"]["booking_request"] = False
+        state["validation_results"]["is_informational"] = True
+        return state
 
     # Validate traveler exists via backend tool
     traveler_info = await backend_client.check_traveler(state["traveler_id"])

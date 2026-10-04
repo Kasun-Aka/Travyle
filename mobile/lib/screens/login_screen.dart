@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
@@ -52,7 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null) {
         try {
           final dio = Dio();
-          final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+          const String envUrl = String.fromEnvironment('API_BASE_URL');
+          final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
           final token = await user.getIdToken();
           final options = Options(headers: {'Authorization': 'Bearer $token'});
           // Fetch existing user data to preserve their role

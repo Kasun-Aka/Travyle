@@ -146,6 +146,8 @@ BookingStatus _displayBookingStatus(
 
 EscrowStatus _parseEscrowStatus(String s) {
   switch (s.toLowerCase()) {
+    case 'paid':
+      return EscrowStatus.paid;
     case 'heldinescrow':
       return EscrowStatus.heldInEscrow;
     case 'released':
@@ -190,6 +192,9 @@ Booking _bookingFromJson(Map<String, dynamic> j) {
     paymentStatus: _parseEscrowStatus(j['paymentStatus'] as String),
     paymentMethod: _parsePaymentMethod(j['paymentMethod'] as String?),
     createdAt: DateTime.parse(j['createdAt'] as String),
+    updatedAt: j['updatedAt'] != null
+      ? DateTime.parse(j['updatedAt'] as String)
+      : null,
     notes: j['notes'] as String?,
     transactionRef: j['transactionRef'] as String?,
     receiptReference: j['receiptReference'] as String?,
@@ -494,7 +499,11 @@ final filteredSchedulesProvider = Provider<AsyncValue<List<BookingSchedule>>>((
                 d.day == filter.filterDate!.day,
           );
 
-      return matchesQuery && matchesDest && matchesDate;
+        return
+          schedule.availableDates.isNotEmpty &&
+          matchesQuery &&
+          matchesDest &&
+          matchesDate;
     }).toList();
   });
 });

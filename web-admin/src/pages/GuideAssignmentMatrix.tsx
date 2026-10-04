@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Zap, Calendar, Users } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+
 const GuideAssignmentMatrix = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5085/api/admin/guide-matrix')
+    fetch(`${API_BASE}/admin/guide-matrix`)
       .then(r => r.json())
       .then(d => {
         setData(d);
@@ -22,7 +24,7 @@ const GuideAssignmentMatrix = () => {
     const newSlot = prompt(`Assign or reassign slot (current: ${currentSlot}):`, currentSlot !== '-' ? currentSlot : '');
     if (newSlot === null || newSlot === currentSlot) return;
 
-    fetch(`http://localhost:5085/api/operations/assignments/${guideId}`, {
+    fetch(`${API_BASE}/operations/assignments/${guideId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slotIndex, newSlot })
@@ -31,7 +33,7 @@ const GuideAssignmentMatrix = () => {
         if (r.ok) {
           alert('Assignment updated successfully');
           setLoading(true);
-          fetch('http://localhost:5085/api/admin/guide-matrix')
+          fetch(`${API_BASE}/admin/guide-matrix`)
             .then(res => res.json())
             .then(d => { setData(d); setLoading(false); });
         } else {

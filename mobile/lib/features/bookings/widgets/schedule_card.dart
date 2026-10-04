@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../models/booking.dart';
 import '../theme/booking_theme.dart';
 import 'primary_gradient_button.dart';
@@ -20,7 +21,6 @@ class ScheduleCard extends StatelessWidget {
       symbol: 'LKR ',
       decimalDigits: 0,
     );
-
     final nextDate = schedule.availableDates.isNotEmpty
         ? DateFormat('EEE, d MMM').format(schedule.availableDates.first)
         : 'Multiple dates';
@@ -41,7 +41,6 @@ class ScheduleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header / Banner gradient
           Container(
             padding: const EdgeInsets.all(18),
             decoration: const BoxDecoration(
@@ -107,91 +106,92 @@ class ScheduleCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // Body details
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 340;
+              final guideChip = ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: BookingTheme.background,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.person_pin_rounded,
+                        size: 15,
+                        color: BookingTheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          schedule.guideName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: BookingTheme.forestDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+              final ratingBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF9E6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Guide chip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: BookingTheme.background,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.person_pin_rounded,
-                            size: 15,
-                            color: BookingTheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            schedule.guideName,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: BookingTheme.forestDark,
-                            ),
-                          ),
-                        ],
-                      ),
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 15,
+                      color: BookingTheme.goldStar,
                     ),
-                    const Spacer(),
-                    // Rating numeric badge (static numeric display only — Student 4 owns reviews)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF9E6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 15,
-                            color: BookingTheme.goldStar,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${schedule.rating.toStringAsFixed(1)} (${schedule.reviewsCount})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF8C6D00),
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 4),
+                    Text(
+                      '${schedule.rating.toStringAsFixed(1)} (${schedule.reviewsCount})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF8C6D00),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-
-                // Next Available Date & Slots Info
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.event_available_rounded,
-                      size: 16,
-                      color: BookingTheme.textMuted,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
+              );
+              final dateDetails = Row(
+                children: [
+                  const Icon(
+                    Icons.event_available_rounded,
+                    size: 16,
+                    color: BookingTheme.textMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
                       'Next date: $nextDate',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
                         color: BookingTheme.textMuted,
                       ),
                     ),
-                    const Spacer(),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 8),
                     Text(
                       '${schedule.availableTimeSlots.length} daily slots',
                       style: const TextStyle(
@@ -201,56 +201,96 @@ class ScheduleCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ],
+              );
+              final price = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Starting from',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: BookingTheme.textMuted,
+                    ),
+                  ),
+                  Text(
+                    currencyFormatter.format(schedule.pricePerPerson),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: BookingTheme.forestDark,
+                    ),
+                  ),
+                  const Text(
+                    '/ person',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: BookingTheme.textMuted,
+                    ),
+                  ),
+                ],
+              );
+              final selectButton = PrimaryGradientButton(
+                height: 42,
+                width: compact ? double.infinity : null,
+                onPressed: onSelect,
+                text: 'Select Slot',
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
+                trailingIcon: const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              );
 
-                const Divider(height: 28, color: BookingTheme.border),
-
-                // Price and Book button
-                Row(
+              return Padding(
+                padding: EdgeInsets.all(compact ? 14 : 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Starting from',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: BookingTheme.textMuted,
-                          ),
-                        ),
-                        Text(
-                          currencyFormatter.format(schedule.pricePerPerson),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: BookingTheme.forestDark,
-                          ),
-                        ),
-                        const Text(
-                          '/ person',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: BookingTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    PrimaryGradientButton(
-                      height: 42,
-                      onPressed: onSelect,
-                      text: 'Select Slot',
-                      textStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                    if (compact)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [guideChip, ratingBadge],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(child: guideChip),
+                          const SizedBox(width: 8),
+                          ratingBadge,
+                        ],
                       ),
-                      trailingIcon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
-                    ),
+                    const SizedBox(height: 14),
+                    dateDetails,
+                    if (compact) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${schedule.availableTimeSlots.length} daily slots',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: BookingTheme.primary,
+                        ),
+                      ),
+                    ],
+                    const Divider(height: 28, color: BookingTheme.border),
+                    if (compact) ...[
+                      price,
+                      const SizedBox(height: 12),
+                      selectButton,
+                    ] else
+                      Row(children: [price, const Spacer(), selectButton]),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),

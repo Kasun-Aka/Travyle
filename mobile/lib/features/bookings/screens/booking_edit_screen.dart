@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../models/booking.dart';
 import '../providers/booking_providers.dart';
+import '../services/booking_api_service.dart';
 import '../theme/booking_theme.dart';
 
 class BookingEditScreen extends ConsumerStatefulWidget {
@@ -18,15 +19,14 @@ class BookingEditScreen extends ConsumerStatefulWidget {
 class _BookingEditScreenState extends ConsumerState<BookingEditScreen> {
   late DateTime _selectedDate;
   late String _selectedSlot;
-  late int _guests;
   late final TextEditingController _notesController;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = widget.booking.date;
     _selectedSlot = widget.booking.timeSlot;
-    _guests = widget.booking.guests;
     _notesController = TextEditingController(text: widget.booking.notes ?? '');
   }
 
@@ -36,28 +36,35 @@ class _BookingEditScreenState extends ConsumerState<BookingEditScreen> {
     super.dispose();
   }
 
-  void _save() {
-    final loadedSchedule = ref.read(scheduleListProvider).valueOrNull?.firstWhere(
-          (item) => item.id == widget.booking.scheduleId,
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final response = await bookingApiService.updateBookingDetails(
+        id: widget.booking.id,
+        bookingDate: _selectedDate,
+        timeSlot: _selectedSlot,
+        notes: _notesController.text.trim(),
+      );
+
+      final updated = widget.booking.copyWith(
+        date: _selectedDate,
+        timeSlot: _selectedSlot,
+        updatedAt: response['updatedAt'] != null
+          ? DateTime.parse(response['updatedAt'].toString())
+          : DateTime.now().toUtc(),
+        notes: _notesController.text.trim(),
+      );
+      ref.read(travelerBookingsProvider.notifier).updateBooking(updated);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update booking: $error')),
         );
-    final schedule = loadedSchedule ?? widget.booking.schedule;
-
-    final basePrice = schedule.pricePerPerson * _guests;
-    final serviceFee = basePrice * 0.05;
-    final discountAmount = _guests > 6 ? basePrice * 0.20 : 0.0;
-    final updated = widget.booking.copyWith(
-      date: _selectedDate,
-      timeSlot: _selectedSlot,
-      guests: _guests,
-      basePrice: basePrice,
-      serviceFee: serviceFee,
-      discountAmount: discountAmount,
-      totalAmount: basePrice + serviceFee - discountAmount,
-      notes: _notesController.text.trim(),
-    );
-
-    ref.read(travelerBookingsProvider.notifier).updateBooking(updated);
-    Navigator.of(context).pop(true);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -113,34 +120,6 @@ class _BookingEditScreenState extends ConsumerState<BookingEditScreen> {
             },
           ),
           const SizedBox(height: 16),
-          InputDecorator(
-            decoration: const InputDecoration(labelText: 'Guests'),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  onPressed: _guests > 1
-                      ? () => setState(() => _guests--)
-                      : null,
-                  icon: const Icon(Icons.remove_circle_outline),
-                ),
-                Text(
-                  '$_guests',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                IconButton(
-                  onPressed: _guests < 20
-                      ? () => setState(() => _guests++)
-                      : null,
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _notesController,
             maxLines: 4,
@@ -151,9 +130,15 @@ class _BookingEditScreenState extends ConsumerState<BookingEditScreen> {
           ),
           const SizedBox(height: 28),
           FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Save Changes'),
+            onPressed: _isSaving ? null : _save,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
           ),
         ],
       ),

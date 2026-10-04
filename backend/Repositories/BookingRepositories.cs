@@ -158,6 +158,8 @@ public class BookingRepository : IBookingRepository
         if (existing == null) return null;
 
         existing.Status = booking.Status;
+        existing.BookingDate = booking.BookingDate;
+        existing.TimeSlot = booking.TimeSlot;
         existing.PaymentStatus = booking.PaymentStatus;
         existing.PaymentMethod = booking.PaymentMethod;
         existing.DiscountAmount = booking.DiscountAmount;

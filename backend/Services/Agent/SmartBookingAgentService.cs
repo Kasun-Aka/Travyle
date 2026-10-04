@@ -105,6 +105,34 @@ public class SmartBookingAgentService : ISmartBookingAgentService
         var travelerName = string.IsNullOrWhiteSpace(request.TravelerName) ? traveler!.FullName : request.TravelerName;
         var travelerEmail = string.IsNullOrWhiteSpace(request.TravelerEmail) ? traveler!.Email : request.TravelerEmail;
 
+        // Check for conversational / informational inquiries (discounts, verification status, etc.)
+        var conversationResponse = ClassifyConversation(request.Objective);
+        if (conversationResponse != null)
+        {
+            validationResults["booking_request"] = false;
+            validationResults["is_informational"] = true;
+
+            var infoWorkflow = new BookingAgentWorkflow
+            {
+                Id = workflowId,
+                TravelerId = request.TravelerId,
+                TravelerName = travelerName,
+                TravelerEmail = travelerEmail,
+                Objective = request.Objective,
+                Status = AgentWorkflowStatus.Failed,
+                PlanJson = JsonSerializer.Serialize(plan, JsonOpts),
+                CompletedStepsJson = JsonSerializer.Serialize(completedSteps, JsonOpts),
+                ToolResultsJson = JsonSerializer.Serialize(toolResults, JsonOpts),
+                ValidationResultsJson = JsonSerializer.Serialize(validationResults, JsonOpts),
+                ApprovalStatus = "INFO",
+                ErrorMessage = conversationResponse
+            };
+
+            _db.BookingAgentWorkflows.Add(infoWorkflow);
+            await _db.SaveChangesAsync(ct);
+            return ToResponse(infoWorkflow);
+        }
+
         // Parse intent from objective
         var parsedIntent = ParseBookingObjective(request.Objective, request);
 
@@ -158,21 +186,31 @@ public class SmartBookingAgentService : ISmartBookingAgentService
         // Step 3: Select schedule & time slot
         completedSteps.Add("Step 3: Select schedule and verify time slot availability");
 
-        // Resolve Target Date
-        DateTime targetDate;
-        if (parsedIntent.ExplicitDate.HasValue)
+        if (!parsedIntent.ExplicitDate.HasValue)
         {
-            targetDate = parsedIntent.ExplicitDate.Value.Date;
-        }
-        else
-        {
-            // Pick the next available upcoming date offered by the schedule
-            var upcoming = selectedSchedule!.AvailableDates
+            validationResults["date_is_valid"] = false;
+            validationResults["needs_more_info"] = true;
+
+            var upcomingDates = selectedSchedule!.AvailableDates
                 .Where(d => d.Date >= DateTime.UtcNow.Date)
-                .OrderBy(d => d.Date)
+                .Select(d => d.Date)
+                .Distinct()
+                .OrderBy(d => d)
                 .ToList();
-            targetDate = upcoming.Count > 0 ? upcoming.First().Date : DateTime.UtcNow.Date.AddDays(1);
+            var dateOptions = upcomingDates.Count == 0
+                ? "There are no upcoming dates currently available."
+                : string.Join("\n", upcomingDates.Select(d => $"- {d:dddd, dd MMM yyyy}"));
+            var timeOptions = selectedSchedule.AvailableTimeSlots.Count == 0
+                ? "No time slots are currently listed."
+                : string.Join(", ", selectedSchedule.AvailableTimeSlots);
+            var message = $"I found {selectedSchedule.DestinationTitle}. Please choose a date and time slot before I prepare a booking.\n\nAvailable dates:\n{dateOptions}\n\nAvailable time slots: {timeOptions}";
+
+            return await SaveNeedsMoreInfoWorkflowAsync(
+                workflowId, request, travelerName, travelerEmail, plan, completedSteps,
+                toolResults, validationResults, "NEEDS_DATE", message, ct);
         }
+
+        var targetDate = parsedIntent.ExplicitDate.Value.Date;
 
         var dateOffered = selectedSchedule!.AvailableDates.Any(d => d.Date == targetDate.Date);
         var dateInFuture = targetDate.Date >= DateTime.UtcNow.Date;
@@ -200,22 +238,38 @@ public class SmartBookingAgentService : ISmartBookingAgentService
             return ToResponse(failedWorkflow);
         }
 
-        // Resolve Time Slot
-        string targetSlot;
-        if (!string.IsNullOrWhiteSpace(parsedIntent.ExplicitSlot))
+        if (string.IsNullOrWhiteSpace(parsedIntent.ExplicitSlot))
         {
-            targetSlot = parsedIntent.ExplicitSlot;
-        }
-        else
-        {
-            targetSlot = selectedSchedule.AvailableTimeSlots.FirstOrDefault() ?? "09:00 AM";
+            validationResults["needs_more_info"] = true;
+            validationResults["time_slot_valid"] = false;
+            var timeOptions = selectedSchedule.AvailableTimeSlots.Count == 0
+                ? "There are no time slots currently available."
+                : string.Join(", ", selectedSchedule.AvailableTimeSlots);
+            var message = $"The date {targetDate:dddd, dd MMM yyyy} is available for {selectedSchedule.DestinationTitle}. Which time slot would you like? Available slots: {timeOptions}.";
+
+            return await SaveNeedsMoreInfoWorkflowAsync(
+                workflowId, request, travelerName, travelerEmail, plan, completedSteps,
+                toolResults, validationResults, "NEEDS_SLOT", message, ct);
         }
 
+        var targetSlot = parsedIntent.ExplicitSlot;
         var slotExists = selectedSchedule.AvailableTimeSlots.Any(s => s.Equals(targetSlot, StringComparison.OrdinalIgnoreCase));
         if (!slotExists)
         {
-            targetSlot = selectedSchedule.AvailableTimeSlots.FirstOrDefault() ?? "09:00 AM";
+            validationResults["needs_more_info"] = true;
+            validationResults["time_slot_valid"] = false;
+            var timeOptions = selectedSchedule.AvailableTimeSlots.Count == 0
+                ? "There are no time slots currently available."
+                : string.Join(", ", selectedSchedule.AvailableTimeSlots);
+            var message = $"The time slot '{targetSlot}' is not available. Please choose one of these slots: {timeOptions}.";
+
+            return await SaveNeedsMoreInfoWorkflowAsync(
+                workflowId, request, travelerName, travelerEmail, plan, completedSteps,
+                toolResults, validationResults, "NEEDS_SLOT", message, ct);
         }
+
+        validationResults["needs_more_info"] = false;
+        validationResults["time_slot_valid"] = true;
 
         // Validate guest count without silently changing an invalid request.
         var guests = parsedIntent.Guests;
@@ -401,6 +455,14 @@ public class SmartBookingAgentService : ISmartBookingAgentService
         return list.Select(ToResponse);
     }
 
+    public async Task<IEnumerable<AgentWorkflowResponse>> GetAllWorkflowsAsync(CancellationToken ct = default)
+    {
+        var list = await _db.BookingAgentWorkflows
+            .OrderByDescending(w => w.CreatedAt)
+            .ToListAsync(ct);
+        return list.Select(ToResponse);
+    }
+
     public async Task<(AgentWorkflowResponse? Workflow, string? Error)> ApproveWorkflowAsync(
         Guid workflowId,
         ApproveWorkflowRequest request,
@@ -555,12 +617,87 @@ public class SmartBookingAgentService : ISmartBookingAgentService
         return patterns.Any(p => lower.Contains(p));
     }
 
+    private static string? ClassifyConversation(string objective)
+    {
+        var lower = objective.Trim().ToLowerInvariant();
+
+        // Greetings
+        if (Regex.IsMatch(lower, @"^(?:hello|hi|hey|good\s+morning|good\s+afternoon|good\s+evening)[!.]*$"))
+        {
+            return "Hello! I can help you find available tours and booking schedules. What would you like to book?";
+        }
+
+        // Gratitude / farewell
+        if (Regex.IsMatch(lower, @"^(?:thanks|thank\s+you|okay|ok|bye|goodbye)[!.]*$"))
+        {
+            return "You're welcome! I'm happy to help.";
+        }
+
+        // Tour guide assignment
+        if (Regex.IsMatch(lower, @"\b(?:assign|book)\b.*\b(?:guide|tour\s+guide)\b"))
+        {
+            return "I'm sorry, I can currently help with available tours, schedules and booking-related requests. I can't safely handle that request.";
+        }
+
+        // Inquiries about extra discounts, discount categories, or promo codes
+        if (Regex.IsMatch(lower, @"\b(?:extra|ectra|exta|special|more|category|categories)?\s*(?:discounts?|discouts?|disocunts?|dicounts?|promo(?:tion)?|promo\s*codes?|coupons?|vouchers?)\b"))
+        {
+            return "If you are booking through our website, you can request an extra discount through the booking area by submitting your discount category eligibility proofs. After our admins process and review your documents, they will provide you with the status of your discount request.\n\nPlease note that I cannot request or apply an extra discount for you directly because I prioritize your data privacy regarding sensitive eligibility proofs. If you are unable to submit your request through our website, you can also request it by contacting our team through our official contact channels.";
+        }
+
+        // Inquiries about booking verification status (e.g. booked through agent but not verified yet)
+        if (Regex.IsMatch(lower, @"\b(?:booked\s+(?:through|with|via)\s+(?:you|the\s+agent|agent|assistant)).*(?:ver[iy]f|pending|status|confirm)") ||
+            Regex.IsMatch(lower, @"\b(?:my\s+)?booking\b.*(?:not\s+(?:yet\s+)?ver[iy]f|didn'?t\s+ver[iy]f|hasn'?t\s+been\s+ver[iy]f|still\s+(?:not\s+ver[iy]f|unver[iy]f|pending)|pending\s+verif|verification\s+status|awaiting\s+verif)") ||
+            Regex.IsMatch(lower, @"(?:not\s+(?:yet\s+)?ver[iy]f|didn'?t\s+(?:yet\s+)?ver[iy]f|hasn'?t\s+been\s+ver[iy]f|unver[iy]fied|still\s+not\s+ver[iy]fied).*\b(?:booking|booked)\b") ||
+            Regex.IsMatch(lower, @"\bwhy\b.*(?:booking|booked).*(?:ver[iy]f|pending)") ||
+            Regex.IsMatch(lower, @"\b(?:is|has)\s+(?:my\s+)?booking\s+(?:been\s+)?ver[iy]f"))
+        {
+            return "If you booked through our Smart Booking Assistant and your booking hasn't been verified yet, please don't worry! All bookings submitted through the assistant undergo verification by our admin and tour operator team to confirm schedule availability, slot capacity, and financial escrow before final confirmation.\n\nYou can check the real-time status of your booking anytime in your 'My Bookings' section. If your booking has been pending verification for longer than expected or you need urgent confirmation, please feel free to reach out to our support team with your booking reference or traveler details, and our team will be delighted to assist you!";
+        }
+
+        return null;
+    }
+
     private record ParsedIntent(
         string? DestinationKeyword,
         int Guests,
         DateTime? ExplicitDate,
         string? ExplicitSlot
     );
+
+    private async Task<AgentWorkflowResponse> SaveNeedsMoreInfoWorkflowAsync(
+        Guid workflowId,
+        StartAgentBookingRequest request,
+        string travelerName,
+        string travelerEmail,
+        List<string> plan,
+        List<string> completedSteps,
+        Dictionary<string, object?> toolResults,
+        Dictionary<string, bool> validationResults,
+        string approvalStatus,
+        string errorMessage,
+        CancellationToken ct)
+    {
+        var workflow = new BookingAgentWorkflow
+        {
+            Id = workflowId,
+            TravelerId = request.TravelerId,
+            TravelerName = travelerName,
+            TravelerEmail = travelerEmail,
+            Objective = request.Objective,
+            Status = AgentWorkflowStatus.Failed,
+            PlanJson = JsonSerializer.Serialize(plan, JsonOpts),
+            CompletedStepsJson = JsonSerializer.Serialize(completedSteps, JsonOpts),
+            ToolResultsJson = JsonSerializer.Serialize(toolResults, JsonOpts),
+            ValidationResultsJson = JsonSerializer.Serialize(validationResults, JsonOpts),
+            ApprovalStatus = approvalStatus,
+            ErrorMessage = errorMessage
+        };
+
+        _db.BookingAgentWorkflows.Add(workflow);
+        await _db.SaveChangesAsync(ct);
+        return ToResponse(workflow);
+    }
 
     private static ParsedIntent ParseBookingObjective(string objective, StartAgentBookingRequest request)
     {
@@ -600,11 +737,35 @@ public class SmartBookingAgentService : ISmartBookingAgentService
             {
                 targetDate = DateTime.SpecifyKind(d.Date, DateTimeKind.Utc);
             }
-            else if (lower.Contains("tomorrow"))
+            else
+            {
+                var naturalDateMatch = Regex.Match(
+                    objective,
+                    @"(?i)\b(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*,?\s*)?(?:\d{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?)\s*,?\s+\d{4}\b");
+                if (naturalDateMatch.Success)
+                {
+                    var dateText = Regex.Replace(
+                        naturalDateMatch.Value,
+                        @"(?<=\d)(?:st|nd|rd|th)\b",
+                        "",
+                        RegexOptions.IgnoreCase);
+                    dateText = Regex.Replace(
+                        dateText,
+                        @"^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*,?\s*",
+                        "",
+                        RegexOptions.IgnoreCase);
+                    if (DateTime.TryParse(dateText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var naturalDate))
+                    {
+                        targetDate = DateTime.SpecifyKind(naturalDate.Date, DateTimeKind.Utc);
+                    }
+                }
+            }
+
+            if (!targetDate.HasValue && lower.Contains("tomorrow"))
             {
                 targetDate = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(1), DateTimeKind.Utc);
             }
-            else if (lower.Contains("next weekend"))
+            if (!targetDate.HasValue && lower.Contains("next weekend"))
             {
                 var daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)DateTime.UtcNow.DayOfWeek + 7) % 7;
                 if (daysUntilSaturday == 0) daysUntilSaturday = 7;
@@ -628,6 +789,20 @@ public class SmartBookingAgentService : ISmartBookingAgentService
             else if (lower.Contains("afternoon"))
             {
                 slot = "02:00 PM";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(slot))
+        {
+            var timeMatch = Regex.Match(slot, @"^(\d{1,2}):(\d{2})\s*(AM|PM)$", RegexOptions.IgnoreCase);
+            if (timeMatch.Success && DateTime.TryParseExact(
+                $"{timeMatch.Groups[1].Value}:{timeMatch.Groups[2].Value} {timeMatch.Groups[3].Value}",
+                new[] { "h:mm tt", "hh:mm tt" },
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var parsedTime))
+            {
+                slot = parsedTime.ToString("hh:mm tt", CultureInfo.InvariantCulture);
             }
         }
 

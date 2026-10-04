@@ -198,7 +198,10 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final traveler =
-      ref.watch(currentTravelerProvider).valueOrNull ?? const <String, String>{};
+        ref.watch(currentTravelerProvider).valueOrNull ??
+        const <String, String>{};
+    final compactWidth = MediaQuery.sizeOf(context).width < 360;
+    final horizontalPadding = compactWidth ? 12.0 : 20.0;
     final currencyFormatter = NumberFormat.currency(
       symbol: 'LKR ',
       decimalDigits: 2,
@@ -218,7 +221,12 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
         centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          16,
+          horizontalPadding,
+          120,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -226,7 +234,7 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
             children: [
               // Tour Info Card
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: EdgeInsets.all(compactWidth ? 12 : 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -274,19 +282,19 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
                       ],
                     ),
                     const Divider(height: 24, color: BookingTheme.border),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         _buildDetailChip(
                           icon: Icons.calendar_today_rounded,
                           text: DateFormat('EEE, d MMM y')
                               .format(widget.selectedDate),
                         ),
-                        const SizedBox(width: 10),
                         _buildDetailChip(
                           icon: Icons.access_time_rounded,
                           text: widget.selectedSlot,
                         ),
-                        const SizedBox(width: 10),
                         _buildDetailChip(
                           icon: Icons.people_outline_rounded,
                           text: '${widget.guests} guest(s)',
@@ -309,7 +317,7 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(compactWidth ? 12 : 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -325,12 +333,16 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
                           color: BookingTheme.textMuted,
                         ),
                         const SizedBox(width: 10),
-                        Text(
-                          traveler['name'] ?? 'Traveler',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: BookingTheme.forestDark,
+                        Expanded(
+                          child: Text(
+                            traveler['name'] ?? 'Traveler',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: BookingTheme.forestDark,
+                            ),
                           ),
                         ),
                       ],
@@ -344,11 +356,15 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
                           color: BookingTheme.textMuted,
                         ),
                         const SizedBox(width: 10),
-                        Text(
-                          traveler['email'] ?? 'traveler@travyle.com',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: BookingTheme.forestDark,
+                        Expanded(
+                          child: Text(
+                            traveler['email'] ?? 'traveler@travyle.com',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: BookingTheme.forestDark,
+                            ),
                           ),
                         ),
                       ],
@@ -378,7 +394,7 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: EdgeInsets.all(compactWidth ? 12 : 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -405,22 +421,29 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
                     ],
                     const Divider(height: 24, color: BookingTheme.border),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Total (LKR)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: BookingTheme.forestDark,
+                        const Expanded(
+                          child: Text(
+                            'Total (LKR)',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: BookingTheme.forestDark,
+                            ),
                           ),
                         ),
-                        Text(
-                          currencyFormatter.format(totalAmount),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: BookingTheme.forestDark,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            currencyFormatter.format(totalAmount),
+                            textAlign: TextAlign.end,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: compactWidth ? 17 : 20,
+                              fontWeight: FontWeight.w900,
+                              color: BookingTheme.forestDark,
+                            ),
                           ),
                         ),
                       ],
@@ -518,7 +541,12 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
         ),
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          14,
+          horizontalPadding,
+          24,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           border: const Border(top: BorderSide(color: BookingTheme.border)),
@@ -541,7 +569,11 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
           text: _isProcessingPayment
               ? 'Processing...'
               : _paymentMethod == BookingPaymentMethod.sampleCard
-              ? 'Pay with Sample Card (${currencyFormatter.format(totalAmount)})'
+              ? compactWidth
+                    ? 'Pay ${currencyFormatter.format(totalAmount)}'
+                    : 'Pay with Sample Card (${currencyFormatter.format(totalAmount)})'
+              : compactWidth
+              ? 'Submit ${currencyFormatter.format(totalAmount)}'
               : 'Submit Receipt (${currencyFormatter.format(totalAmount)})',
           onPressed: _isProcessingPayment
               ? null
@@ -710,20 +742,23 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
     String subtitle,
   ) {
     final selected = _paymentMethod == method;
-    return RadioListTile<BookingPaymentMethod>(
-      value: method,
-      groupValue: _paymentMethod,
-      onChanged: (value) {
-        if (value != null) setState(() => _paymentMethod = value);
-      },
-      secondary: Icon(
-        icon,
-        color: selected ? BookingTheme.primary : BookingTheme.textMuted,
+    return Material(
+      color: Colors.transparent,
+      child: RadioListTile<BookingPaymentMethod>(
+        value: method,
+        groupValue: _paymentMethod,
+        onChanged: (value) {
+          if (value != null) setState(() => _paymentMethod = value);
+        },
+        secondary: Icon(
+          icon,
+          color: selected ? BookingTheme.primary : BookingTheme.textMuted,
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(subtitle),
+        activeColor: BookingTheme.primary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle),
-      activeColor: BookingTheme.primary,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 
@@ -741,6 +776,8 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
           const SizedBox(width: 4),
           Text(
             text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -753,22 +790,42 @@ class _BookingCheckoutScreenState extends ConsumerState<BookingCheckoutScreen> {
   }
 
   Widget _buildCostRow(String title, String amount, {bool isDiscount = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330;
+        final titleText = Text(
           title,
           style: const TextStyle(fontSize: 13, color: BookingTheme.textMuted),
-        ),
-        Text(
+        );
+        final amountText = Text(
           amount,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: isDiscount ? BookingTheme.primary : BookingTheme.forestDark,
           ),
-        ),
-      ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleText,
+              Align(alignment: Alignment.centerRight, child: amountText),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: titleText),
+            const SizedBox(width: 8),
+            Flexible(child: amountText),
+          ],
+        );
+      },
     );
   }
 }

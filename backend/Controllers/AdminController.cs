@@ -136,7 +136,7 @@ public class AdminController : ControllerBase
                 proposal = d.Severity == "High"
                     ? $"Re-order stops to avoid {d.Type.ToLower()} disruption. TSP solver suggests postponing affected activities."
                     : d.Severity == "Medium"
-                        ? $"Consider rescheduling afternoon activities. {d.Description}"
+                        ? $"Consider rescheduling activities. {d.Description}"
                         : $"Monitor situation. {d.Description}",
                 status = "Pending"
             }).ToList();
