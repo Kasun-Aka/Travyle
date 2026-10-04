@@ -18,7 +18,7 @@ interface RouteLogData {
   stops: RouteStop[];
 }
 
-const API = 'http://localhost:5085/api';
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
 const LiveTourOperations = () => {
   const [data, setData] = useState<any>(null);
@@ -56,10 +56,11 @@ const LiveTourOperations = () => {
   const handleMonitorOperations = async () => {
     setMonitoring(true);
     try {
-      const tourId = data?.activeTours?.[0]?.id || '00000000-0000-0000-0001-000000000001';
-      const loc = data?.activeTours?.[0]?.currentLocation;
+      const tourIdToScan = selectedTourId || data?.activeTours?.[0]?.id || '00000000-0000-0000-0001-000000000001';
+      const selectedTour = data?.activeTours?.find((t: any) => t.id === tourIdToScan) || data?.activeTours?.[0];
+      const loc = selectedTour?.currentLocation;
       const payload = {
-        bookingScheduleId: tourId,
+        bookingScheduleId: tourIdToScan,
         lat: loc?.lat ? parseFloat(loc.lat) : 6.8711,
         lon: loc?.lon ? parseFloat(loc.lon) : 81.0458
       };
@@ -198,52 +199,65 @@ const LiveTourOperations = () => {
             />
 
             {/* Dynamic markers from active tours */}
-            {(activeTours || []).map((tour: any) => {
-              if (!tour.currentLocation) return null;
-              const lat = parseFloat(tour.currentLocation.lat);
-              const lon = parseFloat(tour.currentLocation.lon);
-              const isDelayed = tour.status === 'Delayed';
-              const shortName = tour.name?.split(' ').slice(0, 3).join(' ') || tour.id.slice(0, 8);
+            {(() => {
+              const coordCounts: Record<string, number> = {};
+              return (activeTours || []).map((tour: any) => {
+                if (!tour.currentLocation) return null;
 
-              return (
-                <div key={tour.id}>
-                  {/* Weather/status zone circle */}
-                  <Circle
-                    center={[lat, lon]}
-                    pathOptions={{
-                      fillColor: isDelayed ? 'orange' : 'green',
-                      fillOpacity: 0.15,
-                      color: 'transparent'
-                    }}
-                    radius={800}
-                  />
+                const baseLat = parseFloat(tour.currentLocation.lat);
+                const baseLon = parseFloat(tour.currentLocation.lon);
 
-                  {/* Tour marker */}
-                  <Marker
-                    position={[lat, lon]}
-                    icon={L.divIcon({
-                      className: 'custom-leaflet-marker',
-                      html: `<div class="${isDelayed ? 'bg-white' : 'bg-blue-600 text-white'} px-3 py-1.5 rounded-full shadow-md text-xs font-bold flex items-center gap-1.5 whitespace-nowrap ${isDelayed ? 'text-gray-700' : ''}">
+                const coordKey = `${baseLat.toFixed(4)},${baseLon.toFixed(4)}`;
+                const offsetCount = coordCounts[coordKey] || 0;
+                coordCounts[coordKey] = offsetCount + 1;
+
+                // Add a small offset (approx 15-20 meters) for overlapping pins
+                const lat = baseLat + (offsetCount * 0.2);
+                const lon = baseLon + (offsetCount * 0.2);
+
+                const isDelayed = tour.status === 'Delayed';
+                const shortName = tour.name?.split(' ').slice(0, 3).join(' ') || tour.id.slice(0, 8);
+
+                return (
+                  <div key={tour.id}>
+                    {/* Weather/status zone circle */}
+                    <Circle
+                      center={[lat, lon]}
+                      pathOptions={{
+                        fillColor: isDelayed ? 'orange' : 'green',
+                        fillOpacity: 0.15,
+                        color: 'transparent'
+                      }}
+                      radius={800}
+                    />
+
+                    {/* Tour marker */}
+                    <Marker
+                      position={[lat, lon]}
+                      icon={L.divIcon({
+                        className: 'custom-leaflet-marker',
+                        html: `<div class="${isDelayed ? 'bg-white' : 'bg-blue-600 text-white'} px-3 py-1.5 rounded-full shadow-md text-xs font-bold flex items-center gap-1.5 whitespace-nowrap ${isDelayed ? 'text-gray-700' : ''}">
                         ${isDelayed ? '<span class="w-2 h-2 rounded-full bg-orange-400"></span>' : ''}
                         ${shortName}
                       </div>`,
-                      iconSize: [140, 30],
-                      iconAnchor: [70, 15]
-                    })}
-                    eventHandlers={{
-                      click: () => fetchRouteLog(tour.id)
-                    }}
-                  >
-                    <Popup>
-                      <b>{tour.name}</b><br />
-                      Guide: {tour.guide}<br />
-                      Status: {tour.status}<br />
-                      Progress: {tour.progress}
-                    </Popup>
-                  </Marker>
-                </div>
-              );
-            })}
+                        iconSize: [140, 30],
+                        iconAnchor: [70, 15]
+                      })}
+                      eventHandlers={{
+                        click: () => fetchRouteLog(tour.id)
+                      }}
+                    >
+                      <Popup>
+                        <b>{tour.name}</b><br />
+                        Guide: {tour.guide}<br />
+                        Status: {tour.status}<br />
+                        Progress: {tour.progress}
+                      </Popup>
+                    </Marker>
+                  </div>
+                );
+              })
+            })()}
           </MapContainer>
         </div>
       </div>

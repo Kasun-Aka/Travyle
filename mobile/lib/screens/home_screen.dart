@@ -52,7 +52,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final email = FirebaseAuth.instance.currentUser?.email;
     if (email == null) return;
     try {
-      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
       final response = await Dio().get(
         '$baseUrl/api/notifications/traveler/$email',
       );
