@@ -37,7 +37,8 @@ public record CreateBookingScheduleRequest(
     double Rating,
     int ReviewsCount,
     List<DateTime> AvailableDates,
-    List<string> AvailableTimeSlots
+    List<string> AvailableTimeSlots,
+    Guid? GuideUserId = null
 );
 
 public record UpdateBookingScheduleRequest(
@@ -50,7 +51,8 @@ public record UpdateBookingScheduleRequest(
     double Rating,
     int ReviewsCount,
     List<DateTime> AvailableDates,
-    List<string> AvailableTimeSlots
+    List<string> AvailableTimeSlots,
+    Guid? GuideUserId = null
 );
 
 // ─── Booking DTOs ────────────────────────────────────────────────────────────

@@ -29,9 +29,11 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       
       final dio = Dio();
       final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      final idToken = await user.getIdToken();
       final response = await dio.get(
         '$baseUrl/api/operations/dashboard',
         queryParameters: {'email': user.email},
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
 
       if (mounted) {
@@ -64,8 +66,8 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       );
     }
 
-    final headerName = _dashboardData!['headerName'];
-    final headerTitle = _dashboardData!['headerTitle'];
+    final headerName = _dashboardData!['headerName'] ?? 'Guide';
+    final headerTitle = _dashboardData!['headerTitle'] ?? 'LOCAL GUIDE';
     final stats = _dashboardData!['stats'] as List<dynamic>;
     final tours = _dashboardData!['tours'] as List<dynamic>;
     final isGuide = _dashboardData!['role'] == "Local Guide" || _dashboardData!['role'] == "Tour Operator";
@@ -99,32 +101,41 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
                     travelers: t['travelers'],
                     title: t['title'],
                     location: t['location'],
-                    actionText: t['actionType'] == 'CHECK_IN' 
-                        ? (isGuide ? 'CHECK IN / SCAN QR' : 'VIEW QR CODE')
-                        : (isGuide ? 'START TOUR' : 'VIEW LIVE TOUR'),
-                    actionColor: t['actionType'] == 'CHECK_IN' ? const Color(0xFFDD8866) : const Color(0xFF133E4D),
-                    onActionPressed: () {
-                      if (t['actionType'] == 'CHECK_IN') {
-                        // For Guide it is QR scanner (if built), for tourist it's QR display.
-                        // Currently QRCheckinScreen can serve as a placeholder for both
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const QRCheckinScreen(),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => LiveTourActivityScreen(isGuide: isGuide),
-                          ),
-                        );
-                      }
+                    isGuide: isGuide,
+                    onQrPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QRCheckinScreen(),
+                        ),
+                      );
+                    },
+                    onLiveTourPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LiveTourActivityScreen(isGuide: isGuide),
+                        ),
+                      );
                     },
                   ),
                 );
               }),
+              if (tours.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: const [
+                      Icon(Icons.explore_off, size: 48, color: Colors.grey),
+                      SizedBox(height: 12),
+                      Text(
+                        'No tours scheduled yet.',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -239,9 +250,9 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
     required String travelers,
     required String title,
     required String location,
-    required String actionText,
-    required Color actionColor,
-    required VoidCallback onActionPressed,
+    required bool isGuide,
+    required VoidCallback onQrPressed,
+    required VoidCallback onLiveTourPressed,
   }) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -296,40 +307,74 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
               const Icon(Icons.location_on_outlined,
                   size: 16.0, color: Colors.grey),
               const SizedBox(width: 4.0),
-              Text(
-                location,
-                style: const TextStyle(
-                  fontSize: 13.0,
-                  color: Colors.grey,
+              Expanded(
+                child: Text(
+                  location,
+                  style: const TextStyle(
+                    fontSize: 13.0,
+                    color: Colors.grey,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20.0),
           const Divider(height: 1.0, color: Color(0xFFEEEEEE)),
-          const SizedBox(height: 20.0),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onActionPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: actionColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24.0),
+          const SizedBox(height: 16.0),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onQrPressed,
+                  icon: Icon(
+                    isGuide ? Icons.qr_code_scanner : Icons.qr_code,
+                    size: 18,
+                    color: const Color(0xFFDD8866),
+                  ),
+                  label: Text(
+                    isGuide ? 'SCAN QR' : 'VIEW QR',
+                    style: const TextStyle(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFDD8866),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    side: const BorderSide(color: Color(0xFFDD8866)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                    ),
+                  ),
                 ),
-                elevation: 0,
               ),
-              child: Text(
-                actionText,
-                style: const TextStyle(
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onLiveTourPressed,
+                  icon: const Icon(Icons.explore, size: 18, color: Colors.white),
+                  label: const Text(
+                    'LIVE TOUR',
+                    style: TextStyle(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF133E4D),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                    ),
+                    elevation: 0,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

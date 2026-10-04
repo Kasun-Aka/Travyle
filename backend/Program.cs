@@ -48,6 +48,10 @@ builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IDiscountRequestRepository, DiscountRequestRepository>();
 builder.Services.AddScoped<IPaymentEscrowRepository, PaymentEscrowRepository>();
 
+// ─── Operations DI ───────────────────────────────────────────────────────────
+builder.Services.AddScoped<Travyle.Api.Repositories.IOperationsRepository, Travyle.Api.Repositories.OperationsRepository>();
+builder.Services.AddScoped<IOperationsService, OperationsService>();
+
 // Services
 builder.Services.AddScoped<IBookingScheduleService, BookingScheduleService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
@@ -58,7 +62,22 @@ builder.Services.AddScoped<IPaymentEscrowService, PaymentEscrowService>();
 builder.Services.AddScoped<Travyle.Api.Services.Agent.IBookingAgentTools, Travyle.Api.Services.Agent.BookingAgentTools>();
 builder.Services.AddScoped<Travyle.Api.Services.Agent.ISmartBookingAgentService, Travyle.Api.Services.Agent.SmartBookingAgentProxyService>();
 builder.Services.AddScoped<IFirebaseIdentityService, FirebaseIdentityService>();
-builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri("http://localhost:8000"); });
+
+var aiAgentBaseUrl = builder.Configuration.GetValue<string>("AI_AGENT_BASE_URL") ?? "http://localhost:8000";
+builder.Services.AddHttpClient("SmartBookingAgent", client => { client.BaseAddress = new Uri(aiAgentBaseUrl); });
+
+// ─── Firebase Admin SDK ──────────────────────────────────────────────────────
+try
+{
+    FirebaseIdentityService.ConfigureFirebase(builder.Configuration);
+    Console.WriteLine(FirebaseAdmin.FirebaseApp.DefaultInstance != null
+        ? "✅ Firebase Admin SDK initialized successfully."
+        : "⚠️  Firebase Admin SDK was NOT initialized (missing or placeholder credentials).");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Firebase Admin SDK initialization failed: {ex.Message}");
+}
 
 // ─── CORS Configuration ──────────────────────────────────────────────────────
 builder.Services.AddCors(options =>

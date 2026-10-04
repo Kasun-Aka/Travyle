@@ -7,6 +7,7 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
 import 'features/bookings/screens/booking_history_screen.dart';
 import 'features/bookings/screens/discount_request_history_screen.dart';
 import 'features/bookings/screens/schedule_browse_screen.dart';
@@ -15,9 +16,13 @@ import 'features/bookings/theme/booking_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e, stack) {
+    debugPrint('Firebase initialization error: $e\n$stack');
+  }
   runApp(const ProviderScope(child: TravyleApp()));
 }
 

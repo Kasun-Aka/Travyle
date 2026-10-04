@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Travyle.Api.DTOs.Operations;
+using Travyle.Api.Models;
 using Travyle.Api.Services;
 
 namespace Travyle.Api.Controllers;
@@ -78,6 +80,13 @@ public class OperationsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("disruption-alerts")]
+    public async Task<IActionResult> CreateDisruptionAlert([FromBody] CreateDisruptionAlertDto dto)
+    {
+        var result = await _service.CreateDisruptionAlertAsync(dto);
+        return CreatedAtAction(nameof(CreateDisruptionAlert), new { id = result.Id }, result);
+    }
+
     // ── POST /api/operations/reorder-route-optimization ──────
     /// <summary>Non-CRUD: solves TSP route logic to recalculate stops on disruption.</summary>
     [HttpPost("reorder-route-optimization")]
@@ -88,49 +97,126 @@ public class OperationsController : ControllerBase
         return Ok(result);
     }
 
+    // ── POST /api/operations/monitor ─────────────────────────
+    /// <summary>Proxy to Python AI Agent for operation monitoring (weather/traffic).</summary>
+    [HttpPost("monitor")]
+    public async Task<IActionResult> MonitorOperations([FromBody] MonitorOperationsRequestDto dto)
+    {
+        try
+        {
+            var result = await _service.MonitorOperationsAsync(dto);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to communicate with AI Agent", details = ex.Message });
+        }
+    }
+
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string email)
     {
-        var user = _db.Users.FirstOrDefault(u => u.Email == email);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
         if (user == null) return NotFound();
 
         bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator";
 
+        var realAssignedSchedules = new List<BookingSchedule>();
+        GuideAssignment? primaryGuideAssignment = null;
+
+        if (isGuide)
+        {
+            var assignedScheduleIds = await _db.GuideAssignments
+                .Where(ga => ga.GuideUserId == user.Id)
+                .Select(ga => ga.BookingScheduleId)
+                .ToListAsync();
+
+            realAssignedSchedules = await _db.BookingSchedules
+                .Include(s => s.TimeSlots)
+                .Include(s => s.AvailableDates)
+                .Where(s => assignedScheduleIds.Contains(s.Id) || s.GuideName.ToLower() == user.FullName.ToLower())
+                .ToListAsync();
+        }
+        else
+        {
+            // Tourist: Get their bookings
+            var bookingScheduleIds = await _db.Bookings
+                .Where(b => b.TravelerId == user.Id || b.TravelerEmail.ToLower() == email.ToLower())
+                .Select(b => b.ScheduleId)
+                .Distinct()
+                .ToListAsync();
+
+            realAssignedSchedules = await _db.BookingSchedules
+                .Include(s => s.TimeSlots)
+                .Include(s => s.AvailableDates)
+                .Where(s => bookingScheduleIds.Contains(s.Id))
+                .ToListAsync();
+
+            // Find the assigned guide for their first upcoming schedule
+            if (realAssignedSchedules.Count > 0)
+            {
+                var firstScheduleId = realAssignedSchedules.First().Id;
+                primaryGuideAssignment = await _db.GuideAssignments
+                    .Include(ga => ga.Guide)
+                    .FirstOrDefaultAsync(ga => ga.BookingScheduleId == firstScheduleId);
+            }
+        }
+
+        var dynamicTours = realAssignedSchedules.Count > 0
+            ? realAssignedSchedules.Select((s, idx) => new
+            {
+                time = s.TimeSlots.FirstOrDefault()?.SlotLabel != null
+                    ? $"{s.TimeSlots.FirstOrDefault()!.SlotLabel} - Onwards"
+                    : "09:00 AM - 01:00 PM",
+                travelers = isGuide ? $"{s.MaxCapacityPerSlot} Max Capacity" : "You + Others",
+                title = s.DestinationTitle,
+                location = s.Location,
+                actionType = idx == 0 ? "CHECK_IN" : "START_TOUR"
+            }).ToArray()
+            : Array.Empty<object>();
+
+        var dynamicStats = isGuide
+            ? (realAssignedSchedules.Count > 0 ? new[]
+                {
+                    new { value = realAssignedSchedules.Count.ToString(), label = "TOURS ASSIGNED" },
+                    new { value = realAssignedSchedules.Sum(s => s.MaxCapacityPerSlot).ToString(), label = "CAPACITY" },
+                    new { value = (realAssignedSchedules.Average(s => s.Rating) > 0 ? realAssignedSchedules.Average(s => s.Rating).ToString("0.0") : "5.0"), label = "MY RATING" }
+                }
+                : new[]
+                {
+                    new { value = "0", label = "TOURS TODAY" },
+                    new { value = "0", label = "TRAVELERS" },
+                    new { value = "0.0", label = "MY RATING" }
+                })
+            : (realAssignedSchedules.Count > 0 ? new[]
+                {
+                    new { value = realAssignedSchedules.Count.ToString(), label = "UPCOMING TOURS" },
+                    new { value = "0", label = "COMPLETED" },
+                    new { value = "4.9", label = "GUIDE RATING" }
+                }
+                : new[]
+                {
+                    new { value = "0", label = "UPCOMING TOUR" },
+                    new { value = "0", label = "COMPLETED" },
+                    new { value = "0.0", label = "GUIDE RATING" }
+                });
+
+        string headerName = user.FullName;
+        string headerTitle = isGuide ? "LOCAL GUIDE" : "TOURIST";
+
+        if (!isGuide && primaryGuideAssignment?.Guide != null)
+        {
+            headerName = primaryGuideAssignment.Guide.FullName;
+            headerTitle = "ASSIGNED GUIDE";
+        }
+
         var result = new
         {
             role = user.Role,
-            headerName = isGuide ? user.FullName : "Ketut Alit",
-            headerTitle = isGuide ? "LOCAL GUIDE" : "ASSIGNED GUIDE",
-            stats = isGuide ? new[]
-            {
-                new { value = "2", label = "TOURS TODAY" },
-                new { value = "14", label = "TRAVELERS" },
-                new { value = "4.9", label = "MY RATING" }
-            } : new[]
-            {
-                new { value = "1", label = "UPCOMING TOUR" },
-                new { value = "3", label = "COMPLETED" },
-                new { value = "4.9", label = "GUIDE RATING" }
-            },
-            tours = new[]
-            {
-                new 
-                {
-                    time = "09:00 AM - 12:00 PM",
-                    travelers = isGuide ? "6 Travelers" : "You + 5 others",
-                    title = "Sacred Ubud Forest Walk",
-                    location = "Ubud Monkey Forest Main Entrance",
-                    actionType = "CHECK_IN"
-                },
-                new
-                {
-                    time = "04:30 PM - 07:30 PM",
-                    travelers = isGuide ? "8 Travelers" : "You + 7 others",
-                    title = "Sunset Tanah Lot Escape",
-                    location = "Tanah Lot Temple Lobby",
-                    actionType = "START_TOUR"
-                }
-            }
+            headerName = headerName,
+            headerTitle = headerTitle,
+            stats = dynamicStats,
+            tours = dynamicTours
         };
 
         return Ok(result);

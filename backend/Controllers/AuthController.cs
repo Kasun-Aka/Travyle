@@ -61,14 +61,23 @@ public class AuthController : ControllerBase
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
         }
-        else if (string.IsNullOrEmpty(user.FirebaseUid)) // In case existing DB users don't have FirebaseUid yet
+        else
         {
-            user.FirebaseUid = req.FirebaseUid;
-            await _db.SaveChangesAsync();
-        }
-        else if (!string.Equals(user.FirebaseUid, req.FirebaseUid, StringComparison.Ordinal))
-        {
-            return Conflict(new { error = "This email is already linked to another Firebase account." });
+            bool modified = false;
+            if (!string.Equals(user.FirebaseUid, req.FirebaseUid, StringComparison.Ordinal))
+            {
+                user.FirebaseUid = req.FirebaseUid;
+                modified = true;
+            }
+            if (!string.Equals(user.Email, req.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                user.Email = req.Email;
+                modified = true;
+            }
+            if (modified)
+            {
+                await _db.SaveChangesAsync();
+            }
         }
 
         return Ok(user);
@@ -103,6 +112,24 @@ public class AuthController : ControllerBase
     {
         public string Email { get; set; } = string.Empty;
         public string[] Preferences { get; set; } = Array.Empty<string>();
+    }
+
+    // GET /api/auth/guides
+    [HttpGet("guides")]
+    public async Task<IActionResult> GetGuides()
+    {
+        var guides = await _db.Users
+            .Where(u => u.Role == "Local Guide" || u.Role == "Tour Operator")
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.FullName,
+                u.Role
+            })
+            .ToListAsync();
+
+        return Ok(guides);
     }
 
     // GET /api/auth/travelers

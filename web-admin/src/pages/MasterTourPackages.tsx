@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-
 import DestinationFormModal from '../components/DestinationFormModal';
 import { Plus, MapPin, Sparkles, Search, Edit2, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
