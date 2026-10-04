@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = credential.user;
       if (user == null) throw Exception('Unable to load the signed-in account.');
 
-      final user = userCredential.user;
+      
       if (user != null) {
         try {
           final dio = Dio();
