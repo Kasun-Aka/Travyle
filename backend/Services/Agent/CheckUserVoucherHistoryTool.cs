@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 
-namespace Travyle.Api.Services;
+namespace Travyle.Api.Services.Agent;
 
 public record CheckVoucherHistoryInput(
     Guid UserId,
@@ -37,7 +37,8 @@ public class CheckUserVoucherHistoryTool : ICheckUserVoucherHistoryTool
             return new CheckVoucherHistoryOutput(Guid.Empty, 0, 0m, false, null);
         }
 
-        var days = input.LookbackDays > 0 ? input.LookbackDays : 30;
+        // Input validation (least privilege): bounded lookback window.
+        var days = input.LookbackDays > 0 ? Math.Min(input.LookbackDays, 90) : 30;
         var cutoff = DateTime.UtcNow.AddDays(-days);
 
         var recentVouchers = await _db.Vouchers

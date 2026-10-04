@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Travyle.Api.Data;
 using Travyle.Api.Repositories;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Agent;
 using Travyle.Api.Services.Auth;
 
 // Allow flexible DateTime kinds in PostgreSQL

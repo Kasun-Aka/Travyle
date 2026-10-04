@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { auth } from '../lib/firebase';
 import type { 
   SupportTicketItem, 
   PaginatedTicketsResponse, 
@@ -16,6 +17,13 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Support endpoints require a verified sign-in; attach the Firebase ID token.
+api.interceptors.request.use(async (config) => {
+  const token = await auth?.currentUser?.getIdToken();
+  if (token) config.headers.set('Authorization', `Bearer ${token}`);
+  return config;
 });
 
 export const supportApi = {

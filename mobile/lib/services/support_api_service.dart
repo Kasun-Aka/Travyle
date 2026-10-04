@@ -22,14 +22,32 @@ class SupportApiService {
 
   final Dio _dio;
 
+  /// Attaches the signed-in user's Firebase ID token to every request.
+  static Dio _withAuth(Dio dio) {
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        try {
+          final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        } catch (e) {
+          debugPrint('[SupportApiService] Could not read Firebase token: $e');
+        }
+        handler.next(options);
+      },
+    ));
+    return dio;
+  }
+
   SupportApiService({Dio? dio})
       : _dio = dio ??
-            Dio(BaseOptions(
+            _withAuth(Dio(BaseOptions(
               baseUrl: baseUrl,
               connectTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
               headers: {'Content-Type': 'application/json'},
-            ));
+            )));
 
   // Default Demo Traveler ID
   static const String defaultTravelerId = '11111111-1111-1111-1111-111111111111';
@@ -96,7 +114,7 @@ class SupportApiService {
       debugPrint('[SupportApiService] Error fetching tickets ($baseUrl): $e');
       try {
         final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
-        final fallbackDio = Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5)));
+        final fallbackDio = _withAuth(Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5))));
         final response = await fallbackDio.get('/support/tickets', queryParameters: {
           if (priority != null && priority != 'ALL') 'priority': priority,
           if (status != null && status != 'ALL') 'status': status,
@@ -165,12 +183,12 @@ class SupportApiService {
       try {
         final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
         debugPrint('[SupportApiService] Attempting fallback endpoint: $fallbackHost/support/tickets');
-        final fallbackDio = Dio(BaseOptions(
+        final fallbackDio = _withAuth(Dio(BaseOptions(
           baseUrl: fallbackHost,
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
           headers: {'Content-Type': 'application/json'},
-        ));
+        )));
         final response = await fallbackDio.post('/support/tickets', data: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {
           return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
@@ -197,7 +215,7 @@ class SupportApiService {
       debugPrint('[SupportApiService] Error uploading attachment: $e');
       try {
         final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
-        final fallbackDio = Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5)));
+        final fallbackDio = _withAuth(Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5))));
         final formData = FormData.fromMap({
           'file': MultipartFile.fromBytes(imageBytes, filename: filename),
         });

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
+using Travyle.Api.Services.Agent;
 
 namespace Travyle.Api.Services;
 
@@ -12,17 +13,20 @@ public class SupportService : ISupportService
     private readonly ISupportAiAgentService _aiAgentService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<SupportService> _logger;
+    private readonly ISupportAttachmentStorage _attachmentStorage;
 
     public SupportService(
         TravyleDbContext dbContext,
         ISupportAiAgentService aiAgentService,
         INotificationService notificationService,
-        ILogger<SupportService> logger)
+        ILogger<SupportService> logger,
+        ISupportAttachmentStorage? attachmentStorage = null)
     {
         _dbContext = dbContext;
         _aiAgentService = aiAgentService;
         _notificationService = notificationService;
         _logger = logger;
+        _attachmentStorage = attachmentStorage ?? new LocalSupportAttachmentStorage();
     }
 
     private async Task<User> EnsureUserAsync(Guid? userId, CancellationToken cancellationToken)
@@ -349,33 +353,10 @@ public class SupportService : ISupportService
         return await _aiAgentService.TriageTicketAsync(ticket, cancellationToken);
     }
 
-    public async Task<string> UploadAttachmentAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default)
+    public Task<string> UploadAttachmentAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default)
     {
-        if (file == null || file.Length == 0)
-        {
-            throw new ArgumentException("No file uploaded or file is empty.");
-        }
-
-        var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        var attachmentsPath = Path.Combine(webRootPath, "support-attachments");
-
-        if (!Directory.Exists(attachmentsPath))
-        {
-            Directory.CreateDirectory(attachmentsPath);
-        }
-
-        var ext = Path.GetExtension(file.FileName);
-        if (string.IsNullOrEmpty(ext)) ext = ".jpg";
-        var fileName = $"evidence_{Guid.NewGuid()}{ext}";
-        var filePath = Path.Combine(attachmentsPath, fileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream, cancellationToken);
-        }
-
-        var baseUrl = $"{request.Scheme}://{request.Host.Value}";
-        return $"{baseUrl}/support-attachments/{fileName}";
+        // Validation (type, size, real image content) and storage are handled by ISupportAttachmentStorage.
+        return _attachmentStorage.SaveAsync(file, request, cancellationToken);
     }
 
     public async Task<VoucherResponseDto> IssueVoucherAsync(CreateVoucherDto dto, CancellationToken cancellationToken = default)

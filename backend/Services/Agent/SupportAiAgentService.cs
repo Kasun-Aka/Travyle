@@ -6,18 +6,25 @@ using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
 
-namespace Travyle.Api.Services;
+namespace Travyle.Api.Services.Agent;
 
 public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgent
 {
     private readonly TravyleDbContext _dbContext;
     private readonly ICheckUserVoucherHistoryTool _voucherHistoryTool;
+    private readonly ICheckBookingHistoryTool _bookingHistoryTool;
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _config;
     private readonly ILogger<SupportAiAgentService> _logger;
 
+    // Agent safety limits: bounded retries, per-attempt timeout, bounded untrusted input.
+    private const int MaxLlmAttempts = 2;
+    private static readonly TimeSpan LlmTimeout = TimeSpan.FromSeconds(15);
+    private const int MaxPromptFieldLength = 2000;
+    private const int MaxReasoningLength = 500;
+
     public SupportAiAgentService(TravyleDbContext dbContext, ILogger<SupportAiAgentService> logger)
-        : this(dbContext, new CheckUserVoucherHistoryTool(dbContext), new HttpClient(), new ConfigurationBuilder().Build(), logger)
+        : this(dbContext, new CheckUserVoucherHistoryTool(dbContext), new HttpClient(), new ConfigurationBuilder().Build(), logger, null)
     {
     }
 
@@ -26,10 +33,12 @@ public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgen
         ICheckUserVoucherHistoryTool voucherHistoryTool,
         HttpClient httpClient,
         IConfiguration config,
-        ILogger<SupportAiAgentService> logger)
+        ILogger<SupportAiAgentService> logger,
+        ICheckBookingHistoryTool? bookingHistoryTool = null)
     {
         _dbContext = dbContext;
         _voucherHistoryTool = voucherHistoryTool;
+        _bookingHistoryTool = bookingHistoryTool ?? new CheckBookingHistoryTool(dbContext);
         _httpClient = httpClient;
         _config = config;
         _logger = logger;
@@ -91,23 +100,52 @@ public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgen
         string reasoning = "";
         bool isFallbackUsed = false;
 
+        var runStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        int llmAttempts = 0;
+        long llmElapsedMs = 0;
+        string? llmFailureReason = null;
+
         // ─── Step 1: Real AI Model Call (Gemini LLM with Prompt Injection Defense) ─────
         var fullText = $"{input.Title} {input.Description}";
         var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? _config["Gemini:ApiKey"];
 
         if (!string.IsNullOrWhiteSpace(apiKey) && apiKey != "YOUR_GEMINI_API_KEY")
         {
-            try
+            var llmStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            for (llmAttempts = 1; llmAttempts <= MaxLlmAttempts; llmAttempts++)
             {
-                var llmResult = await CallGeminiLlmAsync(input, apiKey, cancellationToken);
-                sentimentScore = Math.Clamp(llmResult.SentimentScore, -1.0, 1.0);
-                severityTier = ValidateSeverityTier(llmResult.SeverityTier);
-                reasoning = $"[Gemini AI] {llmResult.Reasoning}";
+                try
+                {
+                    // Per-attempt timeout so a slow model can never block the ticket flow.
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(LlmTimeout);
+
+                    var llmResult = await CallGeminiLlmAsync(input, apiKey, timeoutCts.Token);
+                    sentimentScore = llmResult.SentimentScore;
+                    severityTier = llmResult.SeverityTier;
+                    reasoning = $"[Gemini AI] {llmResult.Reasoning}";
+                    llmFailureReason = null;
+                    isFallbackUsed = false;
+                    break;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw; // caller cancelled the request: do not swallow
+                }
+                catch (Exception ex)
+                {
+                    llmFailureReason = ex is OperationCanceledException ? "Timeout" : ex.GetType().Name;
+                    _logger.LogWarning(ex, "[Support & Quality Agent] Gemini attempt {Attempt}/{Max} failed ({Reason}).", llmAttempts, MaxLlmAttempts, llmFailureReason);
+                    isFallbackUsed = true;
+                }
             }
-            catch (Exception ex)
+            llmAttempts = Math.Min(llmAttempts, MaxLlmAttempts);
+            llmStopwatch.Stop();
+            llmElapsedMs = llmStopwatch.ElapsedMilliseconds;
+
+            if (isFallbackUsed)
             {
-                _logger.LogWarning(ex, "[Support & Quality Agent] Gemini API call failed or timed out. Falling back to deterministic keyword analysis.");
-                isFallbackUsed = true;
+                _logger.LogWarning("[Support & Quality Agent] Gemini unavailable after {Attempts} attempt(s). Falling back to deterministic keyword analysis.", llmAttempts);
             }
         }
         else
@@ -152,24 +190,112 @@ public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgen
         auditEntries.Add(severityAudit);
 
         // ─── Step 2: One Controlled Tool Execution (Voucher History Check) ─────────────
+        // Allow-listed tool with validated input. Fail closed: if the tool errors, no voucher is drafted.
         var toolInput = new CheckVoucherHistoryInput(input.UserId, 30);
-        var voucherHistory = await _voucherHistoryTool.ExecuteAsync(toolInput, cancellationToken);
-
-        var toolAudit = new AuditLog
+        CheckVoucherHistoryOutput? voucherHistory = null;
+        bool toolFailed = false;
+        var toolStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        try
         {
-            Id = Guid.NewGuid(),
-            SupportTicketId = input.TicketId,
-            Action = "AI_TOOL_CHECK_VOUCHER_HISTORY",
-            ActorRole = "Support_AI_Agent",
-            ActorId = "tool-check-voucher-history-v1",
-            Details = $"Tool execution: Checked user {input.UserId} voucher history (30-day lookback). Count: {voucherHistory.RecentVoucherCount}, Total Amount: ${voucherHistory.TotalRecentAmount:F2}.",
-            MetadataJson = JsonSerializer.Serialize(new { voucherHistory.RecentVoucherCount, voucherHistory.TotalRecentAmount, voucherHistory.HasRecentGoodwillVoucher }),
-            Timestamp = DateTime.UtcNow.AddMilliseconds(100)
-        };
-        auditEntries.Add(toolAudit);
+            voucherHistory = await _voucherHistoryTool.ExecuteAsync(toolInput, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            toolFailed = true;
+            _logger.LogError(ex, "[Support & Quality Agent] Voucher history tool failed for ticket {TicketId}. Failing closed (no voucher).", input.TicketId);
+        }
+        toolStopwatch.Stop();
+
+        if (toolFailed || voucherHistory == null)
+        {
+            auditEntries.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                SupportTicketId = input.TicketId,
+                Action = "AI_TOOL_FAILED_SAFE",
+                ActorRole = "Support_AI_Agent",
+                ActorId = "tool-check-voucher-history-v1",
+                Details = "Voucher history tool failed. Safe failure: no voucher was drafted; ticket routed to manual review.",
+                MetadataJson = JsonSerializer.Serialize(new { outcome = "Safe_Failure", elapsedMs = toolStopwatch.ElapsedMilliseconds }),
+                Timestamp = DateTime.UtcNow.AddMilliseconds(100)
+            });
+        }
+        else
+        {
+            auditEntries.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                SupportTicketId = input.TicketId,
+                Action = "AI_TOOL_CHECK_VOUCHER_HISTORY",
+                ActorRole = "Support_AI_Agent",
+                ActorId = "tool-check-voucher-history-v1",
+                Details = $"Tool execution: Checked user {input.UserId} voucher history (30-day lookback). Count: {voucherHistory.RecentVoucherCount}, Total Amount: ${voucherHistory.TotalRecentAmount:F2}.",
+                MetadataJson = JsonSerializer.Serialize(new { voucherHistory.RecentVoucherCount, voucherHistory.TotalRecentAmount, voucherHistory.HasRecentGoodwillVoucher, elapsedMs = toolStopwatch.ElapsedMilliseconds }),
+                Timestamp = DateTime.UtcNow.AddMilliseconds(100)
+            });
+        }
+
+        var bookingToolInput = new CheckBookingHistoryInput(input.UserId, input.BookingId, 365);
+        CheckBookingHistoryOutput? bookingHistory = null;
+        bool bookingToolFailed = false;
+        var bookingStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            bookingHistory = await _bookingHistoryTool.ExecuteAsync(bookingToolInput, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            bookingToolFailed = true;
+            _logger.LogError(ex, "[Support & Quality Agent] Booking history tool failed for ticket {TicketId}.", input.TicketId);
+        }
+        bookingStopwatch.Stop();
+
+        if (bookingToolFailed || bookingHistory == null)
+        {
+            auditEntries.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                SupportTicketId = input.TicketId,
+                Action = "AI_TOOL_FAILED_SAFE",
+                ActorRole = "Support_AI_Agent",
+                ActorId = "tool-check-booking-history-v1",
+                Details = "Booking history tool failed. Safe failure: ticket routed to manual review.",
+                MetadataJson = JsonSerializer.Serialize(new { outcome = "Safe_Failure", elapsedMs = bookingStopwatch.ElapsedMilliseconds }),
+                Timestamp = DateTime.UtcNow.AddMilliseconds(120)
+            });
+        }
+        else
+        {
+            auditEntries.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                SupportTicketId = input.TicketId,
+                Action = "AI_TOOL_CHECK_BOOKING_HISTORY",
+                ActorRole = "Support_AI_Agent",
+                ActorId = "tool-check-booking-history-v1",
+                Details = $"Tool execution: Checked booking history. Total: {bookingHistory.TotalBookingsInLookback}, Completed: {bookingHistory.CompletedBookingsInLookback}.",
+                MetadataJson = JsonSerializer.Serialize(new { bookingHistory.BookingReferenced, bookingHistory.BookingVerified, bookingHistory.TotalBookingsInLookback, elapsedMs = bookingStopwatch.ElapsedMilliseconds }),
+                Timestamp = DateTime.UtcNow.AddMilliseconds(120)
+            });
+        }
 
         // ─── Step 3: Deterministic Policy Validation & Goodwill Voucher Proposal ──────
-        var (isEligible, voucherAmount, reason) = await EvaluateGoodwillEligibilityAsync(input, severityTier, voucherHistory);
+        // Fail closed: when any tool failed, the policy cannot be verified, so never auto-draft a voucher.
+        bool isEligible;
+        decimal voucherAmount;
+        string reason;
+        if (toolFailed || voucherHistory == null || bookingToolFailed || bookingHistory == null)
+        {
+            (isEligible, voucherAmount, reason) = (false, 0m, "Tool execution failure (voucher or booking history). Flagged for manual admin review.");
+        }
+        else if (bookingHistory.BookingReferenced && !bookingHistory.BookingVerified)
+        {
+            (isEligible, voucherAmount, reason) = (false, 0m, "Referenced booking could not be verified. Flagged for manual admin review.");
+        }
+        else
+        {
+            (isEligible, voucherAmount, reason) = await EvaluateGoodwillEligibilityAsync(input, severityTier, voucherHistory, bookingHistory);
+        }
 
         AgentVoucherProposal? proposedVoucher = null;
         if (isEligible && voucherAmount > 0)
@@ -222,6 +348,32 @@ public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgen
             auditEntries.Add(noVoucherAudit);
         }
 
+        // Run summary for observability: timings, attempts, fallback and failure reason.
+        runStopwatch.Stop();
+        auditEntries.Add(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = input.TicketId,
+            Action = "AI_RUN_SUMMARY",
+            ActorRole = "Support_AI_Agent",
+            ActorId = "agent-support-quality-v1",
+            Details = $"Agent run finished in {runStopwatch.ElapsedMilliseconds} ms. LLM attempts: {llmAttempts}, fallback used: {isFallbackUsed}, tool failed: {toolFailed}, voucher drafted: {proposedVoucher != null}.",
+            MetadataJson = JsonSerializer.Serialize(new
+            {
+                totalMs = runStopwatch.ElapsedMilliseconds,
+                llmMs = llmElapsedMs,
+                llmAttempts,
+                isFallbackUsed,
+                llmFailureReason,
+                toolFailed,
+                bookingToolFailed,
+                bookingVerified = bookingHistory?.BookingVerified,
+                totalBookings = bookingHistory?.TotalBookingsInLookback,
+                approvalRequired = proposedVoucher != null
+            }),
+            Timestamp = DateTime.UtcNow.AddMilliseconds(200)
+        });
+
         await _dbContext.AuditLogs.AddRangeAsync(auditEntries, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -250,7 +402,7 @@ public class SupportAiAgentService : ISupportAiAgentService, ISupportQualityAgen
 
     private async Task<(double SentimentScore, string SeverityTier, string Reasoning)> CallGeminiLlmAsync(AgentTicketInput input, string apiKey, CancellationToken cancellationToken)
     {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+        var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
         var systemInstructions = @"
 You are an automated Support & Quality Triage AI Agent for the Travyle travel platform.
@@ -271,8 +423,8 @@ Return strictly a raw JSON object with no markdown formatting:
         var userContent = $@"
 Ticket Category: {input.Category}
 Priority: {input.Priority}
-Title: {input.Title}
-Description: {input.Description}";
+Title: {Truncate(input.Title, MaxPromptFieldLength)}
+Description: {Truncate(input.Description, MaxPromptFieldLength)}";
 
         var payload = new
         {
@@ -287,8 +439,12 @@ Description: {input.Description}";
             }
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync(url, content, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("x-goog-api-key", apiKey);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -310,21 +466,40 @@ Description: {input.Description}";
         using var resultDoc = JsonDocument.Parse(text);
         var root = resultDoc.RootElement;
 
+        // Deterministic output validation: reject anything outside the contract so the caller falls back safely.
         double sentiment = root.GetProperty("sentimentScore").GetDouble();
-        string severity = root.GetProperty("severityTier").GetString() ?? "Tier_1_Low";
-        string reasoning = root.GetProperty("reasoning").GetString() ?? "AI triage completed.";
+        if (double.IsNaN(sentiment) || double.IsInfinity(sentiment) || sentiment < -1.0 || sentiment > 1.0)
+        {
+            throw new FormatException("LLM sentimentScore is outside the allowed range [-1.0, 1.0].");
+        }
+
+        string severity = ValidateSeverityTier(root.GetProperty("severityTier").GetString());
+
+        string reasoning = (root.GetProperty("reasoning").GetString() ?? string.Empty).Trim();
+        if (reasoning.Length == 0)
+        {
+            throw new FormatException("LLM reasoning is empty.");
+        }
+        reasoning = Truncate(reasoning, MaxReasoningLength);
 
         return (sentiment, severity, reasoning);
     }
 
+    private static string Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Length <= maxLength ? value : value[..maxLength];
+    }
+
     private static string ValidateSeverityTier(string? tier)
     {
+        // Allow-list only. Unknown values are rejected (never silently accepted).
         return tier switch
         {
             "Tier_3_Critical" => "Tier_3_Critical",
             "Tier_2_High" => "Tier_2_High",
             "Tier_1_Low" => "Tier_1_Low",
-            _ => "Tier_1_Low"
+            _ => throw new FormatException($"LLM returned unsupported severity tier '{tier}'.")
         };
     }
 
@@ -398,10 +573,10 @@ Description: {input.Description}";
     public Task<(bool isEligible, decimal amount, string reason)> EvaluateGoodwillEligibilityAsync(SupportTicket ticket, string severityTier)
     {
         var input = new AgentTicketInput(ticket.Id, ticket.UserId, ticket.Title, ticket.Description, ticket.Category, ticket.Priority);
-        return EvaluateGoodwillEligibilityAsync(input, severityTier, null);
+        return EvaluateGoodwillEligibilityAsync(input, severityTier, null, null);
     }
 
-    public Task<(bool isEligible, decimal amount, string reason)> EvaluateGoodwillEligibilityAsync(AgentTicketInput input, string severityTier, CheckVoucherHistoryOutput? voucherHistory)
+    public Task<(bool isEligible, decimal amount, string reason)> EvaluateGoodwillEligibilityAsync(AgentTicketInput input, string severityTier, CheckVoucherHistoryOutput? voucherHistory, CheckBookingHistoryOutput? bookingHistory = null)
     {
         // Abuse Safeguard (Tool Constraint): If user already has 2 or more recent vouchers in 30 days, do not issue another automatic voucher
         if (voucherHistory != null && voucherHistory.RecentVoucherCount >= 2)
