@@ -47,8 +47,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           receiveTimeout: const Duration(seconds: 10),
         ),
       );
+      final token = await _currentUser!.getIdToken();
       final response = await dio.get(
         'http://10.0.2.2:5085/api/auth/user?email=${_currentUser!.email}',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200 && response.data != null) {
