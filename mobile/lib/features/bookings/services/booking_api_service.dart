@@ -27,14 +27,15 @@ import 'package:flutter/foundation.dart';
 // • Web (Flutter web) → localhost
 // • Physical device   → your machine's LAN IP (e.g. 192.168.x.x)
 String _resolveBookingApiBaseUrl() {
-  const envUrl = String.fromEnvironment('BOOKING_API_BASE_URL');
+  const envUrl = String.fromEnvironment('API_BASE_URL');
   if (envUrl.isNotEmpty) return envUrl;
+  const bookingEnvUrl = String.fromEnvironment('BOOKING_API_BASE_URL');
+  if (bookingEnvUrl.isNotEmpty) return bookingEnvUrl;
 
   if (kIsWeb) return 'http://localhost:5085';
   if (defaultTargetPlatform == TargetPlatform.android) {
     return 'http://10.0.2.2:5085';
   }
-  // Windows desktop, macOS, Linux, iOS simulator
   return 'http://localhost:5085';
 }
 

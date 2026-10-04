@@ -23,6 +23,8 @@ interface NotificationHistory {
   destinationRegion: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
+
 export default function TravelerConcierge() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function TravelerConcierge() {
 
   const fetchTravelers = async () => {
     try {
-      const res = await axios.get('http://localhost:5085/api/auth/travelers');
+      const res = await axios.get(`${API_BASE}/auth/travelers`);
       setTravelers(res.data);
     } catch (err) {
       console.error("Failed to load travelers", err);
@@ -45,7 +47,7 @@ export default function TravelerConcierge() {
   };
   const fetchHistory = async () => {
     try {
-      const res = await axios.get('http://localhost:5085/api/notifications/admin');
+      const res = await axios.get(`${API_BASE}/notifications/admin`);
       setHistory(res.data);
     } catch (err) {
       console.error("Failed to load history", err);
@@ -67,7 +69,7 @@ export default function TravelerConcierge() {
     setSent(false);
 
     try {
-      const agentResponse = await axios.post('http://localhost:5085/api/agent/recommend', {
+      const agentResponse = await axios.post(`${API_BASE}/agent/recommend`, {
         email: targetEmail.trim(),
       });
 
@@ -93,7 +95,7 @@ export default function TravelerConcierge() {
   const handleNotify = async () => {
     if (!result || !email) return;
     try {
-      await axios.post('http://localhost:5085/api/notifications', {
+      await axios.post(`${API_BASE}/notifications`, {
         email: email.trim(),
         destinationId: result.destination.id,
         pitch: result.reasoning

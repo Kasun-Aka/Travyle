@@ -6,6 +6,8 @@ import '../models/customer_review.dart';
 
 class SupportApiService {
   static String get baseUrl {
+    const String envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) return '$envUrl/api';
     if (kIsWeb) {
       return 'http://localhost:5085/api';
     }

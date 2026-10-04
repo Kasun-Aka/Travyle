@@ -25,7 +25,10 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
   List<Map<String, dynamic>> _activeTours = [];
   List<Map<String, dynamic>> _allAlerts = [];
 
-  String get _baseUrl => kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+  String get _baseUrl {
+    const String envUrl = String.fromEnvironment('API_BASE_URL');
+    return envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+  }
 
   @override
   void initState() {

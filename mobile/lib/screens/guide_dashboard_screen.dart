@@ -28,7 +28,8 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       if (user == null) return;
       
       final dio = Dio();
-      final baseUrl = kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085';
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
       final idToken = await user.getIdToken();
       final response = await dio.get(
         '$baseUrl/api/operations/dashboard',
