@@ -717,6 +717,47 @@ public class SupportComponentTests
     }
 
     [Fact]
+public async Task ValidateAsync_RejectsEmptyOrNullFile()
+{
+    // Arrange & Act & Assert
+    await Assert.ThrowsAsync<ArgumentException>(() => SupportAttachmentValidator.ValidateAsync(null));
+}
+
+[Fact]
+public async Task ValidateAsync_RejectsInvalidMagicBytes()
+{
+    // Arrange: create a fake file with non-image text content
+    var bytes = System.Text.Encoding.UTF8.GetBytes("This is plain text, not an image.");
+    var stream = new MemoryStream(bytes);
+    var fileMock = new Mock<IFormFile>();
+    fileMock.Setup(f => f.Length).Returns(bytes.Length);
+    fileMock.Setup(f => f.FileName).Returns("fake.jpg");
+    fileMock.Setup(f => f.OpenReadStream()).Returns(stream);
+
+    // Act & Assert: Should throw because magic bytes do not match JPG signature
+    await Assert.ThrowsAsync<ArgumentException>(() => SupportAttachmentValidator.ValidateAsync(fileMock.Object));
+}
+
+[Fact]
+public async Task ValidateAsync_AcceptsValidJpgMagicBytes()
+{
+    // Arrange: valid JPEG header (0xFF, 0xD8, 0xFF)
+    var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+    var stream = new MemoryStream(bytes);
+    var fileMock = new Mock<IFormFile>();
+    fileMock.Setup(f => f.Length).Returns(bytes.Length);
+    fileMock.Setup(f => f.FileName).Returns("photo.jpg");
+    fileMock.Setup(f => f.OpenReadStream()).Returns(stream);
+
+    // Act
+    var ext = await SupportAttachmentValidator.ValidateAsync(fileMock.Object);
+
+    // Assert
+    Assert.Equal(".jpg", ext);
+}
+
+
+    [Fact]
     public async Task CheckUserReviewHistoryTool_WithLowRatings_ShouldSetHasLowRatingPattern_AndBeAuditedInAgent()
     {
         // Arrange
