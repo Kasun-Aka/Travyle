@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { auth } from '../lib/firebase';
 import type { 
   SupportTicketItem, 
   PaginatedTicketsResponse, 
@@ -16,6 +17,13 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Support endpoints require a verified sign-in; attach the Firebase ID token.
+api.interceptors.request.use(async (config) => {
+  const token = await auth?.currentUser?.getIdToken();
+  if (token) config.headers.set('Authorization', `Bearer ${token}`);
+  return config;
 });
 
 export const supportApi = {
@@ -82,6 +90,11 @@ export const supportApi = {
 
   autoResolveClaim: async (id: string): Promise<AutoResolveResult> => {
     const response = await api.post<AutoResolveResult>(`/support/tickets/${id}/auto-resolve-claim`);
+    return response.data;
+  },
+
+  sendCustomerReply: async (id: string, replyMessage: string): Promise<SupportTicketItem> => {
+    const response = await api.post<SupportTicketItem>(`/support/tickets/${id}/send-reply`, { replyMessage });
     return response.data;
   },
 

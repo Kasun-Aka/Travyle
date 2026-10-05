@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -109,10 +108,15 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
 
     setState(() => _isSubmitting = true);
 
-    // Encode actual picked image bytes as Base64 Data URI if selected
-    final attachmentUrl = _attachedImageBytes != null
-        ? 'data:image/jpeg;base64,${base64Encode(_attachedImageBytes!)}'
-        : null;
+    String? attachmentUrl;
+    if (_attachedImageBytes != null) {
+      attachmentUrl = await _apiService.uploadTicketAttachment(
+        _attachedImageBytes!,
+        'evidence_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+    }
+
+    final userId = await _apiService.getCurrentUserId();
 
     final created = await _apiService.createTicket(
       title: _titleController.text.trim(),
@@ -120,6 +124,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> with SingleTi
       category: _selectedCategory,
       priority: _selectedPriority,
       attachmentUrl: attachmentUrl,
+      userId: userId,
     );
 
     if (!mounted) return;

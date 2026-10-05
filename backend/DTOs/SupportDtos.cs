@@ -24,6 +24,12 @@ public class CreateTicketDto
     public string? AttachmentUrl { get; set; }
 }
 
+public class UploadTicketAttachmentDto
+{
+    [Required]
+    public IFormFile File { get; set; } = null!;
+}
+
 public class UpdateTicketDto
 {
     [Required]
@@ -38,6 +44,13 @@ public class UpdateTicketDto
     public TicketPriority Priority { get; set; } = TicketPriority.Medium;
 
     public string? AttachmentUrl { get; set; }
+}
+
+public class CreateFollowupDto
+{
+    [Required]
+    [MaxLength(2000)]
+    public string Note { get; set; } = string.Empty;
 }
 
 public class UpdateTicketStatusDto
@@ -85,11 +98,18 @@ public class TicketResponseDto
     public string SeverityTier { get; set; } = string.Empty;
     public string? AiReasoning { get; set; }
     public string? ResolutionSummary { get; set; }
+    public string? DraftReplyMessage { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
     public List<AuditLogResponseDto> AuditLogs { get; set; } = new();
     public List<VoucherResponseDto> Vouchers { get; set; } = new();
+}
+
+public class SendTicketReplyDto
+{
+    [Required]
+    public string ReplyMessage { get; set; } = string.Empty;
 }
 
 public class AutoResolveResultDto
@@ -186,3 +206,29 @@ public class AuditLogResponseDto
     public string? MetadataJson { get; set; }
     public DateTime Timestamp { get; set; }
 }
+
+public class TourRatingSummaryDto
+{
+    public Guid TourId { get; set; }
+    public string TourTitle { get; set; } = string.Empty;
+    public double AverageRating { get; set; }
+    public int ReviewCount { get; set; }
+}
+
+public class SupportAnalyticsDto
+{
+    public double AverageSentimentScore { get; set; }
+    public int ActiveVouchersCount { get; set; }
+    public int RedeemedVouchersCount { get; set; }
+    public List<TourRatingSummaryDto> TourAverageRatings { get; set; } = new();
+}
+
+public class UserSupportActivityDto
+{
+    public Guid UserId { get; set; }
+    public string? UserName { get; set; }
+    public string? UserEmail { get; set; }
+    public List<TicketResponseDto> Tickets { get; set; } = new();
+    public List<ReviewResponseDto> Reviews { get; set; } = new();
+}
+

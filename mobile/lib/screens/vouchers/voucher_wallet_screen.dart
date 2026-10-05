@@ -24,7 +24,8 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen> {
 
   Future<void> _loadVouchers() async {
     setState(() => _isLoading = true);
-    final list = await _apiService.getUserVouchers();
+    final userId = await _apiService.getCurrentUserId();
+    final list = await _apiService.getUserVouchers(userId: userId);
     if (!mounted) return;
     setState(() {
       _vouchers = list;

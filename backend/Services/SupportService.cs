@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
+using Travyle.Api.Services.Agent;
 
 namespace Travyle.Api.Services;
 
@@ -12,17 +13,20 @@ public class SupportService : ISupportService
     private readonly ISupportAiAgentService _aiAgentService;
     private readonly INotificationService _notificationService;
     private readonly ILogger<SupportService> _logger;
+    private readonly ISupportAttachmentStorage _attachmentStorage;
 
     public SupportService(
         TravyleDbContext dbContext,
         ISupportAiAgentService aiAgentService,
         INotificationService notificationService,
-        ILogger<SupportService> logger)
+        ILogger<SupportService> logger,
+        ISupportAttachmentStorage? attachmentStorage = null)
     {
         _dbContext = dbContext;
         _aiAgentService = aiAgentService;
         _notificationService = notificationService;
         _logger = logger;
+        _attachmentStorage = attachmentStorage ?? new LocalSupportAttachmentStorage();
     }
 
     private async Task<User> EnsureUserAsync(Guid? userId, CancellationToken cancellationToken)
@@ -161,6 +165,7 @@ public class SupportService : ISupportService
                 SeverityTier = t.SeverityTier,
                 AiReasoning = t.AiReasoning,
                 ResolutionSummary = t.ResolutionSummary,
+                DraftReplyMessage = t.DraftReplyMessage,
                 CreatedAt = t.CreatedAt,
                 UpdatedAt = t.UpdatedAt,
                 AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
@@ -227,6 +232,7 @@ public class SupportService : ISupportService
             SeverityTier = t.SeverityTier,
             AiReasoning = t.AiReasoning,
             ResolutionSummary = t.ResolutionSummary,
+            DraftReplyMessage = t.DraftReplyMessage,
             CreatedAt = t.CreatedAt,
             UpdatedAt = t.UpdatedAt,
             AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
@@ -347,6 +353,12 @@ public class SupportService : ISupportService
         if (ticket == null) return null;
 
         return await _aiAgentService.TriageTicketAsync(ticket, cancellationToken);
+    }
+
+    public Task<string> UploadAttachmentAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default)
+    {
+        // Validation (type, size, real image content) and storage are handled by ISupportAttachmentStorage.
+        return _attachmentStorage.SaveAsync(file, request, cancellationToken);
     }
 
     public async Task<VoucherResponseDto> IssueVoucherAsync(CreateVoucherDto dto, CancellationToken cancellationToken = default)
@@ -717,5 +729,252 @@ public class SupportService : ISupportService
         _dbContext.CustomerReviews.Remove(review);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<SupportAnalyticsDto> GetAnalyticsAsync(CancellationToken cancellationToken = default)
+    {
+        var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+        var recentTickets = await _dbContext.SupportTickets
+            .Where(t => t.CreatedAt >= sevenDaysAgo)
+            .ToListAsync(cancellationToken);
+
+        double avgSentiment = recentTickets.Any()
+            ? Math.Round(recentTickets.Average(t => t.SentimentScore), 2)
+            : (await _dbContext.SupportTickets.AnyAsync(cancellationToken)
+                ? Math.Round(await _dbContext.SupportTickets.AverageAsync(t => t.SentimentScore, cancellationToken), 2)
+                : 0.0);
+
+        int activeVouchers = await _dbContext.Vouchers
+            .CountAsync(v => v.Status == VoucherStatus.Active, cancellationToken);
+
+        int redeemedVouchers = await _dbContext.Vouchers
+            .CountAsync(v => v.Status == VoucherStatus.Redeemed, cancellationToken);
+
+        var reviewGroups = await _dbContext.CustomerReviews
+            .GroupBy(r => r.TourId)
+            .Select(g => new
+            {
+                TourId = g.Key,
+                AverageRating = Math.Round(g.Average(r => r.Rating), 1),
+                ReviewCount = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var destinations = await _dbContext.Destinations
+            .ToDictionaryAsync(d => d.Id, d => d.Name, cancellationToken);
+
+        var tourRatings = reviewGroups.Select(rg => new TourRatingSummaryDto
+        {
+            TourId = rg.TourId,
+            TourTitle = destinations.TryGetValue(rg.TourId, out var name) ? name : "Tour Experience",
+            AverageRating = rg.AverageRating,
+            ReviewCount = rg.ReviewCount
+        }).ToList();
+
+        return new SupportAnalyticsDto
+        {
+            AverageSentimentScore = avgSentiment,
+            ActiveVouchersCount = activeVouchers,
+            RedeemedVouchersCount = redeemedVouchers,
+            TourAverageRatings = tourRatings
+        };
+    }
+
+    public async Task<UserSupportActivityDto> GetUserActivityAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        var tickets = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var reviews = await _dbContext.CustomerReviews
+            .Include(r => r.User)
+            .Where(r => r.UserId == userId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var ticketDtos = tickets.Select(t => new TicketResponseDto
+        {
+            Id = t.Id,
+            UserId = t.UserId,
+            UserName = t.User?.FullName ?? user?.FullName ?? "Traveler",
+            UserEmail = t.User?.Email ?? user?.Email ?? "traveler@travyle.com",
+            BookingId = t.BookingId,
+            TourId = t.TourId,
+            Title = t.Title,
+            Description = t.Description,
+            Category = t.Category,
+            Priority = t.Priority.ToString(),
+            Status = t.Status.ToString(),
+            AttachmentUrl = t.AttachmentUrl,
+            SentimentScore = t.SentimentScore,
+            SeverityTier = t.SeverityTier,
+            AiReasoning = t.AiReasoning,
+            ResolutionSummary = t.ResolutionSummary,
+            CreatedAt = t.CreatedAt,
+            UpdatedAt = t.UpdatedAt,
+            AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
+            {
+                Id = a.Id,
+                SupportTicketId = a.SupportTicketId,
+                Action = a.Action,
+                ActorRole = a.ActorRole,
+                ActorId = a.ActorId,
+                Details = a.Details,
+                MetadataJson = a.MetadataJson,
+                Timestamp = a.Timestamp
+            }).ToList(),
+            Vouchers = t.Vouchers.Select(v => new VoucherResponseDto
+            {
+                Id = v.Id,
+                Code = v.Code,
+                UserId = v.UserId,
+                Amount = v.Amount,
+                Reason = v.Reason,
+                Status = v.Status.ToString(),
+                ApprovedByAdminId = v.ApprovedByAdminId,
+                IssuedAt = v.IssuedAt,
+                ExpiresAt = v.ExpiresAt,
+                CreatedAt = v.CreatedAt
+            }).ToList()
+        }).ToList();
+
+        var reviewDtos = reviews.Select(r => new ReviewResponseDto
+        {
+            Id = r.Id,
+            UserId = r.UserId,
+            UserName = r.User?.FullName ?? user?.FullName ?? "Verified Traveler",
+            TourId = r.TourId,
+            Rating = r.Rating,
+            Comment = r.Comment,
+            IsVerified = r.IsVerified,
+            CreatedAt = r.CreatedAt
+        }).ToList();
+
+        return new UserSupportActivityDto
+        {
+            UserId = userId,
+            UserName = user?.FullName ?? (tickets.FirstOrDefault()?.User?.FullName ?? reviews.FirstOrDefault()?.User?.FullName ?? "Traveler"),
+            UserEmail = user?.Email ?? (tickets.FirstOrDefault()?.User?.Email ?? reviews.FirstOrDefault()?.User?.Email ?? "traveler@travyle.com"),
+            Tickets = ticketDtos,
+            Reviews = reviewDtos
+        };
+    }
+
+    public async Task<TicketResponseDto?> CancelTicketAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (ticket == null) return null;
+
+        if (ticket.UserId != userId)
+        {
+            throw new UnauthorizedAccessException("You do not have permission to cancel this ticket.");
+        }
+
+        if (ticket.Status == TicketStatus.Resolved || ticket.Status == TicketStatus.Closed || ticket.Status == TicketStatus.Rejected)
+        {
+            throw new InvalidOperationException($"Cannot cancel a ticket that is already {ticket.Status}. Only tickets pending triage or in review may be cancelled.");
+        }
+
+        ticket.Status = TicketStatus.Closed;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var cancelAudit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "TICKET_CANCELLED",
+            ActorRole = "Traveler",
+            ActorId = userId.ToString(),
+            Details = "Ticket cancelled by traveler.",
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(cancelAudit, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
+
+    public async Task<TicketResponseDto?> AddFollowupNoteAsync(Guid ticketId, Guid userId, string note, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken);
+
+        if (ticket == null) return null;
+
+        if (ticket.UserId != userId)
+        {
+            throw new UnauthorizedAccessException("You do not have permission to add a follow-up note to this ticket.");
+        }
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            throw new ArgumentException("Follow-up note cannot be empty.", nameof(note));
+        }
+
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "TRAVELER_FOLLOWUP",
+            ActorRole = "Traveler",
+            ActorId = userId.ToString(),
+            Details = note.Trim(),
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
+        ticket.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
+
+    public async Task<TicketResponseDto?> SendCustomerReplyAsync(Guid ticketId, string replyMessage, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken);
+
+        if (ticket == null) return null;
+
+        ticket.DraftReplyMessage = replyMessage;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var recipientEmail = ticket.User?.Email ?? "traveler@travyle.com";
+        var recipientName = ticket.User?.FullName ?? "Traveler";
+
+        await _notificationService.SendCustomerReplyNotificationAsync(recipientEmail, recipientName, ticket.Title, replyMessage);
+
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "ADMIN_REPLY_SENT",
+            ActorRole = "Support_Admin",
+            ActorId = adminUserId.ToString(),
+            Details = $"Customer Support Admin approved and sent response to traveler: \"{(replyMessage.Length > 150 ? replyMessage[..150] + "..." : replyMessage)}\"",
+            MetadataJson = JsonSerializer.Serialize(new { replyMessage, sentAt = DateTime.UtcNow, recipientEmail }),
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticketId, cancellationToken);
     }
 }

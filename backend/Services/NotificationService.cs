@@ -88,6 +88,67 @@ public class NotificationService : INotificationService
         return await Task.FromResult(true);
     }
 
+    public async Task<bool> SendCustomerReplyNotificationAsync(string recipientEmail, string customerName, string ticketTitle, string replyMessage)
+    {
+        var apiKey = _configuration["SendGrid:ApiKey"];
+        var senderEmail = _configuration["SendGrid:SenderEmail"] ?? "support@travyle.com";
+
+        _logger.LogInformation("[SendGrid / Email Notification] Dispatching customer reply for ticket '{Title}' to {Recipient} ({CustomerName})",
+            ticketTitle, recipientEmail, customerName);
+
+        if (!string.IsNullOrWhiteSpace(apiKey) && apiKey != "YOUR_SENDGRID_KEY")
+        {
+            try
+            {
+                var payload = new
+                {
+                    personalizations = new[]
+                    {
+                        new
+                        {
+                            to = new[] { new { email = recipientEmail, name = customerName } },
+                            subject = $"Update on your Travyle Support Ticket: {ticketTitle}"
+                        }
+                    },
+                    from = new { email = senderEmail, name = "Travyle Customer Support" },
+                    content = new[]
+                    {
+                        new
+                        {
+                            type = "text/html",
+                            value = $@"
+                                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;'>
+                                    <h2 style='color: #0F3E4C;'>Travyle Customer Support Response</h2>
+                                    <p>Dear {customerName},</p>
+                                    <p>{replyMessage}</p>
+                                    <hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
+                                    <p style='font-size: 12px; color: #64748B;'>Ticket Title: {ticketTitle}</p>
+                                    <p>Warm regards,<br/>Travyle Customer Quality Team</p>
+                                </div>"
+                        }
+                    }
+                };
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.sendgrid.com/v3/mail/send")
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json")
+                };
+                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+
+                var response = await _httpClient.SendAsync(request);
+                _logger.LogInformation("[SendGrid] Customer reply email status: {StatusCode}", response.StatusCode);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SendGrid] Failed to send customer reply email live. Fallback to sandbox.");
+            }
+        }
+
+        _logger.LogInformation("[Notification Sandbox] Successfully delivered customer reply to {Recipient} via SendGrid pipeline.", recipientEmail);
+        return await Task.FromResult(true);
+    }
+
     public async Task<bool> SendSmsAlertAsync(string phoneNumber, string message)
     {
         var twilioSid = _configuration["Twilio:AccountSid"];

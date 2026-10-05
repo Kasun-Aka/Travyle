@@ -1,24 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Travyle.Api.DTOs;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Auth;
 
 namespace Travyle.Api.Controllers;
 
 [ApiController]
 [Route("api/support/reviews")]
-public class ReviewsController : ControllerBase
+public class ReviewsController : SupportControllerBase
 {
     private readonly ISupportService _supportService;
     private readonly ILogger<ReviewsController> _logger;
 
-    public ReviewsController(ISupportService supportService, ILogger<ReviewsController> logger)
+    public ReviewsController(
+        ISupportService supportService,
+        IFirebaseIdentityService identityService,
+        ILogger<ReviewsController> logger) : base(identityService)
     {
         _supportService = supportService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Fetch verified traveler ratings/feedback across all tours or specific tour.
+    /// Fetch verified traveler ratings/feedback across all tours or specific tour. Public read.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<ReviewResponseDto>>> GetAllReviews(CancellationToken cancellationToken)
@@ -28,7 +32,7 @@ public class ReviewsController : ControllerBase
     }
 
     /// <summary>
-    /// Fetch verified traveler ratings/feedback for a specific tour or destination.
+    /// Fetch verified traveler ratings/feedback for a specific tour or destination. Public read.
     /// </summary>
     [HttpGet("{tourId:guid}")]
     public async Task<ActionResult<List<ReviewResponseDto>>> GetReviewsByTour(Guid tourId, CancellationToken cancellationToken)
@@ -38,15 +42,20 @@ public class ReviewsController : ControllerBase
     }
 
     /// <summary>
-    /// Traveler submits a review and rating for a tour.
+    /// Traveler submits a review and rating for a tour. The author is always the verified signed-in user.
     /// </summary>
     [HttpPost]
     public async Task<ActionResult<ReviewResponseDto>> CreateReview([FromBody] CreateReviewDto dto, CancellationToken cancellationToken)
     {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+
+        dto.UserId = user.Id;
 
         try
         {
@@ -61,11 +70,15 @@ public class ReviewsController : ControllerBase
     }
 
     /// <summary>
-    /// Toggle verification status for a customer review.
+    /// Toggle verification status for a customer review. Staff only.
     /// </summary>
     [HttpPut("{id:guid}/verify")]
     public async Task<ActionResult<ReviewResponseDto>> ToggleVerification(Guid id, [FromQuery] bool isVerified = true, CancellationToken cancellationToken = default)
     {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+        if (!IsStaff(user)) return StaffOnly();
+
         try
         {
             var review = await _supportService.ToggleReviewVerificationAsync(id, isVerified, cancellationToken);
@@ -83,11 +96,15 @@ public class ReviewsController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a customer review.
+    /// Delete a customer review. Staff only.
     /// </summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteReview(Guid id, CancellationToken cancellationToken)
     {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+        if (!IsStaff(user)) return StaffOnly();
+
         var success = await _supportService.DeleteReviewAsync(id, cancellationToken);
         if (!success)
         {

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Travyle.Api.Data;
 using Travyle.Api.Repositories;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Agent;
 using Travyle.Api.Services.Auth;
 
 // Allow flexible DateTime kinds in PostgreSQL
@@ -39,6 +40,7 @@ builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddHttpClient<NotificationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ISupportAiAgentService, SupportAiAgentService>();
+builder.Services.AddScoped<ICheckUserReviewHistoryTool, CheckUserReviewHistoryTool>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
 // ─── Booking Vertical DI ─────────────────────────────────────────────────────
