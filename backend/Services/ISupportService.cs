@@ -30,4 +30,5 @@ public interface ISupportService
     Task<UserSupportActivityDto> GetUserActivityAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<TicketResponseDto?> CancelTicketAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
     Task<TicketResponseDto?> AddFollowupNoteAsync(Guid ticketId, Guid userId, string note, CancellationToken cancellationToken = default);
+    Task<TicketResponseDto?> SendCustomerReplyAsync(Guid ticketId, string replyMessage, Guid adminUserId, CancellationToken cancellationToken = default);
 }

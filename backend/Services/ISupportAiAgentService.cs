@@ -1,5 +1,6 @@
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
+using Travyle.Api.Services.Agent;
 
 namespace Travyle.Api.Services;
 
@@ -27,7 +28,8 @@ public record AgentTriageOutput(
     string Reasoning,
     AgentVoucherProposal? ProposedVoucher,
     bool IsFallbackUsed,
-    List<AuditLogResponseDto> AuditLogs
+    List<AuditLogResponseDto> AuditLogs,
+    string? DraftReplyMessage = null
 );
 
 public interface ISupportQualityAgent
@@ -41,4 +43,5 @@ public interface ISupportAiAgentService : ISupportQualityAgent
     Task<double> CalculateSentimentScoreAsync(string text);
     Task<string> DetermineSeverityTierAsync(string text, double sentimentScore, TicketPriority priority);
     Task<(bool isEligible, decimal amount, string reason)> EvaluateGoodwillEligibilityAsync(SupportTicket ticket, string severityTier);
+    Task<(bool isEligible, decimal amount, string reason)> EvaluateGoodwillEligibilityAsync(AgentTicketInput input, string severityTier, CheckVoucherHistoryOutput? voucherHistory, CheckBookingHistoryOutput? bookingHistory = null, CheckReviewHistoryOutput? reviewHistory = null);
 }

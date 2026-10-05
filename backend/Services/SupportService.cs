@@ -165,6 +165,7 @@ public class SupportService : ISupportService
                 SeverityTier = t.SeverityTier,
                 AiReasoning = t.AiReasoning,
                 ResolutionSummary = t.ResolutionSummary,
+                DraftReplyMessage = t.DraftReplyMessage,
                 CreatedAt = t.CreatedAt,
                 UpdatedAt = t.UpdatedAt,
                 AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
@@ -231,6 +232,7 @@ public class SupportService : ISupportService
             SeverityTier = t.SeverityTier,
             AiReasoning = t.AiReasoning,
             ResolutionSummary = t.ResolutionSummary,
+            DraftReplyMessage = t.DraftReplyMessage,
             CreatedAt = t.CreatedAt,
             UpdatedAt = t.UpdatedAt,
             AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
@@ -940,5 +942,39 @@ public class SupportService : ISupportService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
+
+    public async Task<TicketResponseDto?> SendCustomerReplyAsync(Guid ticketId, string replyMessage, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken);
+
+        if (ticket == null) return null;
+
+        ticket.DraftReplyMessage = replyMessage;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var recipientEmail = ticket.User?.Email ?? "traveler@travyle.com";
+        var recipientName = ticket.User?.FullName ?? "Traveler";
+
+        await _notificationService.SendCustomerReplyNotificationAsync(recipientEmail, recipientName, ticket.Title, replyMessage);
+
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "ADMIN_REPLY_SENT",
+            ActorRole = "Support_Admin",
+            ActorId = adminUserId.ToString(),
+            Details = $"Customer Support Admin approved and sent response to traveler: \"{(replyMessage.Length > 150 ? replyMessage[..150] + "..." : replyMessage)}\"",
+            MetadataJson = JsonSerializer.Serialize(new { replyMessage, sentAt = DateTime.UtcNow, recipientEmail }),
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticketId, cancellationToken);
     }
 }

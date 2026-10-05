@@ -354,4 +354,36 @@ public class SupportTicketsController : SupportControllerBase
             return StatusCode(500, new { message = "An error occurred while adding the follow-up note." });
         }
     }
+
+    /// <summary>
+    /// Feature 1: Admin explicitly reviews/edits and sends the AI-drafted reply message to the traveler.
+    /// Dispatches email notification via SendGrid and logs an ADMIN_REPLY_SENT audit entry. Staff only.
+    /// </summary>
+    [HttpPost("{id:guid}/send-reply")]
+    public async Task<ActionResult<TicketResponseDto>> SendCustomerReply(Guid id, [FromBody] SendTicketReplyDto dto, CancellationToken cancellationToken)
+    {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+        if (!IsStaff(user)) return StaffOnly();
+
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(dto.ReplyMessage))
+        {
+            return BadRequest(new { message = "Reply message cannot be empty." });
+        }
+
+        try
+        {
+            var result = await _supportService.SendCustomerReplyAsync(id, dto.ReplyMessage, user.Id, cancellationToken);
+            if (result == null)
+            {
+                return NotFound(new { message = $"Ticket with ID {id} was not found." });
+            }
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending customer reply for ticket {TicketId}", id);
+            return StatusCode(500, new { message = "An error occurred while sending the customer reply." });
+        }
+    }
 }
