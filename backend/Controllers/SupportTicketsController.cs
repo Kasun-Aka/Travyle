@@ -315,4 +315,43 @@ public class SupportTicketsController : SupportControllerBase
             return StatusCode(500, new { message = "An error occurred while cancelling the ticket." });
         }
     }
+
+    /// <summary>
+    /// Feature 2 (Mobile): Attach an append-only follow-up note to an existing ticket without modifying original fields.
+    /// Must verify the requesting user owns the ticket.
+    /// </summary>
+    [HttpPost("{id:guid}/followup")]
+    public async Task<ActionResult<TicketResponseDto>> AddFollowupNote(Guid id, [FromBody] CreateFollowupDto dto, CancellationToken cancellationToken)
+    {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var result = await _supportService.AddFollowupNoteAsync(id, user.Id, dto.Note, cancellationToken);
+            if (result == null)
+            {
+                return NotFound(new { message = $"Ticket with ID {id} was not found." });
+            }
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding follow-up note to ticket {TicketId}", id);
+            return StatusCode(500, new { message = "An error occurred while adding the follow-up note." });
+        }
+    }
 }

@@ -46,6 +46,13 @@ public class UpdateTicketDto
     public string? AttachmentUrl { get; set; }
 }
 
+public class CreateFollowupDto
+{
+    [Required]
+    [MaxLength(2000)]
+    public string Note { get; set; } = string.Empty;
+}
+
 public class UpdateTicketStatusDto
 {
     [Required]

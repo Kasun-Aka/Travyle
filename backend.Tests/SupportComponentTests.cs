@@ -589,11 +589,13 @@ public class SupportComponentTests
         var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
         var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
 
-        var userId = Guid.NewGuid();
+        var user = new User { Id = Guid.NewGuid(), Email = "traveler.cancel@example.com", FullName = "Cancel User" };
+        await db.Users.AddAsync(user);
+
         var ticket = new SupportTicket
         {
             Id = Guid.NewGuid(),
-            UserId = userId,
+            UserId = user.Id,
             Title = "Ticket to Cancel",
             Description = "Cancel test",
             Status = TicketStatus.Pending_AI_Triage,
@@ -603,11 +605,47 @@ public class SupportComponentTests
         await db.SaveChangesAsync();
 
         // Act
-        var cancelled = await supportService.CancelTicketAsync(ticket.Id, userId);
+        var cancelled = await supportService.CancelTicketAsync(ticket.Id, user.Id);
 
         // Assert
         Assert.NotNull(cancelled);
         Assert.Equal("Closed", cancelled.Status);
         Assert.Contains(cancelled.AuditLogs, a => a.Action == "TICKET_CANCELLED");
+    }
+
+    [Fact]
+    public async Task AddFollowupNoteAsync_ShouldAddAuditLogWithTravelerFollowup()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var user = new User { Id = Guid.NewGuid(), Email = "traveler.followup@example.com", FullName = "Followup User" };
+        await db.Users.AddAsync(user);
+
+        var ticket = new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Title = "Followup Test Ticket",
+            Description = "Original complaint statement",
+            Status = TicketStatus.In_Review,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SupportTickets.Add(ticket);
+        await db.SaveChangesAsync();
+
+        var noteText = "Additional details: driver phoned at 10 AM to inform about traffic.";
+
+        // Act
+        var result = await supportService.AddFollowupNoteAsync(ticket.Id, user.Id, noteText);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Original complaint statement", result.Description); // Original description immutable
+        Assert.Contains(result.AuditLogs, a => a.Action == "TRAVELER_FOLLOWUP" && a.Details == noteText);
     }
 }

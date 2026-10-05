@@ -903,4 +903,42 @@ public class SupportService : ISupportService
 
         return await GetTicketByIdAsync(ticket.Id, cancellationToken);
     }
+
+    public async Task<TicketResponseDto?> AddFollowupNoteAsync(Guid ticketId, Guid userId, string note, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .FirstOrDefaultAsync(t => t.Id == ticketId, cancellationToken);
+
+        if (ticket == null) return null;
+
+        if (ticket.UserId != userId)
+        {
+            throw new UnauthorizedAccessException("You do not have permission to add a follow-up note to this ticket.");
+        }
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            throw new ArgumentException("Follow-up note cannot be empty.", nameof(note));
+        }
+
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "TRAVELER_FOLLOWUP",
+            ActorRole = "Traveler",
+            ActorId = userId.ToString(),
+            Details = note.Trim(),
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(audit, cancellationToken);
+        ticket.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
 }
