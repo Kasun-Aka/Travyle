@@ -5,11 +5,9 @@ import { Activity, TicketCheck, Gift, Star, RefreshCw } from 'lucide-react';
 export default function AnalyticsStrip() {
   const [data, setData] = useState<SupportAnalytics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchAnalytics = async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await supportApi.getAnalytics();
       setData(res.data);

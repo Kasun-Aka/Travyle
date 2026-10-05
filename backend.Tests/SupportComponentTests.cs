@@ -5,6 +5,7 @@ using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
 using Travyle.Api.Services;
+using Travyle.Api.Services.Agent;
 using Xunit;
 
 namespace Travyle.Api.Tests;

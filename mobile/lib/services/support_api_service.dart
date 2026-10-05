@@ -294,4 +294,52 @@ class SupportApiService {
       return null;
     }
   }
+
+  /// Fetches available destinations/tours from the backend API for reviews selection.
+  Future<List<Map<String, String>>> getAvailableTours() async {
+    final List<Map<String, String>> tours = [
+      {
+        'id': '33333333-3333-3333-3333-333333333333',
+        'title': 'Alpine Excursion & Scenic Rail Tour',
+      },
+      {
+        'id': '11111111-1111-1111-1111-111111111111',
+        'title': 'Ella Gap & Nine Arch Bridge Trek',
+      },
+      {
+        'id': '22222222-2222-2222-2222-222222222222',
+        'title': 'Sigiriya Fortress & Minneriya Wildlife Safari',
+      },
+      {
+        'id': '44444444-4444-4444-4444-444444444444',
+        'title': 'Galle Fort & Southern Coast Coastal Odyssey',
+      },
+    ];
+
+    try {
+      final response = await _dio.get('/destinations');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        List<dynamic>? items;
+        if (data is Map && data.containsKey('items')) {
+          items = data['items'] as List<dynamic>?;
+        } else if (data is List) {
+          items = data;
+        }
+
+        if (items != null) {
+          for (var item in items) {
+            final id = item['id']?.toString();
+            final name = item['name']?.toString();
+            if (id != null && name != null && !tours.any((t) => t['id'] == id)) {
+              tours.add({'id': id, 'title': name});
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SupportApiService] Fetch destinations for review fallback: $e');
+    }
+    return tours;
+  }
 }
