@@ -342,4 +342,17 @@ class SupportApiService {
     }
     return tours;
   }
+
+  Future<SupportTicketModel?> cancelTicket(String id) async {
+    try {
+      final response = await _dio.post('/support/tickets/$id/cancel');
+      if (response.statusCode == 200 && response.data != null) {
+        return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error cancelling ticket: $e');
+      return null;
+    }
+  }
 }

@@ -34,6 +34,50 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     });
   }
 
+  bool get _canCancel =>
+      _ticket != null &&
+      (_ticket!.status == 'Pending_AI_Triage' || _ticket!.status == 'In_Review');
+
+  Future<void> _showCancelConfirmationDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Ticket?'),
+        content: const Text(
+          'Are you sure you want to cancel this ticket? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Ticket'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel Ticket'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      final updatedTicket = await _apiService.cancelTicket(widget.ticketId);
+      if (!mounted) return;
+      if (updatedTicket != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ticket cancelled successfully.')),
+        );
+        _loadTicket();
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to cancel ticket. Please try again.')),
+        );
+      }
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Pending_Admin_Voucher_Approval':
@@ -44,6 +88,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         return Colors.green.shade700;
       case 'In_Review':
         return Colors.blue.shade700;
+      case 'Closed':
+        return Colors.grey.shade700;
       default:
         return Colors.grey.shade700;
     }
@@ -59,6 +105,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         return '🔍 In Review';
       case 'Resolved':
         return '✓ Claim Resolved';
+      case 'Closed':
+        return '🚫 Ticket Cancelled / Closed';
       default:
         return status;
     }
@@ -143,6 +191,27 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                             ],
                           ),
                         ),
+                        if (_canCancel) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _showCancelConfirmationDialog,
+                              icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                              label: const Text(
+                                'Cancel Ticket',
+                                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 20),
 
                         // Description & Photo
