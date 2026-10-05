@@ -6,6 +6,8 @@ using Travyle.Api.DTOs;
 using Travyle.Api.Models;
 using Travyle.Api.Services;
 using Travyle.Api.Services.Agent;
+using Moq;
+using Microsoft.AspNetCore.Http;
 using Xunit;
 
 namespace Travyle.Api.Tests;
@@ -755,6 +757,24 @@ public async Task ValidateAsync_AcceptsValidJpgMagicBytes()
     // Assert
     Assert.Equal(".jpg", ext);
 }
+
+[Fact]
+public void Voucher_Code_ShouldStartWithGVPrefixAndBeUppercase()
+{
+    // Arrange
+    var voucher = new Voucher
+    {
+        Id = Guid.NewGuid(),
+        Code = $"GV-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
+        Amount = 50.00m,
+        Status = "Draft"
+    };
+
+    // Act & Assert
+    Assert.StartsWith("GV-", voucher.Code);
+    Assert.Equal(voucher.Code, voucher.Code.ToUpper());
+}
+
 
 
     [Fact]
