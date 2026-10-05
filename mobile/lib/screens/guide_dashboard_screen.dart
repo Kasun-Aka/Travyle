@@ -15,6 +15,7 @@ class GuideDashboardScreen extends StatefulWidget {
 class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
   Map<String, dynamic>? _dashboardData;
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -25,12 +26,17 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
   Future<void> _fetchDashboardData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('Dashboard: No authenticated user found');
+        if (mounted) setState(() { _isLoading = false; _errorMessage = 'Not signed in'; });
+        return;
+      }
       
       final dio = Dio();
       const String envUrl = String.fromEnvironment('API_BASE_URL');
       final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
       final idToken = await user.getIdToken();
+      debugPrint('Dashboard: Fetching from $baseUrl/api/operations/dashboard?email=${user.email}');
       final response = await dio.get(
         '$baseUrl/api/operations/dashboard',
         queryParameters: {'email': user.email},
@@ -38,16 +44,54 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       );
 
       if (mounted) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          setState(() {
+            _dashboardData = data;
+            _isLoading = false;
+          });
+        } else if (data is Map) {
+          setState(() {
+            _dashboardData = Map<String, dynamic>.from(data);
+            _isLoading = false;
+          });
+        } else {
+          debugPrint('Dashboard: Unexpected response type: ${data.runtimeType}');
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Unexpected response format';
+          });
+        }
+      }
+    } on DioException catch (e) {
+      debugPrint('Dashboard DioError: ${e.type} - ${e.message}');
+      debugPrint('Dashboard response status: ${e.response?.statusCode}');
+      debugPrint('Dashboard response data: ${e.response?.data}');
+      if (mounted) {
+        String errorMsg;
+        if (e.response?.statusCode == 404) {
+          errorMsg = 'User not found in backend database';
+        } else if (e.response?.statusCode == 500) {
+          final data = e.response?.data;
+          if (data is Map && data['details'] != null) {
+            errorMsg = 'Server error: ${data['details']}';
+          } else {
+            errorMsg = 'Internal server error (500)';
+          }
+        } else {
+          errorMsg = 'Connection error: ${e.message}';
+        }
         setState(() {
-          _dashboardData = response.data;
           _isLoading = false;
+          _errorMessage = errorMsg;
         });
       }
     } catch (e) {
-      debugPrint('Failed to load dashboard: $e');
+      debugPrint('Dashboard error: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _errorMessage = e.toString();
         });
       }
     }
@@ -62,8 +106,30 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
     }
 
     if (_dashboardData == null) {
-      return const Scaffold(
-        body: Center(child: Text('Failed to load data.')),
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage ?? 'Failed to load data.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() { _isLoading = true; _errorMessage = null; });
+                  _fetchDashboardData();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
