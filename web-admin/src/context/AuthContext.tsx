@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   dbUser: null,
   loading: true,
-  logout: async () => {},
+  logout: async () => { },
   refreshUser: async () => null,
 });
 
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         firebaseUid: user.uid,
         email: user.email || '',
         fullName: user.displayName || user.email?.split('@')[0] || 'Admin',
-        role: 'Admin', // Web app is Admin
+        role: dbUser.role || 'Admin'
       });
       return res.data;
     } catch (error) {
@@ -56,11 +56,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
-      setCurrentUser(user);
       if (user && user.email) {
-        const synced = await syncUserWithBackend(user);
-        setDbUser(synced);
+        try {
+          const synced = await syncUserWithBackend(user);
+          // Batch updates together so components receive both at the same time
+          setCurrentUser(user);
+          setDbUser(synced);
+        } catch (err) {
+          console.error("Auth initialization error:", err);
+          setCurrentUser(user);
+          setDbUser(null);
+        }
       } else {
+        setCurrentUser(null);
         setDbUser(null);
       }
       setLoading(false);

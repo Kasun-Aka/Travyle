@@ -13,10 +13,18 @@ export default function Login() {
   const navigate = useNavigate();
   const { currentUser, dbUser, loading: authLoading } = useAuth();
 
-  // If already authenticated as Admin/Operator, navigate to dashboard
+  // Handle redirect once authContext finishes loading user data
   useEffect(() => {
-    if (!authLoading && currentUser && dbUser && ["admin", "operator"].includes(dbUser.role?.toLowerCase())) {
-      navigate('/welcome', { replace: true });
+    if (!authLoading && currentUser) {
+      // If dbUser exists, navigate based on role or fallback to welcome
+      if (dbUser) {
+        const userRole = dbUser.role?.toLowerCase() || '';
+        if (['admin', 'tour operator'].includes(userRole)) {
+          navigate('/welcome', { replace: true });
+        } else {
+          setError('Access denied: Admin or Operator permissions required.');
+        }
+      }
     }
   }, [currentUser, dbUser, authLoading, navigate]);
 
@@ -27,10 +35,15 @@ export default function Login() {
 
     try {
       if (!auth) {
-        throw new Error('Firebase is not configured. Add the VITE_FIREBASE_* values to web-admin/.env.');
+        throw new Error('Firebase is not configured. Add the VITE_FIREBASE_* values to environment variables.');
       }
+
+      // 1. Authenticate with Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/welcome');
+
+      // Note: Do NOT call navigate('/welcome') here directly.
+      // Let AuthContext fetch dbUser and trigger the useEffect above once token sync completes.
+
     } catch (err: any) {
       console.error("Login error:", err);
       let msg = 'Failed to login';
@@ -42,7 +55,6 @@ export default function Login() {
         msg = err.message;
       }
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
@@ -58,7 +70,7 @@ export default function Login() {
             <p className="mt-[2px] mb-0 text-xs text-slate-400">Admin console</p>
           </div>
         </div>
-        
+
         <div className="mt-auto opacity-50">
           <div className="h-px bg-slate-700 mb-4"></div>
           <p className="text-xs text-slate-400">Secure Access Portal</p>
@@ -88,12 +100,12 @@ export default function Login() {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@travyle.io"
+                placeholder="admin@travyle.com"
                 required
                 className="px-4 py-3 border border-slate-300 rounded-lg text-[15px] text-slate-900 transition-all duration-200 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 font-inherit"
               />
             </div>
-            
+
             <div className="flex flex-col gap-2">
               <label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</label>
               <input
@@ -115,12 +127,12 @@ export default function Login() {
               <a href="#" className="text-sm text-indigo-600 font-medium no-underline hover:underline">Forgot password?</a>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
+            <button
+              type="submit"
+              disabled={loading || authLoading}
               className="bg-indigo-600 text-white border-none rounded-lg p-3.5 text-[15px] font-semibold cursor-pointer transition-colors duration-200 flex justify-center items-center gap-2 font-inherit hover:bg-indigo-700 disabled:opacity-50"
             >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : 'Sign In to Console'}
+              {loading || authLoading ? <Loader2 size={18} className="animate-spin" /> : 'Sign In to Console'}
             </button>
           </form>
 
