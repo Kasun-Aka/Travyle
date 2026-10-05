@@ -126,7 +126,20 @@ try
     var db = scope.ServiceProvider.GetRequiredService<TravyleDbContext>();
     if (db.Database.CanConnect())
     {
-        db.Database.Migrate();
+        try
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE \"SupportTickets\" ADD COLUMN IF NOT EXISTS \"DraftReplyMessage\" text;");
+        }
+        catch { }
+
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Could not apply all EF Core migrations automatically; fallback raw SQL schema updates applied.");
+        }
         await DbSeeder.SeedAsync(db);
     }
 }
