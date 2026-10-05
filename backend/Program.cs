@@ -40,6 +40,7 @@ builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddHttpClient<NotificationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ISupportAiAgentService, SupportAiAgentService>();
+builder.Services.AddScoped<ICheckUserReviewHistoryTool, CheckUserReviewHistoryTool>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 
 // ─── Booking Vertical DI ─────────────────────────────────────────────────────
