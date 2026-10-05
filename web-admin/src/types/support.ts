@@ -54,6 +54,7 @@ export interface SupportTicketItem {
   severityTier: string;
   aiReasoning?: string;
   resolutionSummary?: string;
+  draftReplyMessage?: string;
   createdAt: string;
   updatedAt: string;
   auditLogs: AuditLogItem[];

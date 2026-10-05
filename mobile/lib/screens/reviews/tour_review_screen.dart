@@ -23,12 +23,20 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
   final _commentController = TextEditingController();
   bool _isSubmitting = false;
 
+  late String _activeTourId;
+  late String _activeTourTitle;
+  List<Map<String, String>> _availableTours = [];
+  bool _isLoadingTours = true;
+
   List<CustomerReviewModel> _reviews = [];
   bool _isLoadingReviews = true;
 
   @override
   void initState() {
     super.initState();
+    _activeTourId = widget.tourId;
+    _activeTourTitle = widget.tourTitle;
+    _loadAvailableTours();
     _loadReviews();
   }
 
@@ -38,9 +46,25 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
     super.dispose();
   }
 
+  Future<void> _loadAvailableTours() async {
+    final tours = await _apiService.getAvailableTours();
+    if (!mounted) return;
+    setState(() {
+      _availableTours = tours;
+      _isLoadingTours = false;
+      // Ensure active tour matches list if available
+      final match = tours.firstWhere(
+        (t) => t['id'] == _activeTourId,
+        orElse: () => tours.isNotEmpty ? tours.first : {'id': _activeTourId, 'title': _activeTourTitle},
+      );
+      _activeTourId = match['id']!;
+      _activeTourTitle = match['title']!;
+    });
+  }
+
   Future<void> _loadReviews() async {
     setState(() => _isLoadingReviews = true);
-    final results = await _apiService.getReviewsByTour(widget.tourId);
+    final results = await _apiService.getReviewsByTour(_activeTourId);
     if (!mounted) return;
     setState(() {
       _reviews = results;
@@ -57,10 +81,12 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    final userId = await _apiService.getCurrentUserId();
     final created = await _apiService.createReview(
-      tourId: widget.tourId,
+      tourId: _activeTourId,
       rating: _selectedRating,
       comment: _commentController.text.trim(),
+      userId: userId,
     );
 
     if (!mounted) return;
@@ -98,7 +124,7 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Info
+            // Header Info with Tour Selector Dropdown
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -110,9 +136,49 @@ class _TourReviewScreenState extends State<TourReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('TOUR EXPERIENCE', style: TextStyle(color: AppTheme.coral, fontSize: 11, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(widget.tourTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('SELECT TOUR EXPERIENCE', style: TextStyle(color: AppTheme.coral, fontSize: 11, fontWeight: FontWeight.bold)),
+                      if (_isLoadingTours)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  if (_availableTours.isNotEmpty)
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _availableTours.any((t) => t['id'] == _activeTourId) ? _activeTourId : _availableTours.first['id'],
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryDark),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                        onChanged: (String? newTourId) {
+                          if (newTourId == null) return;
+                          final selected = _availableTours.firstWhere((t) => t['id'] == newTourId);
+                          setState(() {
+                            _activeTourId = newTourId;
+                            _activeTourTitle = selected['title'] ?? 'Tour Experience';
+                          });
+                          _loadReviews();
+                        },
+                        items: _availableTours.map<DropdownMenuItem<String>>((Map<String, String> tour) {
+                          return DropdownMenuItem<String>(
+                            value: tour['id'],
+                            child: Text(
+                              tour['title'] ?? 'Tour Destination',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    )
+                  else
+                    Text(_activeTourTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryDark)),
                 ],
               ),
             ),

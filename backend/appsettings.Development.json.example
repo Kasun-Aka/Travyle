@@ -12,5 +12,8 @@
     "ProjectId": "PROJECT_ID",
     "ClientEmail": "CLIENT_EMAIL",
     "PrivateKey": "PRIVATE_KEY"
+  },
+  "Gemini": {
+    "ApiKey": "YOUR_GEMINI_API_KEY"
   }
 }

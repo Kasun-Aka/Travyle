@@ -2,7 +2,7 @@ name: CI — Travyle IT24104383
 
 on:
   push:
-    branches: [ "IT24104383", "development", "it24104383-final" ]
+    branches: [ "IT24101474", "development" ]
   pull_request:
     branches: [ "development" ]
 

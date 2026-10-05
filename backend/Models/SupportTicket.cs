@@ -59,6 +59,8 @@ public class SupportTicket
 
     public Guid? AssignedToAdminId { get; set; }
 
+    public string? DraftReplyMessage { get; set; }
+
     public bool IsDeleted { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/support_ticket.dart';
 import '../models/voucher.dart';
 import '../models/customer_review.dart';
 
 class SupportApiService {
+  static String? currentUserId;
+
   static String get baseUrl {
     const String envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return '$envUrl/api';
@@ -19,17 +22,78 @@ class SupportApiService {
 
   final Dio _dio;
 
+  /// Attaches the signed-in user's Firebase ID token to every request.
+  static Dio _withAuth(Dio dio) {
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        try {
+          final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        } catch (e) {
+          debugPrint('[SupportApiService] Could not read Firebase token: $e');
+        }
+        handler.next(options);
+      },
+    ));
+    return dio;
+  }
+
   SupportApiService({Dio? dio})
       : _dio = dio ??
-            Dio(BaseOptions(
+            _withAuth(Dio(BaseOptions(
               baseUrl: baseUrl,
               connectTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
               headers: {'Content-Type': 'application/json'},
-            ));
+            )));
 
   // Default Demo Traveler ID
   static const String defaultTravelerId = '11111111-1111-1111-1111-111111111111';
+
+  /// Resolves real app-level user ID (Users.Id) for signed-in Firebase traveler.
+  Future<String?> getCurrentUserId() async {
+    if (currentUserId != null && currentUserId!.isNotEmpty) {
+      return currentUserId;
+    }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email != null) {
+        final idToken = await user.getIdToken();
+        final response = await _dio.get(
+          '/auth/user',
+          queryParameters: {'email': user.email},
+          options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final id = (response.data['id'] ?? response.data['Id'])?.toString();
+          if (id != null && id.isNotEmpty) {
+            currentUserId = id;
+            return id;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SupportApiService] Error fetching current user ID with token: $e');
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user?.email != null) {
+          final response = await _dio.get('/auth/user', queryParameters: {'email': user!.email});
+          if (response.statusCode == 200 && response.data != null) {
+            final id = (response.data['id'] ?? response.data['Id'])?.toString();
+            if (id != null && id.isNotEmpty) {
+              currentUserId = id;
+              return id;
+            }
+          }
+        }
+      } catch (fallbackErr) {
+        debugPrint('[SupportApiService] Fallback user fetch failed: $fallbackErr');
+      }
+    }
+    return null;
+  }
 
   // Support Tickets
   Future<List<SupportTicketModel>> getTickets({String? priority, String? status, String? search}) async {
@@ -50,7 +114,7 @@ class SupportApiService {
       debugPrint('[SupportApiService] Error fetching tickets ($baseUrl): $e');
       try {
         final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
-        final fallbackDio = Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5)));
+        final fallbackDio = _withAuth(Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5))));
         final response = await fallbackDio.get('/support/tickets', queryParameters: {
           if (priority != null && priority != 'ALL') 'priority': priority,
           if (status != null && status != 'ALL') 'status': status,
@@ -119,12 +183,12 @@ class SupportApiService {
       try {
         final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
         debugPrint('[SupportApiService] Attempting fallback endpoint: $fallbackHost/support/tickets');
-        final fallbackDio = Dio(BaseOptions(
+        final fallbackDio = _withAuth(Dio(BaseOptions(
           baseUrl: fallbackHost,
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
           headers: {'Content-Type': 'application/json'},
-        ));
+        )));
         final response = await fallbackDio.post('/support/tickets', data: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {
           return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
@@ -133,6 +197,35 @@ class SupportApiService {
         debugPrint('[SupportApiService] Fallback connection failed: $fallbackError');
       }
 
+      return null;
+    }
+  }
+
+  Future<String?> uploadTicketAttachment(Uint8List imageBytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(imageBytes, filename: filename),
+      });
+      final response = await _dio.post('/support/tickets/upload-attachment', data: formData);
+      if (response.statusCode == 200 && response.data != null) {
+        return response.data['url'] as String?;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error uploading attachment: $e');
+      try {
+        final fallbackHost = baseUrl.replaceAll(':5085', ':5000');
+        final fallbackDio = _withAuth(Dio(BaseOptions(baseUrl: fallbackHost, connectTimeout: const Duration(seconds: 5))));
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(imageBytes, filename: filename),
+        });
+        final response = await fallbackDio.post('/support/tickets/upload-attachment', data: formData);
+        if (response.statusCode == 200 && response.data != null) {
+          return response.data['url'] as String?;
+        }
+      } catch (fallbackError) {
+        debugPrint('[SupportApiService] Fallback uploadAttachment failed: $fallbackError');
+      }
       return null;
     }
   }
@@ -198,6 +291,83 @@ class SupportApiService {
       return null;
     } catch (e) {
       debugPrint('[SupportApiService] Error creating review: $e');
+      return null;
+    }
+  }
+
+  /// Fetches available destinations/tours from the backend API for reviews selection.
+  Future<List<Map<String, String>>> getAvailableTours() async {
+    final List<Map<String, String>> tours = [
+      {
+        'id': '33333333-3333-3333-3333-333333333333',
+        'title': 'Alpine Excursion & Scenic Rail Tour',
+      },
+      {
+        'id': '11111111-1111-1111-1111-111111111111',
+        'title': 'Ella Gap & Nine Arch Bridge Trek',
+      },
+      {
+        'id': '22222222-2222-2222-2222-222222222222',
+        'title': 'Sigiriya Fortress & Minneriya Wildlife Safari',
+      },
+      {
+        'id': '44444444-4444-4444-4444-444444444444',
+        'title': 'Galle Fort & Southern Coast Coastal Odyssey',
+      },
+    ];
+
+    try {
+      final response = await _dio.get('/destinations');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        List<dynamic>? items;
+        if (data is Map && data.containsKey('items')) {
+          items = data['items'] as List<dynamic>?;
+        } else if (data is List) {
+          items = data;
+        }
+
+        if (items != null) {
+          for (var item in items) {
+            final id = item['id']?.toString();
+            final name = item['name']?.toString();
+            if (id != null && name != null && !tours.any((t) => t['id'] == id)) {
+              tours.add({'id': id, 'title': name});
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SupportApiService] Fetch destinations for review fallback: $e');
+    }
+    return tours;
+  }
+
+  Future<SupportTicketModel?> cancelTicket(String id) async {
+    try {
+      final response = await _dio.post('/support/tickets/$id/cancel');
+      if (response.statusCode == 200 && response.data != null) {
+        return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error cancelling ticket: $e');
+      return null;
+    }
+  }
+
+  Future<SupportTicketModel?> addFollowupNote(String id, String note) async {
+    try {
+      final response = await _dio.post(
+        '/support/tickets/$id/followup',
+        data: {'note': note},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error adding follow-up note: $e');
       return null;
     }
   }
