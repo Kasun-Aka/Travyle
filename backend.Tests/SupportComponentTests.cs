@@ -648,4 +648,119 @@ public class SupportComponentTests
         Assert.Equal("Original complaint statement", result.Description); // Original description immutable
         Assert.Contains(result.AuditLogs, a => a.Action == "TRAVELER_FOLLOWUP" && a.Details == noteText);
     }
+
+    [Fact]
+    public async Task ProcessTicketAsync_ShouldDraftCustomerReply_AndLogAiReplyDrafted()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var agent = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+
+        var user = new User { Id = Guid.NewGuid(), Email = "draft.reply@example.com", FullName = "Reply User" };
+        await db.Users.AddAsync(user);
+        await db.SaveChangesAsync();
+
+        var input = new AgentTicketInput(
+            TicketId: Guid.NewGuid(),
+            UserId: user.Id,
+            Title: "Tour delay at sunset spot",
+            Description: "Bus was late by 45 minutes causing us to miss sunset photo session.",
+            Category: "TourDelay",
+            Priority: TicketPriority.High
+        );
+
+        // Act
+        var result = await agent.ProcessTicketAsync(input);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(string.IsNullOrWhiteSpace(result.DraftReplyMessage));
+        Assert.Contains(result.AuditLogs, a => a.Action == "AI_REPLY_DRAFTED");
+        Assert.Contains(result.AuditLogs, a => a.Action == "AI_RUN_SUMMARY" && a.MetadataJson.Contains("\"replyDrafted\":true"));
+    }
+
+    [Fact]
+    public async Task SendCustomerReplyAsync_ShouldDispatchNotification_AndLogAdminReplySent()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var user = new User { Id = Guid.NewGuid(), Email = "send.reply@example.com", FullName = "Recipient User" };
+        var admin = new User { Id = Guid.NewGuid(), Email = "admin@travyle.com", FullName = "Admin User", Role = "Admin" };
+        await db.Users.AddRangeAsync(user, admin);
+
+        var ticket = new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Title = "Hotel booking conflict",
+            Description = "Room was not ready upon arrival.",
+            Status = TicketStatus.In_Review,
+            DraftReplyMessage = "AI drafted initial reply message"
+        };
+        await db.SupportTickets.AddAsync(ticket);
+        await db.SaveChangesAsync();
+
+        var adminCustomReply = "Dear Recipient, we have investigated with the hotel manager and upgraded your room for tonight.";
+
+        // Act
+        var result = await supportService.SendCustomerReplyAsync(ticket.Id, adminCustomReply, admin.Id);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(adminCustomReply, result.DraftReplyMessage);
+        Assert.Contains(result.AuditLogs, a => a.Action == "ADMIN_REPLY_SENT" && a.ActorRole == "Support_Admin" && a.Details.Contains("upgraded your room"));
+    }
+
+    [Fact]
+    public async Task CheckUserReviewHistoryTool_WithLowRatings_ShouldSetHasLowRatingPattern_AndBeAuditedInAgent()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var user = new User { Id = Guid.NewGuid(), Email = "low.reviewer@example.com", FullName = "Low Rating User" };
+        await db.Users.AddAsync(user);
+
+        var review1 = new CustomerReview { Id = Guid.NewGuid(), UserId = user.Id, TourId = Guid.NewGuid(), Rating = 1, Comment = "Terrible experience", CreatedAt = DateTime.UtcNow.AddDays(-5) };
+        var review2 = new CustomerReview { Id = Guid.NewGuid(), UserId = user.Id, TourId = Guid.NewGuid(), Rating = 2, Comment = "Unsafe bus", CreatedAt = DateTime.UtcNow.AddDays(-10) };
+        await db.CustomerReviews.AddRangeAsync(review1, review2);
+        await db.SaveChangesAsync();
+
+        var reviewTool = new CheckUserReviewHistoryTool(db);
+        var toolResult = await reviewTool.ExecuteAsync(new CheckReviewHistoryInput(user.Id, 180));
+
+        Assert.Equal(2, toolResult.TotalReviewsCount);
+        Assert.Equal(1.5, toolResult.AverageRating);
+        Assert.True(toolResult.HasLowRatingPattern);
+
+        var agent = new SupportAiAgentService(
+            db,
+            new CheckUserVoucherHistoryTool(db),
+            new HttpClient(),
+            new ConfigurationBuilder().Build(),
+            NullLogger<SupportAiAgentService>.Instance,
+            new CheckBookingHistoryTool(db),
+            reviewTool
+        );
+
+        var input = new AgentTicketInput(
+            TicketId: Guid.NewGuid(),
+            UserId: user.Id,
+            Title: "General inquiry about pickup time",
+            Description: "What time is pickup tomorrow?",
+            Category: "General",
+            Priority: TicketPriority.Low
+        );
+
+        // Act
+        var agentOutput = await agent.ProcessTicketAsync(input);
+
+        // Assert
+        Assert.Contains(agentOutput.AuditLogs, a => a.Action == "AI_TOOL_CHECK_REVIEW_HISTORY" && a.MetadataJson.Contains("\"HasLowRatingPattern\":true"));
+        Assert.NotNull(agentOutput.ProposedVoucher); // Low rating pattern triggered goodwill voucher compensation
+        Assert.Contains("Priority Customer Care", agentOutput.ProposedVoucher.Reason);
+    }
 }
