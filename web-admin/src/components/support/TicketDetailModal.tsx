@@ -19,10 +19,36 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [customAmount, setCustomAmount] = useState<number>(50);
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [statusSelection, setStatusSelection] = useState<TicketStatus>(ticket.status);
+  const [draftReply, setDraftReply] = useState<string>(ticket.draftReplyMessage || '');
+
+  useEffect(() => {
+    if (currentTicket.draftReplyMessage) {
+      setDraftReply(currentTicket.draftReplyMessage);
+    }
+  }, [currentTicket.draftReplyMessage]);
 
   // Feature 2: User Support & Review Correlation State
   const [userActivity, setUserActivity] = useState<UserSupportActivity | null>(null);
   const [loadingActivity, setLoadingActivity] = useState<boolean>(false);
+
+  const handleSendReply = async () => {
+    if (!draftReply.trim()) {
+      alert('Please enter a reply message before sending.');
+      return;
+    }
+    setLoadingAction(true);
+    try {
+      const updated = await supportApi.sendCustomerReply(currentTicket.id, draftReply.trim());
+      setCurrentTicket(updated);
+      onTicketUpdated(updated);
+      alert('Reply message sent successfully to traveler via email notification.');
+    } catch (err) {
+      console.error('Failed to send customer reply:', err);
+      alert('Error sending reply message to traveler.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
   useEffect(() => {
     if (currentTicket.userId) {
@@ -294,6 +320,40 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 <strong>Analysis Log:</strong> {currentTicket.aiReasoning}
               </p>
             )}
+          </div>
+
+          {/* AI-Drafted Customer Response Panel */}
+          <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[16px]">✉️</span>
+                <h3 className="text-[15px] font-bold text-indigo-900 m-0">
+                  AI-Drafted Customer Response
+                </h3>
+              </div>
+              <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full uppercase">
+                Review & Edit Before Sending
+              </span>
+            </div>
+            <p className="text-[12px] text-indigo-700 m-0 leading-relaxed">
+              Review or customize the empathetic AI-drafted reply message below. Clicking <strong>Send Reply</strong> dispatches the email notification directly to the traveler.
+            </p>
+            <textarea
+              value={draftReply}
+              onChange={(e) => setDraftReply(e.target.value)}
+              rows={4}
+              placeholder="AI response draft will appear here..."
+              className="w-full p-3 rounded-lg border border-indigo-200 text-[14px] leading-relaxed text-slate-800 bg-white outline-none focus:border-indigo-500 shadow-inner"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handleSendReply}
+                disabled={loadingAction || !draftReply.trim()}
+                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-none px-5 py-2.5 rounded-lg text-[13px] font-bold cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+              >
+                {loadingAction ? 'Sending...' : '✉️ Send Reply to Traveler'}
+              </button>
+            </div>
           </div>
 
           {/* Voucher Sign-off Panel */}

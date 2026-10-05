@@ -93,6 +93,11 @@ export const supportApi = {
     return response.data;
   },
 
+  sendCustomerReply: async (id: string, replyMessage: string): Promise<SupportTicketItem> => {
+    const response = await api.post<SupportTicketItem>(`/support/tickets/${id}/send-reply`, { replyMessage });
+    return response.data;
+  },
+
   // Goodwill Vouchers
   getVoucherById: async (id: string): Promise<VoucherItem> => {
     const response = await api.get<VoucherItem>(`/support/vouchers/${id}`);
