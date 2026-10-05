@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { SupportTicketItem, TicketStatus, TicketPriority } from '../../types/support';
 import { supportApi } from '../../services/supportApi';
+import { supportApi as extraSupportApi, type UserSupportActivity } from '../../api/support';
 
 interface TicketDetailModalProps {
   ticket: SupportTicketItem;
@@ -18,6 +19,20 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [customAmount, setCustomAmount] = useState<number>(50);
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [statusSelection, setStatusSelection] = useState<TicketStatus>(ticket.status);
+
+  // Feature 2: User Support & Review Correlation State
+  const [userActivity, setUserActivity] = useState<UserSupportActivity | null>(null);
+  const [loadingActivity, setLoadingActivity] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentTicket.userId) {
+      setLoadingActivity(true);
+      extraSupportApi.getUserActivity(currentTicket.userId)
+        .then((res) => setUserActivity(res.data))
+        .catch((err) => console.warn('User activity fetch notice:', err))
+        .finally(() => setLoadingActivity(false));
+    }
+  }, [currentTicket.userId]);
 
   // Edit ticket state
   const [isEditing, setIsEditing] = useState(false);
@@ -350,6 +365,62 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
             </div>
           ) : null}
+
+          {/* Feature 2: Traveler Support & Review Correlation View */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-bold text-slate-900 m-0 flex items-center gap-2">
+                👤 Traveler Activity & Review Correlation
+              </h3>
+              <span className="text-[12px] font-semibold text-slate-500 bg-slate-200/60 px-2.5 py-1 rounded-full">Joined by User ID</span>
+            </div>
+
+            {loadingActivity ? (
+              <div className="text-[13px] text-slate-400 py-2">Loading traveler history & reviews...</div>
+            ) : userActivity ? (
+              <div className="flex flex-col gap-3">
+                {/* Past Reviews */}
+                <div>
+                  <h4 className="text-[12px] font-bold text-slate-600 uppercase tracking-wide mb-2 m-0">
+                    Traveler Reviews Submitted ({userActivity.reviews?.length || 0})
+                  </h4>
+                  {userActivity.reviews && userActivity.reviews.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {userActivity.reviews.map((r) => (
+                        <div key={r.id} className="bg-white border border-slate-200 p-3 rounded-lg flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[12px] font-bold px-2 py-0.5 rounded ${r.rating <= 2 ? 'bg-red-100 text-red-700 border border-red-200' : r.rating >= 4 ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
+                              {'⭐'.repeat(r.rating)} ({r.rating}/5 Stars)
+                            </span>
+                            <span className="text-[11px] text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-[13px] text-slate-700 m-0 leading-relaxed font-medium">"{r.comment}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-slate-400 italic m-0">No reviews submitted yet by this traveler.</p>
+                  )}
+                </div>
+
+                {/* Ticket History */}
+                <div>
+                  <h4 className="text-[12px] font-bold text-slate-600 uppercase tracking-wide mb-2 m-0">
+                    Associated Support Tickets ({userActivity.tickets?.length || 0})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {userActivity.tickets?.map((t) => (
+                      <div key={t.id} className={`text-[12px] px-2.5 py-1.5 rounded-md border ${t.id === currentTicket.id ? 'bg-indigo-50 border-indigo-300 font-bold text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}>
+                        #{t.title} ({t.status})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-slate-400 m-0">Traveler history unavailable.</p>
+            )}
+          </div>
 
           {/* Audit Trace Reviewer */}
           <div className="flex flex-col gap-3">
