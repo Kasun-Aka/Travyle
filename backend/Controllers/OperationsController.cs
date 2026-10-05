@@ -52,6 +52,21 @@ public class OperationsController : ControllerBase
         return Ok(result);
     }
 
+    // ── PUT /api/operations/activities/{id}/status ───────────
+    /// <summary>Update the status of a tour activity stop (Scheduled → InProgress → Completed).</summary>
+    [HttpPut("activities/{id:guid}/status")]
+    public async Task<IActionResult> UpdateActivityStatus(
+        Guid id, [FromBody] UpdateActivityStatusDto dto)
+    {
+        var activity = await _db.Set<TourActivity>().FindAsync(id);
+        if (activity == null) return NotFound(new { error = "Tour activity not found" });
+
+        activity.Status = dto.Status;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { id = activity.Id, status = activity.Status });
+    }
+
     // ── GET /api/operations/routes/{tourId} ──────────────────
     /// <summary>Retrieve real-time active tour progress (GPS pings).</summary>
     [HttpGet("routes/{tourId:guid}")]
@@ -116,109 +131,120 @@ public class OperationsController : ControllerBase
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string email)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
-        if (user == null) return NotFound();
-
-        bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator";
-
-        var realAssignedSchedules = new List<BookingSchedule>();
-        GuideAssignment? primaryGuideAssignment = null;
-
-        if (isGuide)
+        try
         {
-            var assignedScheduleIds = await _db.GuideAssignments
-                .Where(ga => ga.GuideUserId == user.Id)
-                .Select(ga => ga.BookingScheduleId)
-                .ToListAsync();
+            if (string.IsNullOrEmpty(email)) return BadRequest("Email is required");
 
-            realAssignedSchedules = await _db.BookingSchedules
-                .Include(s => s.TimeSlots)
-                .Include(s => s.AvailableDates)
-                .Where(s => assignedScheduleIds.Contains(s.Id) || s.GuideName.ToLower() == user.FullName.ToLower())
-                .ToListAsync();
-        }
-        else
-        {
-            // Tourist: Get their bookings
-            var bookingScheduleIds = await _db.Bookings
-                .Where(b => b.TravelerId == user.Id || b.TravelerEmail.ToLower() == email.ToLower())
-                .Select(b => b.ScheduleId)
-                .Distinct()
-                .ToListAsync();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            if (user == null) return NotFound(new { error = "User not found", email });
 
-            realAssignedSchedules = await _db.BookingSchedules
-                .Include(s => s.TimeSlots)
-                .Include(s => s.AvailableDates)
-                .Where(s => bookingScheduleIds.Contains(s.Id))
-                .ToListAsync();
+            bool isGuide = user.Role == "Local Guide" || user.Role == "Tour Operator" || user.Role == "Guide";
 
-            // Find the assigned guide for their first upcoming schedule
-            if (realAssignedSchedules.Count > 0)
+            var realAssignedSchedules = new List<BookingSchedule>();
+            GuideAssignment? primaryGuideAssignment = null;
+
+            if (isGuide)
             {
-                var firstScheduleId = realAssignedSchedules.First().Id;
-                primaryGuideAssignment = await _db.GuideAssignments
-                    .Include(ga => ga.Guide)
-                    .FirstOrDefaultAsync(ga => ga.BookingScheduleId == firstScheduleId);
+                var assignedScheduleIds = await _db.GuideAssignments
+                    .Where(ga => ga.GuideUserId == user.Id)
+                    .Select(ga => ga.BookingScheduleId)
+                    .ToListAsync();
+
+                var fullNameLower = (user.FullName ?? "").ToLower();
+
+                realAssignedSchedules = await _db.BookingSchedules
+                    .Include(s => s.TimeSlots)
+                    .Include(s => s.AvailableDates)
+                    .Where(s => assignedScheduleIds.Contains(s.Id) || (s.GuideName != null && s.GuideName.ToLower() == fullNameLower))
+                    .ToListAsync();
             }
-        }
-
-        var dynamicTours = realAssignedSchedules.Count > 0
-            ? realAssignedSchedules.Select((s, idx) => new
+            else
             {
-                time = s.TimeSlots.FirstOrDefault()?.SlotLabel != null
-                    ? $"{s.TimeSlots.FirstOrDefault()!.SlotLabel} - Onwards"
-                    : "09:00 AM - 01:00 PM",
-                travelers = isGuide ? $"{s.MaxCapacityPerSlot} Max Capacity" : "You + Others",
-                title = s.DestinationTitle,
-                location = s.Location,
-                actionType = idx == 0 ? "CHECK_IN" : "START_TOUR"
-            }).ToArray()
-            : Array.Empty<object>();
+                // Tourist: Get their bookings
+                var bookingScheduleIds = await _db.Bookings
+                    .Where(b => b.TravelerId == user.Id || (b.TravelerEmail != null && b.TravelerEmail.ToLower() == email.ToLower()))
+                    .Select(b => b.ScheduleId)
+                    .Distinct()
+                    .ToListAsync();
 
-        var dynamicStats = isGuide
-            ? (realAssignedSchedules.Count > 0 ? new[]
+                realAssignedSchedules = await _db.BookingSchedules
+                    .Include(s => s.TimeSlots)
+                    .Include(s => s.AvailableDates)
+                    .Where(s => bookingScheduleIds.Contains(s.Id))
+                    .ToListAsync();
+
+                // Find the assigned guide for their first upcoming schedule
+                if (realAssignedSchedules.Count > 0)
                 {
-                    new { value = realAssignedSchedules.Count.ToString(), label = "TOURS ASSIGNED" },
-                    new { value = realAssignedSchedules.Sum(s => s.MaxCapacityPerSlot).ToString(), label = "CAPACITY" },
-                    new { value = (realAssignedSchedules.Average(s => s.Rating) > 0 ? realAssignedSchedules.Average(s => s.Rating).ToString("0.0") : "5.0"), label = "MY RATING" }
+                    var firstScheduleId = realAssignedSchedules.First().Id;
+                    primaryGuideAssignment = await _db.GuideAssignments
+                        .Include(ga => ga.Guide)
+                        .FirstOrDefaultAsync(ga => ga.BookingScheduleId == firstScheduleId);
                 }
-                : new[]
-                {
-                    new { value = "0", label = "TOURS TODAY" },
-                    new { value = "0", label = "TRAVELERS" },
-                    new { value = "0.0", label = "MY RATING" }
-                })
-            : (realAssignedSchedules.Count > 0 ? new[]
-                {
-                    new { value = realAssignedSchedules.Count.ToString(), label = "UPCOMING TOURS" },
-                    new { value = "0", label = "COMPLETED" },
-                    new { value = "4.9", label = "GUIDE RATING" }
-                }
-                : new[]
-                {
-                    new { value = "0", label = "UPCOMING TOUR" },
-                    new { value = "0", label = "COMPLETED" },
-                    new { value = "0.0", label = "GUIDE RATING" }
-                });
+            }
 
-        string headerName = user.FullName;
-        string headerTitle = isGuide ? "LOCAL GUIDE" : "TOURIST";
+            var dynamicTours = realAssignedSchedules.Count > 0
+                ? realAssignedSchedules.Select((s, idx) => new
+                {
+                    time = s.TimeSlots.FirstOrDefault()?.SlotLabel != null
+                        ? $"{s.TimeSlots.FirstOrDefault()!.SlotLabel} - Onwards"
+                        : "09:00 AM - 01:00 PM",
+                    travelers = isGuide ? $"{s.MaxCapacityPerSlot} Max Capacity" : "You + Others",
+                    title = s.DestinationTitle ?? "Tour",
+                    location = s.Location ?? "Location TBD",
+                    actionType = idx == 0 ? "CHECK_IN" : "START_TOUR"
+                }).ToArray()
+                : Array.Empty<object>();
 
-        if (!isGuide && primaryGuideAssignment?.Guide != null)
-        {
-            headerName = primaryGuideAssignment.Guide.FullName;
-            headerTitle = "ASSIGNED GUIDE";
+            var dynamicStats = isGuide
+                ? (realAssignedSchedules.Count > 0 ? new[]
+                    {
+                        new { value = realAssignedSchedules.Count.ToString(), label = "TOURS ASSIGNED" },
+                        new { value = realAssignedSchedules.Sum(s => s.MaxCapacityPerSlot).ToString(), label = "CAPACITY" },
+                        new { value = (realAssignedSchedules.Average(s => s.Rating) > 0 ? realAssignedSchedules.Average(s => s.Rating).ToString("0.0") : "5.0"), label = "MY RATING" }
+                    }
+                    : new[]
+                    {
+                        new { value = "0", label = "TOURS TODAY" },
+                        new { value = "0", label = "TRAVELERS" },
+                        new { value = "0.0", label = "MY RATING" }
+                    })
+                : (realAssignedSchedules.Count > 0 ? new[]
+                    {
+                        new { value = realAssignedSchedules.Count.ToString(), label = "UPCOMING TOURS" },
+                        new { value = "0", label = "COMPLETED" },
+                        new { value = "4.9", label = "GUIDE RATING" }
+                    }
+                    : new[]
+                    {
+                        new { value = "0", label = "UPCOMING TOUR" },
+                        new { value = "0", label = "COMPLETED" },
+                        new { value = "0.0", label = "GUIDE RATING" }
+                    });
+
+            string headerName = user.FullName ?? user.Email;
+            string headerTitle = isGuide ? "LOCAL GUIDE" : "TOURIST";
+
+            if (!isGuide && primaryGuideAssignment?.Guide != null)
+            {
+                headerName = primaryGuideAssignment.Guide.FullName ?? "Guide";
+                headerTitle = "ASSIGNED GUIDE";
+            }
+
+            var result = new
+            {
+                role = user.Role,
+                headerName = headerName,
+                headerTitle = headerTitle,
+                stats = dynamicStats,
+                tours = dynamicTours
+            };
+
+            return Ok(result);
         }
-
-        var result = new
+        catch (Exception ex)
         {
-            role = user.Role,
-            headerName = headerName,
-            headerTitle = headerTitle,
-            stats = dynamicStats,
-            tours = dynamicTours
-        };
-
-        return Ok(result);
+            return StatusCode(500, new { error = "Dashboard failed", details = ex.Message, stack = ex.StackTrace });
+        }
     }
 }

@@ -168,6 +168,7 @@ public class AdminController : ControllerBase
             .OrderBy(a => a.ScheduledTime)
             .Select(a => new
             {
+                id = a.Id,
                 name = a.ActivityName,
                 location = a.Location,
                 time = a.ScheduledTime.ToString("HH:mm"),
@@ -187,40 +188,128 @@ public class AdminController : ControllerBase
     [HttpGet("guide-matrix")]
     public async Task<IActionResult> GetGuideMatrix()
     {
-        var guides = await _db.Users
-            .Where(u => u.Role == "Guide" || u.Role == "Local Guide" || u.Role == "Suspended")
-            .Select(u => new
-            {
-                Id = u.Id,
-                Name = u.FullName,
-                Meta = "Verified   " + u.Email,
-                AssignedTours = _db.GuideAssignments.Count(ga => ga.GuideUserId == u.Id),
-                Status = _db.GuideAssignments.Any(ga => ga.GuideUserId == u.Id && ga.Status == "Active") ? "Active" : "Available"
-            })
+        var guidesList = await _db.Users
+            .Where(u => u.Role == "Guide" || u.Role == "Local Guide")
             .ToListAsync();
+
+        var today = DateTime.UtcNow.Date;
+        var endOfWeek = today.AddDays(7);
+
+        var schedules = await _db.BookingSchedules
+            .Include(bs => bs.AvailableDates)
+            .Include(bs => bs.GuideAssignments)
+            .Where(bs => bs.AvailableDates.Any(d => d.Date >= today && d.Date <= endOfWeek))
+            .ToListAsync();
+
+        var allAssignments = await _db.GuideAssignments.ToListAsync();
+
+        var matrixGuides = new List<object>();
+        var rosterGuides = new List<object>();
+
+        foreach (var u in guidesList)
+        {
+            var assignedCount = allAssignments.Count(ga => ga.GuideUserId == u.Id);
+            var status = allAssignments.Any(ga => ga.GuideUserId == u.Id && ga.Status == "Active") ? "Active" : "Available";
+
+            // Determine schedule array for 7 days
+            var scheduleArray = new object[7];
+            for (int i = 0; i < 7; i++)
+            {
+                var date = today.AddDays(i);
+                var assignedToDay = schedules.FirstOrDefault(s => s.GuideAssignments.Any(ga => ga.GuideUserId == u.Id) && s.AvailableDates.Any(d => d.Date.Date == date));
+                
+                if (assignedToDay != null)
+                {
+                    // e.g. "Safari" or "Temple" (First word of title)
+                    string shortTitle = assignedToDay.DestinationTitle.Split(' ').FirstOrDefault()?.ToUpper() ?? "TOUR";
+                    // Truncate to max 8 chars
+                    if (shortTitle.Length > 8) shortTitle = shortTitle.Substring(0, 8);
+                    
+                    scheduleArray[i] = new { label = shortTitle, scheduleId = assignedToDay.Id };
+                }
+                else
+                {
+                    scheduleArray[i] = new { label = "-", scheduleId = (Guid?)null };
+                }
+            }
+
+            matrixGuides.Add(new
+            {
+                id = u.Id,
+                name = u.FullName,
+                meta = "Verified   " + u.Email,
+                schedule = scheduleArray
+            });
+
+            rosterGuides.Add(new
+            {
+                name = u.FullName,
+                meta = "Verified   " + u.Email,
+                languages = new[] { "EN", "SI" },
+                verification = "Verified",
+                load = $"{assignedCount} tours",
+                status = status
+            });
+        }
 
         var data = new
         {
-            guides = guides.Select(g => new
-            {
-                id = g.Id,
-                name = g.Name,
-                meta = g.Meta,
-                schedule = new[] { "-", "TOUR-5510", "-", "SLOT-8841", "SLOT-8841", "-" }
-            }),
-            roster = guides.Select(g => new
-            {
-                name = g.Name,
-                meta = g.Meta,
-                languages = new[] { "EN", "SI" },
-                verification = "Verified",
-                load = $"{g.AssignedTours} tours",
-                status = g.Status
-            }),
+            guides = matrixGuides,
+            roster = rosterGuides,
             agentSuggestion = new { title = "Operations Agent", message = "No urgent guide reassignments needed at this time." }
         };
 
         return Ok(data);
+    }
+
+    [HttpGet("unassigned-schedules")]
+    public async Task<IActionResult> GetUnassignedSchedules([FromQuery] DateTime date)
+    {
+        var targetDate = date.Date;
+        var unassigned = await _db.BookingSchedules
+            .Include(bs => bs.AvailableDates)
+            .Include(bs => bs.GuideAssignments)
+            .Where(bs => bs.GuideAssignments.Count == 0 && bs.AvailableDates.Any(d => d.Date.Date == targetDate))
+            .Select(bs => new {
+                id = bs.Id,
+                title = bs.DestinationTitle,
+                time = bs.TimeSlots.FirstOrDefault() != null ? bs.TimeSlots.FirstOrDefault().SlotLabel : ""
+            })
+            .ToListAsync();
+        return Ok(unassigned);
+    }
+
+    [HttpPost("assign-guide")]
+    public async Task<IActionResult> AssignGuide([FromBody] AssignGuideRequest req)
+    {
+        var schedule = await _db.BookingSchedules.FindAsync(req.BookingScheduleId);
+        if (schedule == null) return NotFound("Schedule not found");
+        
+        var assignment = new GuideAssignment
+        {
+            BookingScheduleId = req.BookingScheduleId,
+            GuideUserId = req.GuideId,
+            Status = "Active",
+            AssignedAt = DateTime.UtcNow
+        };
+        _db.GuideAssignments.Add(assignment);
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true });
+    }
+
+    [HttpDelete("unassign-guide/{guideId}/{scheduleId}")]
+    public async Task<IActionResult> UnassignGuide(Guid guideId, Guid scheduleId)
+    {
+        var assignments = await _db.GuideAssignments
+            .Where(ga => ga.GuideUserId == guideId && ga.BookingScheduleId == scheduleId)
+            .ToListAsync();
+            
+        if (assignments.Any())
+        {
+            _db.GuideAssignments.RemoveRange(assignments);
+            await _db.SaveChangesAsync();
+        }
+        return Ok(new { success = true });
     }
 
     [HttpPut("staff/{id}/role")]
@@ -247,4 +336,10 @@ public class AdminController : ControllerBase
 public class UpdateRoleRequest
 {
     public string Role { get; set; } = string.Empty;
+}
+
+public class AssignGuideRequest
+{
+    public Guid GuideId { get; set; }
+    public Guid BookingScheduleId { get; set; }
 }

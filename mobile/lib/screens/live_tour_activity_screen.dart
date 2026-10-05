@@ -120,6 +120,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                 checkStatus = CheckStatus.upcoming;
             }
             return {
+              'id': s['id'] as String? ?? '',
               'title': s['name'] as String? ?? '',
               'estimatedTime': 'Estimated: ${s['time'] ?? ''} • ${s['location'] ?? ''}',
               'status': checkStatus,
@@ -129,6 +130,22 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
       }
     } catch (e) {
       debugPrint('Error fetching route log: $e');
+    }
+  }
+
+  Future<void> _updateStopStatus(String activityId, String newStatus) async {
+    if (activityId.isEmpty) return;
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/api/operations/activities/$activityId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'status': newStatus}),
+      );
+      if (response.statusCode != 200) {
+        debugPrint('Failed to update status: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error updating stop status: $e');
     }
   }
 
@@ -172,11 +189,11 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Compute map center from first tour with coordinates
-    final toursWithCoords = _activeTours.where((t) => (t['lat'] as double) != 0.0).toList();
-    final mapLat = toursWithCoords.isNotEmpty ? toursWithCoords[0]['lat'] as double : 6.8711;
-    final mapLon = toursWithCoords.isNotEmpty ? toursWithCoords[0]['lon'] as double : 81.0458;
-    final mapZoom = toursWithCoords.length > 2 ? 8.0 : 13.0;
+    // Only show the selected tour on the map
+    final selectedTour = _activeTours.where((t) => t['id'] == _selectedScheduleId && (t['lat'] as double) != 0.0).toList();
+    final mapLat = selectedTour.isNotEmpty ? selectedTour[0]['lat'] as double : 6.8711;
+    final mapLon = selectedTour.isNotEmpty ? selectedTour[0]['lon'] as double : 81.0458;
+    final mapZoom = 13.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -267,7 +284,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                   ],
 
                   // Live Map with dynamic markers
-                  _buildLiveMap(mapLat, mapLon, mapZoom),
+                  _buildLiveMap(mapLat, mapLon, mapZoom, selectedTour),
                   const SizedBox(height: 24.0),
 
                   // Guide info
@@ -346,15 +363,22 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                         estimatedTime: item['estimatedTime'] as String,
                         status: item['status'] as CheckStatus,
                         onTap: widget.isGuide ? () {
+                          CheckStatus newStatus;
+                          String backendStatus;
+                          if (item['status'] == CheckStatus.upcoming) {
+                            newStatus = CheckStatus.current;
+                            backendStatus = 'InProgress';
+                          } else if (item['status'] == CheckStatus.current) {
+                            newStatus = CheckStatus.completed;
+                            backendStatus = 'Completed';
+                          } else {
+                            newStatus = CheckStatus.upcoming;
+                            backendStatus = 'Scheduled';
+                          }
                           setState(() {
-                            if (item['status'] == CheckStatus.upcoming) {
-                              _checklist[idx]['status'] = CheckStatus.current;
-                            } else if (item['status'] == CheckStatus.current) {
-                              _checklist[idx]['status'] = CheckStatus.completed;
-                            } else {
-                              _checklist[idx]['status'] = CheckStatus.upcoming;
-                            }
+                            _checklist[idx]['status'] = newStatus;
                           });
+                          _updateStopStatus(item['id'] as String, backendStatus);
                         } : null,
                       );
                     }),
@@ -462,7 +486,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
     );
   }
 
-  Widget _buildLiveMap(double lat, double lon, double zoom) {
+  Widget _buildLiveMap(double lat, double lon, double zoom, List<Map<String, dynamic>> selectedTour) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16.0),
       child: Container(
@@ -484,9 +508,9 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.travyle.app',
                 ),
-                // Weather/status zones from active tours
+                // Weather/status zone for the selected tour only
                 CircleLayer(
-                  circles: _activeTours.where((t) => (t['lat'] as double) != 0.0).map((t) {
+                  circles: selectedTour.map((t) {
                     final isDelayed = t['status'] == 'Delayed';
                     return CircleMarker(
                       point: LatLng(t['lat'] as double, t['lon'] as double),
@@ -499,59 +523,50 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                     );
                   }).toList(),
                 ),
-                // Dynamic tour markers
+                // Selected tour marker only
                 MarkerLayer(
-                  markers: _activeTours.where((t) => (t['lat'] as double) != 0.0).map((t) {
-                    final isSelected = t['id'] == _selectedScheduleId;
+                  markers: selectedTour.map((t) {
                     final isDelayed = t['status'] == 'Delayed';
                     final shortName = (t['name'] as String).split(' ').take(2).join(' ');
                     return Marker(
                       point: LatLng(t['lat'] as double, t['lon'] as double),
                       width: 130,
                       height: 30,
-                      child: GestureDetector(
-                        onTap: () => _fetchRouteLog(t['id'] as String),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.blue.shade600
-                                : isDelayed
-                                    ? Colors.white
-                                    : Colors.white,
-                            borderRadius: BorderRadius.circular(20.0),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                            ],
-                            border: isSelected ? null : Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (isDelayed && !isSelected)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.only(right: 6),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.orange,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              Flexible(
-                                child: Text(
-                                  shortName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : const Color(0xFF133E4D),
-                                    fontSize: 10.0,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade600,
+                          borderRadius: BorderRadius.circular(20.0),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isDelayed)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: const BoxDecoration(
+                                  color: Colors.orange,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                            ],
-                          ),
+                            Flexible(
+                              child: Text(
+                                shortName,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -578,7 +593,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
                     const CircleAvatar(radius: 4, backgroundColor: Color(0xFF1FA88A)),
                     const SizedBox(width: 8),
                     Text(
-                      '${_activeTours.length} TOURS LIVE',
+                      _tourName == 'Loading...' ? 'LIVE TOUR' : _tourName.toUpperCase(),
                       style: const TextStyle(
                         fontSize: 10.0,
                         fontWeight: FontWeight.w800,

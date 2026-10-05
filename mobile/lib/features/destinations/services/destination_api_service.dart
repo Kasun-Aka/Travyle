@@ -18,8 +18,8 @@ class DestinationApiService {
     : _dio = Dio(
         BaseOptions(
           baseUrl: _resolveApiBaseUrl(),
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 15),
+          connectTimeout: const Duration(seconds: 50),
+          receiveTimeout: const Duration(seconds: 50),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',

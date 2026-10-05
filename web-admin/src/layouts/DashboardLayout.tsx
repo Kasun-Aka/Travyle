@@ -17,10 +17,6 @@ const DashboardLayout = () => {
               <span className="w-[6px] h-[6px] rounded-full bg-[#288d6b]"></span>
               API healthy
             </div>
-            <div className="inline-flex items-center gap-[6px] px-[12px] py-[6px] rounded-full text-[11px] font-semibold text-[#a16e1e] bg-[#fff5dd]">
-              <span className="w-[6px] h-[6px] rounded-full bg-[#a16e1e]"></span>
-              Weather quota 78%
-            </div>
             <button className="relative w-[40px] h-[40px] rounded-full border border-[#dce8f2] flex items-center justify-center text-[#6d849c] bg-white hover:bg-[#f9fafb] transition-all cursor-pointer">
               <Bell size={18} />
               <span className="absolute -top-[2px] -right-[2px] w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">5</span>
