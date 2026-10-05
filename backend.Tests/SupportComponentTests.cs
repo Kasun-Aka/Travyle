@@ -476,4 +476,105 @@ public class SupportComponentTests
         Assert.NotNull(output);
         Assert.Null(output.ProposedVoucher); // Tool constraint prevents automated voucher drafting when count >= 2
     }
+
+    [Fact]
+    public async Task GetAnalyticsAsync_ShouldReturnCalculatedAnalytics()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var tourId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        db.SupportTickets.Add(new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Title = "Recent Delay",
+            Description = "Delay test",
+            SentimentScore = -0.5,
+            CreatedAt = DateTime.UtcNow.AddDays(-2)
+        });
+
+        db.Vouchers.Add(new Voucher
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Code = "TEST-ACT",
+            Amount = 50m,
+            Status = VoucherStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        db.CustomerReviews.Add(new CustomerReview
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TourId = tourId,
+            Rating = 4,
+            Comment = "Good experience",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        // Act
+        var analytics = await supportService.GetAnalyticsAsync();
+
+        // Assert
+        Assert.NotNull(analytics);
+        Assert.Equal(-0.5, analytics.AverageSentimentScore);
+        Assert.Equal(1, analytics.ActiveVouchersCount);
+        Assert.Single(analytics.TourAverageRatings);
+        Assert.Equal(4.0, analytics.TourAverageRatings[0].AverageRating);
+    }
+
+    [Fact]
+    public async Task GetUserActivityAsync_ShouldReturnUserJoinedTicketsAndReviews()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var userId = Guid.NewGuid();
+        var tourId = Guid.NewGuid();
+
+        db.Users.Add(new User { Id = userId, Email = "testuser@travyle.com", FullName = "Test User", Role = "Traveler" });
+        db.SupportTickets.Add(new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Title = "Complaint Ticket",
+            Description = "Test issue",
+            CreatedAt = DateTime.UtcNow
+        });
+        db.CustomerReviews.Add(new CustomerReview
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TourId = tourId,
+            Rating = 1,
+            Comment = "Bad service",
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        // Act
+        var activity = await supportService.GetUserActivityAsync(userId);
+
+        // Assert
+        Assert.NotNull(activity);
+        Assert.Equal(userId, activity.UserId);
+        Assert.Single(activity.Tickets);
+        Assert.Single(activity.Reviews);
+        Assert.Equal("Complaint Ticket", activity.Tickets[0].Title);
+        Assert.Equal(1, activity.Reviews[0].Rating);
+    }
 }

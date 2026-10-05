@@ -192,3 +192,29 @@ public class AuditLogResponseDto
     public string? MetadataJson { get; set; }
     public DateTime Timestamp { get; set; }
 }
+
+public class TourRatingSummaryDto
+{
+    public Guid TourId { get; set; }
+    public string TourTitle { get; set; } = string.Empty;
+    public double AverageRating { get; set; }
+    public int ReviewCount { get; set; }
+}
+
+public class SupportAnalyticsDto
+{
+    public double AverageSentimentScore { get; set; }
+    public int ActiveVouchersCount { get; set; }
+    public int RedeemedVouchersCount { get; set; }
+    public List<TourRatingSummaryDto> TourAverageRatings { get; set; } = new();
+}
+
+public class UserSupportActivityDto
+{
+    public Guid UserId { get; set; }
+    public string? UserName { get; set; }
+    public string? UserEmail { get; set; }
+    public List<TicketResponseDto> Tickets { get; set; } = new();
+    public List<ReviewResponseDto> Reviews { get; set; } = new();
+}
+

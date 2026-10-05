@@ -728,4 +728,139 @@ public class SupportService : ISupportService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task<SupportAnalyticsDto> GetAnalyticsAsync(CancellationToken cancellationToken = default)
+    {
+        var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+        var recentTickets = await _dbContext.SupportTickets
+            .Where(t => t.CreatedAt >= sevenDaysAgo)
+            .ToListAsync(cancellationToken);
+
+        double avgSentiment = recentTickets.Any()
+            ? Math.Round(recentTickets.Average(t => t.SentimentScore), 2)
+            : (await _dbContext.SupportTickets.AnyAsync(cancellationToken)
+                ? Math.Round(await _dbContext.SupportTickets.AverageAsync(t => t.SentimentScore, cancellationToken), 2)
+                : 0.0);
+
+        int activeVouchers = await _dbContext.Vouchers
+            .CountAsync(v => v.Status == VoucherStatus.Active, cancellationToken);
+
+        int redeemedVouchers = await _dbContext.Vouchers
+            .CountAsync(v => v.Status == VoucherStatus.Redeemed, cancellationToken);
+
+        var reviewGroups = await _dbContext.CustomerReviews
+            .GroupBy(r => r.TourId)
+            .Select(g => new
+            {
+                TourId = g.Key,
+                AverageRating = Math.Round(g.Average(r => r.Rating), 1),
+                ReviewCount = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var destinations = await _dbContext.Destinations
+            .ToDictionaryAsync(d => d.Id, d => d.Name, cancellationToken);
+
+        var tourRatings = reviewGroups.Select(rg => new TourRatingSummaryDto
+        {
+            TourId = rg.TourId,
+            TourTitle = destinations.TryGetValue(rg.TourId, out var name) ? name : "Tour Experience",
+            AverageRating = rg.AverageRating,
+            ReviewCount = rg.ReviewCount
+        }).ToList();
+
+        return new SupportAnalyticsDto
+        {
+            AverageSentimentScore = avgSentiment,
+            ActiveVouchersCount = activeVouchers,
+            RedeemedVouchersCount = redeemedVouchers,
+            TourAverageRatings = tourRatings
+        };
+    }
+
+    public async Task<UserSupportActivityDto> GetUserActivityAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        var tickets = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var reviews = await _dbContext.CustomerReviews
+            .Include(r => r.User)
+            .Where(r => r.UserId == userId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var ticketDtos = tickets.Select(t => new TicketResponseDto
+        {
+            Id = t.Id,
+            UserId = t.UserId,
+            UserName = t.User?.FullName ?? user?.FullName ?? "Traveler",
+            UserEmail = t.User?.Email ?? user?.Email ?? "traveler@travyle.com",
+            BookingId = t.BookingId,
+            TourId = t.TourId,
+            Title = t.Title,
+            Description = t.Description,
+            Category = t.Category,
+            Priority = t.Priority.ToString(),
+            Status = t.Status.ToString(),
+            AttachmentUrl = t.AttachmentUrl,
+            SentimentScore = t.SentimentScore,
+            SeverityTier = t.SeverityTier,
+            AiReasoning = t.AiReasoning,
+            ResolutionSummary = t.ResolutionSummary,
+            CreatedAt = t.CreatedAt,
+            UpdatedAt = t.UpdatedAt,
+            AuditLogs = t.AuditLogs.OrderBy(a => a.Timestamp).Select(a => new AuditLogResponseDto
+            {
+                Id = a.Id,
+                SupportTicketId = a.SupportTicketId,
+                Action = a.Action,
+                ActorRole = a.ActorRole,
+                ActorId = a.ActorId,
+                Details = a.Details,
+                MetadataJson = a.MetadataJson,
+                Timestamp = a.Timestamp
+            }).ToList(),
+            Vouchers = t.Vouchers.Select(v => new VoucherResponseDto
+            {
+                Id = v.Id,
+                Code = v.Code,
+                UserId = v.UserId,
+                Amount = v.Amount,
+                Reason = v.Reason,
+                Status = v.Status.ToString(),
+                ApprovedByAdminId = v.ApprovedByAdminId,
+                IssuedAt = v.IssuedAt,
+                ExpiresAt = v.ExpiresAt,
+                CreatedAt = v.CreatedAt
+            }).ToList()
+        }).ToList();
+
+        var reviewDtos = reviews.Select(r => new ReviewResponseDto
+        {
+            Id = r.Id,
+            UserId = r.UserId,
+            UserName = r.User?.FullName ?? user?.FullName ?? "Verified Traveler",
+            TourId = r.TourId,
+            Rating = r.Rating,
+            Comment = r.Comment,
+            IsVerified = r.IsVerified,
+            CreatedAt = r.CreatedAt
+        }).ToList();
+
+        return new UserSupportActivityDto
+        {
+            UserId = userId,
+            UserName = user?.FullName ?? (tickets.FirstOrDefault()?.User?.FullName ?? reviews.FirstOrDefault()?.User?.FullName ?? "Traveler"),
+            UserEmail = user?.Email ?? (tickets.FirstOrDefault()?.User?.Email ?? reviews.FirstOrDefault()?.User?.Email ?? "traveler@travyle.com"),
+            Tickets = ticketDtos,
+            Reviews = reviewDtos
+        };
+    }
 }

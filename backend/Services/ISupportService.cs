@@ -25,4 +25,7 @@ public interface ISupportService
     Task<ReviewResponseDto> CreateReviewAsync(CreateReviewDto dto, CancellationToken cancellationToken = default);
     Task<ReviewResponseDto?> ToggleReviewVerificationAsync(Guid id, bool isVerified, CancellationToken cancellationToken = default);
     Task<bool> DeleteReviewAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<SupportAnalyticsDto> GetAnalyticsAsync(CancellationToken cancellationToken = default);
+    Task<UserSupportActivityDto> GetUserActivityAsync(Guid userId, CancellationToken cancellationToken = default);
 }

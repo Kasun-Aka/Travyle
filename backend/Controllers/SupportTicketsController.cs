@@ -238,4 +238,48 @@ public class SupportTicketsController : SupportControllerBase
             return StatusCode(500, new { message = "An error occurred while saving the attachment image." });
         }
     }
+
+    /// <summary>
+    /// Feature 1: Retrieve analytics stats strip data (avg sentiment score, active/redeemed vouchers, tour ratings summary). Staff only.
+    /// </summary>
+    [HttpGet("/api/support/analytics")]
+    public async Task<ActionResult<SupportAnalyticsDto>> GetAnalytics(CancellationToken cancellationToken)
+    {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+        if (!IsStaff(user)) return StaffOnly();
+
+        try
+        {
+            var analytics = await _supportService.GetAnalyticsAsync(cancellationToken);
+            return Ok(analytics);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching support analytics");
+            return StatusCode(500, new { message = "An error occurred while retrieving support analytics." });
+        }
+    }
+
+    /// <summary>
+    /// Feature 2: Retrieve user support activity (tickets + reviews joined by UserId). Staff or user.
+    /// </summary>
+    [HttpGet("/api/support/users/{userId:guid}/activity")]
+    public async Task<ActionResult<UserSupportActivityDto>> GetUserActivity(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+        if (user.Id != userId && !IsStaff(user)) return Forbid();
+
+        try
+        {
+            var activity = await _supportService.GetUserActivityAsync(userId, cancellationToken);
+            return Ok(activity);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching user support activity for user {UserId}", userId);
+            return StatusCode(500, new { message = "An error occurred while retrieving user support activity." });
+        }
+    }
 }
