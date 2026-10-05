@@ -355,4 +355,20 @@ class SupportApiService {
       return null;
     }
   }
+
+  Future<SupportTicketModel?> addFollowupNote(String id, String note) async {
+    try {
+      final response = await _dio.post(
+        '/support/tickets/$id/followup',
+        data: {'note': note},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        return SupportTicketModel.fromJson(response.data as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupportApiService] Error adding follow-up note: $e');
+      return null;
+    }
+  }
 }
