@@ -28,4 +28,5 @@ public interface ISupportService
 
     Task<SupportAnalyticsDto> GetAnalyticsAsync(CancellationToken cancellationToken = default);
     Task<UserSupportActivityDto> GetUserActivityAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<TicketResponseDto?> CancelTicketAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
 }

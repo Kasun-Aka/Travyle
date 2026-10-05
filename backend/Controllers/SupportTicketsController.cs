@@ -282,4 +282,37 @@ public class SupportTicketsController : SupportControllerBase
             return StatusCode(500, new { message = "An error occurred while retrieving user support activity." });
         }
     }
+
+    /// <summary>
+    /// Feature 1 (Mobile): Cancel ticket (soft-delete via status change to Closed). Allowed only for ticket owner in Pending_AI_Triage or In_Review state.
+    /// </summary>
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<ActionResult<TicketResponseDto>> CancelTicket(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await GetSignedInUserAsync(cancellationToken);
+        if (user == null) return SignInRequired();
+
+        try
+        {
+            var result = await _supportService.CancelTicketAsync(id, user.Id, cancellationToken);
+            if (result == null)
+            {
+                return NotFound(new { message = $"Ticket with ID {id} was not found." });
+            }
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling support ticket {TicketId}", id);
+            return StatusCode(500, new { message = "An error occurred while cancelling the ticket." });
+        }
+    }
 }

@@ -863,4 +863,44 @@ public class SupportService : ISupportService
             Reviews = reviewDtos
         };
     }
+
+    public async Task<TicketResponseDto?> CancelTicketAsync(Guid id, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var ticket = await _dbContext.SupportTickets
+            .Include(t => t.User)
+            .Include(t => t.AuditLogs)
+            .Include(t => t.Vouchers)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (ticket == null) return null;
+
+        if (ticket.UserId != userId)
+        {
+            throw new UnauthorizedAccessException("You do not have permission to cancel this ticket.");
+        }
+
+        if (ticket.Status == TicketStatus.Resolved || ticket.Status == TicketStatus.Closed || ticket.Status == TicketStatus.Rejected)
+        {
+            throw new InvalidOperationException($"Cannot cancel a ticket that is already {ticket.Status}. Only tickets pending triage or in review may be cancelled.");
+        }
+
+        ticket.Status = TicketStatus.Closed;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var cancelAudit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            SupportTicketId = ticket.Id,
+            Action = "TICKET_CANCELLED",
+            ActorRole = "Traveler",
+            ActorId = userId.ToString(),
+            Details = "Ticket cancelled by traveler.",
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.AuditLogs.AddAsync(cancelAudit, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetTicketByIdAsync(ticket.Id, cancellationToken);
+    }
 }

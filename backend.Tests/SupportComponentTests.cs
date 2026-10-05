@@ -578,4 +578,36 @@ public class SupportComponentTests
         Assert.Equal("Complaint Ticket", activity.Tickets[0].Title);
         Assert.Equal(1, activity.Reviews[0].Rating);
     }
+
+    [Fact]
+    public async Task CancelTicketAsync_ShouldUpdateStatusToClosed_AndAddAuditLog()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var config = CreateTestConfiguration();
+        var notificationService = new NotificationService(NullLogger<NotificationService>.Instance, config);
+        var aiAgentService = new SupportAiAgentService(db, NullLogger<SupportAiAgentService>.Instance);
+        var supportService = new SupportService(db, aiAgentService, notificationService, NullLogger<SupportService>.Instance);
+
+        var userId = Guid.NewGuid();
+        var ticket = new SupportTicket
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Title = "Ticket to Cancel",
+            Description = "Cancel test",
+            Status = TicketStatus.Pending_AI_Triage,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SupportTickets.Add(ticket);
+        await db.SaveChangesAsync();
+
+        // Act
+        var cancelled = await supportService.CancelTicketAsync(ticket.Id, userId);
+
+        // Assert
+        Assert.NotNull(cancelled);
+        Assert.Equal("Closed", cancelled.Status);
+        Assert.Contains(cancelled.AuditLogs, a => a.Action == "TICKET_CANCELLED");
+    }
 }
