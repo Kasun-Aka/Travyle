@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { SupportTicketItem, TicketPriority, TicketStatus } from '../types/support';
 import { supportApi } from '../services/supportApi';
 import { TicketDetailModal } from '../components/support/TicketDetailModal';
+import AnalyticsStrip from '../components/support/AnalyticsStrip';
 import { useNavigate } from 'react-router-dom';
 
 interface SupportDashboardProps {
@@ -147,6 +148,9 @@ export const SupportDashboard: React.FC<SupportDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Feature 1: Analytics Stats Strip */}
+      <AnalyticsStrip />
 
         {/* Stat Cards */}
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5 mb-7">
