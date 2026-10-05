@@ -17,7 +17,7 @@ export default function Signup() {
 
   // If already authenticated as Admin/Operator, navigate to dashboard
   useEffect(() => {
-    if (!authLoading && currentUser && dbUser && ["admin", "operator"].includes(dbUser.role?.toLowerCase())) {
+    if (!authLoading && currentUser && dbUser && ["admin", "tour operator"].includes(dbUser.role?.toLowerCase())) {
       navigate('/welcome', { replace: true });
     }
   }, [currentUser, dbUser, authLoading, navigate]);
@@ -75,7 +75,7 @@ export default function Signup() {
             <p className="mt-[2px] mb-0 text-xs text-slate-400">Admin console</p>
           </div>
         </div>
-        
+
         <div className="mt-auto opacity-50">
           <div className="h-px bg-slate-700 mb-4"></div>
           <p className="text-xs text-slate-400">Secure Access Portal</p>
@@ -110,7 +110,7 @@ export default function Signup() {
                 className="px-4 py-3 border border-slate-300 rounded-lg text-[15px] text-slate-900 transition-all duration-200 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 font-inherit"
               />
             </div>
-            
+
             <div className="flex flex-col gap-2">
               <label htmlFor="email" className="text-sm font-semibold text-slate-700">Email address</label>
               <input
@@ -123,7 +123,7 @@ export default function Signup() {
                 className="px-4 py-3 border border-slate-300 rounded-lg text-[15px] text-slate-900 transition-all duration-200 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 font-inherit"
               />
             </div>
-            
+
             <div className="flex flex-col gap-2">
               <label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</label>
               <input
@@ -138,8 +138,8 @@ export default function Signup() {
               />
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="mt-2 bg-indigo-600 text-white border-none rounded-lg p-3.5 text-[15px] font-semibold cursor-pointer transition-colors duration-200 flex justify-center items-center gap-2 font-inherit hover:bg-indigo-700 disabled:opacity-50"
             >
