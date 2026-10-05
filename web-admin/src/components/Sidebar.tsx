@@ -1,19 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Map, 
-  CreditCard, 
-  Activity, 
-  Users, 
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Map,
+  CreditCard,
+  Activity,
+  Users,
   Headset,
   Sparkles
 } from 'lucide-react';
 
 export default function Sidebar() {
   const { currentUser, logout } = useAuth();
-  
+
   const linkBase = "flex items-center gap-[11px] min-h-[42px] px-[12px] rounded-[11px] text-[#b9d4e8] no-underline text-[13px] font-semibold transition-all hover:text-white hover:bg-[#5caade24] hover:translate-x-[2px] lg:justify-start justify-center lg:px-[12px] px-0";
   const activeClass = "text-[#09233f] bg-white shadow-[0_8px_18px_rgba(0,0,0,0.12)] hover:bg-white hover:text-[#09233f] hover:translate-x-0";
   const inactiveClass = "";
@@ -33,7 +33,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto px-[10px] lg:px-[14px] pb-[20px]">
-        
+
         {/* Overview Group */}
         <div className="mb-[28px]">
           <h2 className="hidden lg:block m-[0_12px_10px] text-[#6e9fc1] text-[10px] font-extrabold tracking-[0.14em] uppercase">Overview</h2>
@@ -102,7 +102,7 @@ export default function Sidebar() {
                   <CreditCard size={18} className="shrink-0" />
                   <span className="hidden lg:inline">Booking</span>
                 </div>
-                <span className="hidden lg:grid min-w-[22px] h-[22px] px-[6px] place-items-center rounded-full text-[#0d355c] bg-[#b9e3f7] text-[11px] font-extrabold">2</span>
+
               </NavLink>
             </li>
           </ul>
@@ -118,7 +118,6 @@ export default function Sidebar() {
                   <Activity size={18} className="shrink-0" />
                   <span className="hidden lg:inline">Live operations</span>
                 </div>
-                <span className="hidden lg:grid min-w-[22px] h-[22px] px-[6px] place-items-center rounded-full text-[#0d355c] bg-[#b9e3f7] text-[11px] font-extrabold">2</span>
               </NavLink>
             </li>
             <li>
@@ -181,7 +180,7 @@ export default function Sidebar() {
             <span className="block mt-[3px] text-[#91b3ce] text-[10px]">System administrator</span>
           </div>
         </div>
-        
+
         <div className="hidden lg:grid gap-[13px] pt-[16px] px-1 text-[#8eafc7] text-[11px]">
           <div className="flex items-center justify-between gap-2">
             <span>Platform</span>
@@ -190,7 +189,7 @@ export default function Sidebar() {
               <b className="text-[10px] font-bold">All systems live</b>
             </div>
           </div>
-          <button 
+          <button
             onClick={logout}
             className="w-fit p-0 text-[#8eafc7] bg-transparent text-[11px] font-bold border-none cursor-pointer hover:text-white"
           >

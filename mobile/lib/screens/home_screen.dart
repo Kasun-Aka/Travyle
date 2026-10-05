@@ -94,10 +94,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          setState(() {
+            _currentIndex = 0;
+          });
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: IndexedStack(
+            index: _currentIndex,
           children: [
             _buildHomeContent(context),
             const ScheduleBrowseScreen(),
@@ -164,6 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       ),
+    ),
     );
   }
 

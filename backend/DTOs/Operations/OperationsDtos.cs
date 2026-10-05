@@ -18,6 +18,10 @@ public record TourActivityResponseDto(
     string Status
 );
 
+public record UpdateActivityStatusDto(
+    string Status
+);
+
 // ── GuideAssignment ─────────────────────────────────────
 public record GuideAssignmentResponseDto(
     Guid Id,

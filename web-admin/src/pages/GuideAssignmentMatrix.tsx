@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Zap, Calendar, Users } from 'lucide-react';
+import { ChevronDown, Zap, Calendar, Users, X } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
@@ -7,7 +7,12 @@ const GuideAssignmentMatrix = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState<any>(null);
+  const [unassignedSchedules, setUnassignedSchedules] = useState<any[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const fetchMatrix = () => {
     fetch(`${API_BASE}/admin/guide-matrix`)
       .then(r => r.json())
       .then(d => {
@@ -18,31 +23,66 @@ const GuideAssignmentMatrix = () => {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchMatrix();
   }, []);
 
-  const handleAssignGuide = (guideId: string, slotIndex: number, currentSlot: string) => {
-    const newSlot = prompt(`Assign or reassign slot (current: ${currentSlot}):`, currentSlot !== '-' ? currentSlot : '');
-    if (newSlot === null || newSlot === currentSlot) return;
+  const handleCellClick = (guide: any, slotIndex: number, currentSlot: any) => {
+    const d = new Date();
+    d.setDate(d.getDate() + slotIndex);
+    
+    setModalData({
+      guideId: guide.id,
+      guideName: guide.name,
+      date: d,
+      currentSlot
+    });
+    setModalOpen(true);
+    setModalLoading(true);
 
-    fetch(`${API_BASE}/operations/assignments/${guideId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slotIndex, newSlot })
-    })
-      .then(r => {
-        if (r.ok) {
-          alert('Assignment updated successfully');
-          setLoading(true);
-          fetch(`${API_BASE}/admin/guide-matrix`)
-            .then(res => res.json())
-            .then(d => { setData(d); setLoading(false); });
-        } else {
-          alert('Failed to update assignment');
-        }
+    fetch(`${API_BASE}/admin/unassigned-schedules?date=${d.toISOString()}`)
+      .then(r => r.json())
+      .then(data => {
+        setUnassignedSchedules(data);
+        setModalLoading(false);
       })
       .catch(err => {
         console.error(err);
-        alert('Error updating assignment');
+        setModalLoading(false);
+      });
+  };
+
+  const handleAssign = (scheduleId: string) => {
+    fetch(`${API_BASE}/admin/assign-guide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guideId: modalData.guideId, bookingScheduleId: scheduleId })
+    })
+      .then(r => {
+        if (r.ok) {
+          setModalOpen(false);
+          setLoading(true);
+          fetchMatrix();
+        } else {
+          alert('Failed to assign guide');
+        }
+      });
+  };
+
+  const handleUnassign = (scheduleId: string) => {
+    fetch(`${API_BASE}/admin/unassign-guide/${modalData.guideId}/${scheduleId}`, {
+      method: 'DELETE'
+    })
+      .then(r => {
+        if (r.ok) {
+          setModalOpen(false);
+          setLoading(true);
+          fetchMatrix();
+        } else {
+          alert('Failed to unassign guide');
+        }
       });
   };
 
@@ -53,7 +93,7 @@ const GuideAssignmentMatrix = () => {
   const { guides, roster } = data || {};
 
   return (
-    <div className="page-container bg-gray-50/50 min-h-screen">
+    <div className="page-container bg-gray-50/50 min-h-screen relative">
       <div className="page-header pb-6">
         <div className="page-breadcrumb">
           <span className="dot"></span>
@@ -70,7 +110,7 @@ const GuideAssignmentMatrix = () => {
           <div>
             <div className="matrix-week flex items-center gap-2 text-lg font-bold text-gray-800">
               <Calendar size={18} className="text-gray-500" />
-              Week of Sep 08 - Sep 14
+              Week of {new Date().getFullYear()}-{new Date().getMonth() + 1}-{new Date().getDate()} - {new Date().getFullYear()}-{new Date().getMonth() + 1}-{new Date().getDate() + 6}
             </div>
             <div className="matrix-subtitle text-sm text-gray-500 mt-1">Click any cell to assign, reassign, or clear a guide</div>
           </div>
@@ -84,12 +124,15 @@ const GuideAssignmentMatrix = () => {
             <thead className="bg-white border-b border-gray-100 text-gray-500 text-left">
               <tr>
                 <th className="th-guide font-semibold p-4 border-r border-gray-50 min-w-[200px]">Guide</th>
-                <th className="font-semibold p-4 text-center">Mon 08</th>
-                <th className="font-semibold p-4 text-center">Tue 09</th>
-                <th className="font-semibold p-4 text-center">Wed 10</th>
-                <th className="font-semibold p-4 text-center">Thu 11</th>
-                <th className="font-semibold p-4 text-center">Fri 12</th>
-                <th className="font-semibold p-4 text-center">Sat 13</th>
+                {[...Array(7)].map((_, i) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + i);
+                  return (
+                    <th key={i} className="font-semibold p-4 text-center">
+                      {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -99,14 +142,13 @@ const GuideAssignmentMatrix = () => {
                     <div className="guide-name font-bold text-gray-800">{guide.name}</div>
                     <div className="guide-meta text-xs text-gray-400 mt-1">{guide.meta}</div>
                   </td>
-                  {guide.schedule.map((slot: string, i: number) => (
-                    <td key={i} onClick={() => handleAssignGuide(guide.id, i, slot)} className="text-center p-2 border-r border-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                      {slot === '-' ? (
+                  {guide.schedule.map((slot: any, i: number) => (
+                    <td key={i} onClick={() => handleCellClick(guide, i, slot)} className="text-center p-2 border-r border-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                      {slot.label === '-' ? (
                         <span className="text-gray-300">-</span>
                       ) : (
-                        <div className={`slot-badge inline-block px-2 py-1 rounded-md text-xs font-bold shadow-sm ${slot.startsWith('TOUR') ? 'bg-blue-600 text-white' : 'bg-orange-100 text-orange-700'
-                          }`}>
-                          {slot}
+                        <div className="slot-badge inline-block px-2 py-1 rounded-md text-xs font-bold shadow-sm bg-blue-600 text-white">
+                          {slot.label}
                         </div>
                       )}
                     </td>
@@ -117,25 +159,6 @@ const GuideAssignmentMatrix = () => {
           </table>
         </div>
       </div>
-
-      {data?.agentSuggestion && (
-        <div className="agent-alert-box vertical bg-gradient-to-r from-blue-50 to-indigo-50/30 p-6 rounded-xl border border-blue-100 shadow-sm flex gap-4 mb-6">
-          <div className="agent-icon-bg bg-blue-100 p-3 rounded-full h-fit flex-shrink-0">
-            <Zap className="agent-icon text-blue-600" size={24} />
-          </div>
-          <div className="agent-content flex flex-col justify-between">
-            <div>
-              <div className="agent-title text-blue-900 font-bold mb-2">{data.agentSuggestion.title}</div>
-              <p className="agent-text text-blue-800/80 text-sm leading-relaxed">
-                {data.agentSuggestion.message}
-              </p>
-            </div>
-            <div className="agent-actions mt-6 flex gap-3">
-              <button className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors">Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="card roster-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="roster-header p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:justify-between lg:items-center bg-gray-50/50 gap-4">
@@ -195,6 +218,67 @@ const GuideAssignmentMatrix = () => {
           </table>
         </div>
       </div>
+
+      {modalOpen && modalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h3 className="font-bold text-lg text-gray-800">Assign Guide</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {modalData.guideName} • {modalData.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-5 flex-1 max-h-[60vh] overflow-y-auto">
+              {modalData.currentSlot.label !== '-' && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">Current Assignment</h4>
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                    <div className="font-bold text-blue-800">{modalData.currentSlot.label}</div>
+                    <button 
+                      onClick={() => handleUnassign(modalData.currentSlot.scheduleId)}
+                      className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors"
+                    >
+                      Unassign
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">Unassigned Tours for this Date</h4>
+              {modalLoading ? (
+                <div className="text-center py-6 text-gray-500 text-sm">Loading available tours...</div>
+              ) : unassignedSchedules.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-100 border-dashed text-gray-500 text-sm">
+                  No unassigned tours found for this date.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {unassignedSchedules.map(schedule => (
+                    <div key={schedule.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:border-blue-200 hover:shadow-sm transition-all group">
+                      <div>
+                        <div className="font-bold text-gray-800">{schedule.title}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{schedule.time || 'All Day'}</div>
+                      </div>
+                      <button 
+                        onClick={() => handleAssign(schedule.id)}
+                        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

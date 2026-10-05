@@ -12,12 +12,12 @@ class SupportApiService {
     const String envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return '$envUrl/api';
     if (kIsWeb) {
-      return 'http://localhost:5085/api';
+      return 'http://localhost:5085';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5085/api';
+      return 'http://10.0.2.2:5085';
     }
-    return 'http://localhost:5085/api';
+    return 'http://localhost:5085';
   }
 
   final Dio _dio;
@@ -44,8 +44,8 @@ class SupportApiService {
       : _dio = dio ??
             _withAuth(Dio(BaseOptions(
               baseUrl: baseUrl,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 10),
+              connectTimeout: const Duration(seconds: 50),
+              receiveTimeout: const Duration(seconds: 50),
               headers: {'Content-Type': 'application/json'},
             )));
 
