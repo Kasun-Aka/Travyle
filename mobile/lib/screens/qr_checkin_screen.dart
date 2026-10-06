@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class QRCheckinScreen extends StatefulWidget {
   const QRCheckinScreen({super.key});
@@ -10,6 +11,7 @@ class QRCheckinScreen extends StatefulWidget {
 
 class _QRCheckinScreenState extends State<QRCheckinScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
+  bool _isProcessing = false;
 
   @override
   void dispose() {
@@ -81,11 +83,43 @@ class _QRCheckinScreenState extends State<QRCheckinScreen> {
                       children: [
                         MobileScanner(
                           controller: _scannerController,
-                          onDetect: (capture) {
+                          onDetect: (capture) async {
+                            if (_isProcessing) return;
                             final List<Barcode> barcodes = capture.barcodes;
                             if (barcodes.isNotEmpty) {
-                              // Handle QR code read
-                              debugPrint('QR Code Found: ${barcodes.first.rawValue}');
+                              final String? rawValue = barcodes.first.rawValue;
+                              if (rawValue != null && rawValue.isNotEmpty) {
+                                setState(() {
+                                  _isProcessing = true;
+                                });
+                                debugPrint('QR Code Found: $rawValue');
+
+                                try {
+                                  final Uri url = Uri.parse(rawValue);
+                                  if (await canLaunchUrl(url)) {
+                                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                                  } else {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Could not open QR Code link')),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Invalid QR Code data')),
+                                    );
+                                  }
+                                } finally {
+                                  await Future.delayed(const Duration(seconds: 2));
+                                  if (mounted) {
+                                    setState(() {
+                                      _isProcessing = false;
+                                    });
+                                  }
+                                }
+                              }
                             }
                           },
                         ),

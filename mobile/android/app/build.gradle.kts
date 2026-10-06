@@ -35,6 +35,15 @@ android {
         }
     }
 
+    applicationVariants.all {
+        val buildTypeName = buildType.name
+        outputs.all {
+            if (this is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
+                outputFileName = "travyle - $buildTypeName.apk"
+            }
+        }
+    }
+
     lint {
         checkReleaseBuilds = false
         abortOnError = false
