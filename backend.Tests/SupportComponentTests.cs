@@ -767,7 +767,7 @@ public void Voucher_Code_ShouldStartWithGVPrefixAndBeUppercase()
         Id = Guid.NewGuid(),
         Code = $"GV-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
         Amount = 50.00m,
-        Status = "Draft"
+        Status = VoucherStatus.Draft
     };
 
     // Act & Assert

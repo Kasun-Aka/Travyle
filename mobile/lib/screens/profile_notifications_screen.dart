@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
@@ -21,12 +22,19 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
   }
 
   Future<void> _fetchNotifications() async {
-    final email = FirebaseAuth.instance.currentUser?.email;
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email;
     if (email == null) return;
     
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final token = await user?.getIdToken();
+      final options = Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null);
+
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/notifications/traveler/$email',
+        '$baseUrl/api/notifications/traveler/$email',
+        options: options,
       );
       if (response.statusCode == 200 && mounted) {
         setState(() {
@@ -46,7 +54,16 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
 
   Future<void> _markAsRead(String id) async {
     try {
-      await Dio().put('http://10.0.2.2:5085/api/notifications/$id/read');
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final user = FirebaseAuth.instance.currentUser;
+      final token = await user?.getIdToken();
+      final options = Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null);
+
+      await Dio().put(
+        '$baseUrl/api/notifications/$id/read',
+        options: options,
+      );
       setState(() {
         final index = _notifications.indexWhere((n) => n['id'] == id);
         if (index != -1) {
