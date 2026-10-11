@@ -824,4 +824,73 @@ public void Voucher_Code_ShouldStartWithGVPrefixAndBeUppercase()
         Assert.NotNull(agentOutput.ProposedVoucher); // Low rating pattern triggered goodwill voucher compensation
         Assert.Contains("Priority Customer Care", agentOutput.ProposedVoucher.Reason);
     }
+
+    [Fact]
+    public async Task SupportAttachmentStorage_ValidJpeg_ReturnsBase64DataUrl()
+    {
+        // Arrange: valid JPEG with magic bytes 0xFF 0xD8 0xFF
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0xAA, 0xBB };
+        using var stream = new MemoryStream(jpegBytes);
+        var formFile = new FormFile(stream, 0, jpegBytes.Length, "file", "evidence_bus.jpg")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/jpeg"
+        };
+
+        var httpContext = new DefaultHttpContext();
+        var storage = new LocalSupportAttachmentStorage();
+
+        // Act
+        var resultUrl = await storage.SaveAsync(formFile, httpContext.Request);
+
+        // Assert: Option C Base64 Data URL format
+        Assert.StartsWith("data:image/jpeg;base64,", resultUrl);
+        var base64Part = resultUrl.Substring("data:image/jpeg;base64,".Length);
+        var decodedBytes = Convert.FromBase64String(base64Part);
+        Assert.Equal(jpegBytes, decodedBytes);
+    }
+
+    [Fact]
+    public async Task SupportAttachmentStorage_ValidPng_ReturnsBase64DataUrl()
+    {
+        // Arrange: valid PNG magic bytes
+        var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D };
+        using var stream = new MemoryStream(pngBytes);
+        var formFile = new FormFile(stream, 0, pngBytes.Length, "file", "screen.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png"
+        };
+
+        var httpContext = new DefaultHttpContext();
+        var storage = new LocalSupportAttachmentStorage();
+
+        // Act
+        var resultUrl = await storage.SaveAsync(formFile, httpContext.Request);
+
+        // Assert
+        Assert.StartsWith("data:image/png;base64,", resultUrl);
+        var base64Part = resultUrl.Substring("data:image/png;base64,".Length);
+        var decodedBytes = Convert.FromBase64String(base64Part);
+        Assert.Equal(pngBytes, decodedBytes);
+    }
+
+    [Fact]
+    public async Task SupportAttachmentStorage_InvalidMagicBytes_ThrowsArgumentException()
+    {
+        // Arrange: renamed text file pretending to be jpg
+        var fakeBytes = System.Text.Encoding.UTF8.GetBytes("This is not an image file");
+        using var stream = new MemoryStream(fakeBytes);
+        var formFile = new FormFile(stream, 0, fakeBytes.Length, "file", "fake.jpg")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/jpeg"
+        };
+
+        var httpContext = new DefaultHttpContext();
+        var storage = new LocalSupportAttachmentStorage();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() => storage.SaveAsync(formFile, httpContext.Request));
+    }
 }
