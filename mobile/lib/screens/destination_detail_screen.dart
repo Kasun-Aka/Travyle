@@ -473,8 +473,8 @@ class DestinationDetailScreen extends StatelessWidget {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 60),
         ),
       );
 
@@ -513,8 +513,20 @@ class DestinationDetailScreen extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
+        String message = 'Failed to generate AI itinerary.';
+        if (e is DioException) {
+          if (e.response?.statusCode == 500) {
+            message = 'Backend AI service error (500). Please check backend deployment & Gemini configuration.';
+          } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+            message = 'AI itinerary generation timed out. Please try again.';
+          } else if (e.response?.data != null && e.response!.data.toString().trim().isNotEmpty) {
+            message = e.response!.data.toString();
+          } else {
+            message = 'Network error: ${e.message ?? 'connection failed'}.';
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate AI itinerary: $e')),
+          SnackBar(content: Text(message)),
         );
       }
     }

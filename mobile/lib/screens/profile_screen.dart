@@ -44,8 +44,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
         ),
       );
       final token = await _currentUser!.getIdToken();
@@ -67,7 +67,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {
           if (e is DioException) {
-            _errorMessage = 'Network Error: ${e.message}';
+            if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+              _errorMessage = 'Connection timed out. Please check your internet connection or server status.';
+            } else if (e.response != null) {
+              _errorMessage = 'Server error (${e.response?.statusCode}). Please try again later.';
+            } else {
+              _errorMessage = 'Network connection error. Please check your internet.';
+            }
           } else {
             _errorMessage = 'Could not load complete profile data: $e';
           }
@@ -100,8 +106,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 60),
         ),
       );
       

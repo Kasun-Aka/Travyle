@@ -123,8 +123,8 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
         ),
       );
       final response = await dio.put(

@@ -53,8 +53,8 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
     try {
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
         ),
       );
 
@@ -83,12 +83,20 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
       debugPrint('AI Error: $e');
       if (mounted) {
         setState(() {
-          if (e is DioException && e.response?.statusCode == 503) {
-             _errorMessage = e.response?.data?.toString() ?? 'Google AI servers are overloaded right now. Please try again later.';
-          } else if (e is DioException && e.response?.data != null) {
-             _errorMessage = e.response?.data?.toString() ?? 'Failed to analyze preferences.';
+          if (e is DioException) {
+            if (e.response?.statusCode == 503) {
+              _errorMessage = e.response?.data?.toString() ?? 'Google AI servers are overloaded right now. Please try again later.';
+            } else if (e.response?.statusCode == 500) {
+              _errorMessage = 'Backend AI service error (500). Please check backend deployment & Gemini configuration.';
+            } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+              _errorMessage = 'The AI recommendation took longer than expected to respond. Please try again.';
+            } else if (e.response?.data != null && e.response!.data.toString().trim().isNotEmpty) {
+              _errorMessage = e.response!.data.toString();
+            } else {
+              _errorMessage = 'Failed to generate recommendations. Please ensure your preferences are saved and try again.';
+            }
           } else {
-             _errorMessage = 'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
+            _errorMessage = 'We couldn\'t analyze your preferences. Please ensure your preferences are saved and try again.';
           }
           _isLoading = false;
         });
