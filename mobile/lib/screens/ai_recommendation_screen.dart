@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -50,15 +51,20 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
     }
 
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+
+      final token = await user.getIdToken();
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
+          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
         ),
       );
 
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/agent/recommend',
+        '$baseUrl/api/agent/recommend',
         data: {'email': user.email},
       );
 
@@ -84,6 +90,8 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
         setState(() {
           if (e is DioException && e.response?.statusCode == 503) {
              _errorMessage = e.response?.data?.toString() ?? 'Google AI servers are overloaded right now. Please try again later.';
+          } else if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout)) {
+             _errorMessage = 'Connection timed out while waiting for AI agent. Please try again.';
           } else if (e is DioException && e.response?.data != null) {
              _errorMessage = e.response?.data?.toString() ?? 'Failed to analyze preferences.';
           } else {
