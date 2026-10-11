@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'dart:typed_data';
 import '../theme/app_theme.dart';
+import '../services/api_config.dart';
 import 'login_screen.dart';
 import 'account_details_screen.dart';
 import 'preference_screen.dart';
@@ -49,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       final token = await _currentUser!.getIdToken();
       final response = await dio.get(
-        'http://10.0.2.2:5085/api/auth/user?email=${_currentUser!.email}',
+        '${ApiConfig.apiBaseUrl}/auth/user?email=${_currentUser!.email}',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/destinations/generate-itinerary-pdf',
+        '${ApiConfig.apiBaseUrl}/destinations/generate-itinerary-pdf',
         data: {
           'email': user.email,
           'destinationName': 'Personalized AI Match',

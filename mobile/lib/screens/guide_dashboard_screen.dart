@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mobile/screens/live_tour_activity_screen.dart';
 import 'package:mobile/screens/qr_checkin_screen.dart';
+import '../services/api_config.dart';
 
 class GuideDashboardScreen extends StatefulWidget {
   const GuideDashboardScreen({super.key});
@@ -33,8 +34,7 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
       }
       
       final dio = Dio();
-      const String envUrl = String.fromEnvironment('API_BASE_URL');
-      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final baseUrl = ApiConfig.baseUrl;
       final idToken = await user.getIdToken();
       debugPrint('Dashboard: Fetching from $baseUrl/api/operations/dashboard?email=${user.email}');
       final response = await dio.get(

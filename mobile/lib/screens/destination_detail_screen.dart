@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
+import '../services/api_config.dart';
 import '../features/destinations/models/destination.dart';
 import '../features/bookings/screens/schedule_browse_screen.dart';
 
@@ -478,7 +479,7 @@ class DestinationDetailScreen extends StatelessWidget {
       );
 
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/agent/itinerary',
+        '${ApiConfig.apiBaseUrl}/agent/itinerary',
         data: {
           'email': user.email,
           'destinationId': destination.id,
@@ -490,7 +491,7 @@ class DestinationDetailScreen extends StatelessWidget {
 
       try {
         final saveResponse = await dio.post(
-          'http://10.0.2.2:5085/api/travel-plans',
+          '${ApiConfig.apiBaseUrl}/travel-plans',
           data: {
             'email': user.email,
             'title': 'Trip to ${destination.name}',
@@ -568,7 +569,7 @@ class DestinationDetailScreen extends StatelessWidget {
                         try {
                           final dio = Dio();
                           final pdfResponse = await dio.get(
-                            'http://10.0.2.2:5085/api/travel-plans/$planId/pdf',
+                            '${ApiConfig.apiBaseUrl}/travel-plans/$planId/pdf',
                             options: Options(responseType: ResponseType.bytes),
                           );
                           if (context.mounted) {

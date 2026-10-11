@@ -5,20 +5,12 @@ import '../models/support_ticket.dart';
 import '../models/voucher.dart';
 import '../models/customer_review.dart';
 
+import 'api_config.dart';
+
 class SupportApiService {
   static String? currentUserId;
 
-  static String get baseUrl {
-    const String envUrl = String.fromEnvironment('API_BASE_URL');
-    if (envUrl.isNotEmpty) return '$envUrl/api';
-    if (kIsWeb) {
-      return 'http://localhost:5085';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5085';
-    }
-    return 'http://localhost:5085';
-  }
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   final Dio _dio;
 

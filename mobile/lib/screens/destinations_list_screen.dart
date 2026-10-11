@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:dio/dio.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 import 'destination_detail_screen.dart';
 
@@ -35,8 +36,8 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
     try {
       final dio = Dio();
       final url = _searchQuery.isNotEmpty
-          ? 'http://10.0.2.2:5085/api/Destinations?search=$_searchQuery'
-          : 'http://10.0.2.2:5085/api/Destinations';
+          ? '${ApiConfig.apiBaseUrl}/Destinations?search=$_searchQuery'
+          : '${ApiConfig.apiBaseUrl}/Destinations';
       final response = await dio.get(url);
       if (response.statusCode == 200 && response.data != null) {
         if (mounted) {

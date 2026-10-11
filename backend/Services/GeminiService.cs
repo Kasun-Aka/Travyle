@@ -12,13 +12,53 @@ public class GeminiService
     public GeminiService(HttpClient httpClient, IConfiguration config)
     {
         _httpClient = httpClient;
-        _apiKey = config["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API Key is missing");
+        _apiKey = config["Gemini:ApiKey"]
+            ?? config["GEMINI_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+            ?? Environment.GetEnvironmentVariable("Gemini__ApiKey")
+            ?? "";
+    }
+
+    private async Task<HttpResponseMessage> SendGeminiRequestAsync(object payload)
+    {
+        var primaryModel = "gemini-2.5-flash";
+        var fallbackModel = "gemini-1.5-flash";
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{primaryModel}:generateContent?key={_apiKey}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        if (!string.IsNullOrEmpty(_apiKey))
+        {
+            request.Headers.Add("x-goog-api-key", _apiKey);
+        }
+
+        var response = await _httpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            var fallbackUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{fallbackModel}:generateContent?key={_apiKey}";
+            using var fallbackReq = new HttpRequestMessage(HttpMethod.Post, fallbackUrl)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            if (!string.IsNullOrEmpty(_apiKey))
+            {
+                fallbackReq.Headers.Add("x-goog-api-key", _apiKey);
+            }
+            return await _httpClient.SendAsync(fallbackReq);
+        }
+
+        return response;
     }
 
     public virtual async Task<string> GetRecommendationAsync(string preferences, string budget, string tripHistory, string destinationsJson)
     {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={_apiKey}";
-        
+        if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "YOUR_GEMINI_API_KEY")
+        {
+            throw new InvalidOperationException("Gemini API key is missing or not configured.");
+        }
+
         var prompt = $@"
         You are an expert AI travel agent for 'Travyle'.
         User Preferences: {preferences}
@@ -44,8 +84,7 @@ public class GeminiService
             }
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync(url, content);
+        var response = await SendGeminiRequestAsync(requestBody);
         
         if (!response.IsSuccessStatusCode)
         {
@@ -56,11 +95,16 @@ public class GeminiService
         var responseJson = await response.Content.ReadAsStringAsync();
         
         using var doc = JsonDocument.Parse(responseJson);
-        var text = doc.RootElement
-            .GetProperty("candidates")[0]
-            .GetProperty("content")
-            .GetProperty("parts")[0]
-            .GetProperty("text").GetString();
+        string? text = null;
+        if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+        {
+            var candidate = candidates[0];
+            if (candidate.TryGetProperty("content", out var content) &&
+                content.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0)
+            {
+                text = parts[0].GetProperty("text").GetString();
+            }
+        }
 
         if (text != null && text.StartsWith("```json"))
         {
@@ -69,8 +113,14 @@ public class GeminiService
 
         return text ?? "{}";
     }
+
     public virtual async Task<string> GetItineraryAsync(string destinationName, string region, string preferences, string budget, string tripHistory)
     {
+        if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "YOUR_GEMINI_API_KEY")
+        {
+            throw new InvalidOperationException("Gemini API key is missing or not configured.");
+        }
+
         var prompt = $@"
 You are a master travel concierge AI.
 
@@ -108,8 +158,7 @@ Return ONLY a JSON array of 3 objects (one for each day), with no markdown forma
             }
         };
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={_apiKey}";
-        var response = await _httpClient.PostAsJsonAsync(url, payload);
+        var response = await SendGeminiRequestAsync(payload);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -118,10 +167,18 @@ Return ONLY a JSON array of 3 objects (one for each day), with no markdown forma
         }
 
         var jsonDoc = await response.Content.ReadFromJsonAsync<JsonDocument>();
-        var candidates = jsonDoc.RootElement.GetProperty("candidates");
-        var textResponse = candidates[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
+        string? textResponse = null;
+        if (jsonDoc != null && jsonDoc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+        {
+            var candidate = candidates[0];
+            if (candidate.TryGetProperty("content", out var content) &&
+                content.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0)
+            {
+                textResponse = parts[0].GetProperty("text").GetString();
+            }
+        }
 
-        textResponse = textResponse.Trim();
+        textResponse = textResponse?.Trim() ?? "[]";
         if (textResponse.StartsWith("```json"))
         {
             textResponse = textResponse.Substring(7);

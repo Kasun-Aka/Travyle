@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 
 class ProfileNotificationsScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
     
     try {
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/notifications/traveler/$email',
+        '${ApiConfig.apiBaseUrl}/notifications/traveler/$email',
       );
       if (response.statusCode == 200 && mounted) {
         setState(() {
@@ -46,7 +47,7 @@ class _ProfileNotificationsScreenState extends State<ProfileNotificationsScreen>
 
   Future<void> _markAsRead(String id) async {
     try {
-      await Dio().put('http://10.0.2.2:5085/api/notifications/$id/read');
+      await Dio().put('${ApiConfig.apiBaseUrl}/notifications/$id/read');
       setState(() {
         final index = _notifications.indexWhere((n) => n['id'] == id);
         if (index != -1) {

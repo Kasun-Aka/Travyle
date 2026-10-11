@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../services/api_config.dart';
 
 class LiveTourActivityScreen extends StatefulWidget {
   final bool isGuide;
@@ -25,10 +25,7 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
   List<Map<String, dynamic>> _activeTours = [];
   List<Map<String, dynamic>> _allAlerts = [];
 
-  String get _baseUrl {
-    const String envUrl = String.fromEnvironment('API_BASE_URL');
-    return envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
-  }
+  String get _baseUrl => ApiConfig.baseUrl;
 
   @override
   void initState() {

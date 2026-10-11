@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import 'home_screen.dart';
@@ -30,7 +31,7 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
     }
     try {
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/auth/user/preferences',
+        '${ApiConfig.apiBaseUrl}/auth/user/preferences',
         queryParameters: {'email': user.email},
       );
       if (response.statusCode == 200 && mounted) {
@@ -127,7 +128,7 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
         ),
       );
       final response = await dio.put(
-        'http://10.0.2.2:5085/api/auth/user/preferences',
+        '${ApiConfig.apiBaseUrl}/auth/user/preferences',
         data: {'email': user.email, 'preferences': selectedPrefs},
       );
 

@@ -18,6 +18,7 @@ import 'guide_dashboard_screen.dart';
 import 'profile_screen.dart';
 import 'profile_notifications_screen.dart';
 import 'support/support_home_screen.dart';
+import '../services/api_config.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -52,8 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final email = FirebaseAuth.instance.currentUser?.email;
     if (email == null) return;
     try {
-      const String envUrl = String.fromEnvironment('API_BASE_URL');
-      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final baseUrl = ApiConfig.baseUrl;
       final response = await Dio().get(
         '$baseUrl/api/notifications/traveler/$email',
       );

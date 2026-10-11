@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 import 'destination_detail_screen.dart';
 
@@ -58,7 +59,7 @@ class _AiRecommendationScreenState extends State<AiRecommendationScreen> with Si
       );
 
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/agent/recommend',
+        '${ApiConfig.apiBaseUrl}/agent/recommend',
         data: {'email': user.email},
       );
 

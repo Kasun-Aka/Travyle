@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 
@@ -63,7 +64,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       // 2. Update PostgreSQL Backend
       final dio = Dio();
       final token = await _currentUser!.getIdToken();
-      await dio.put('http://10.0.2.2:5085/api/auth/user', 
+      await dio.put('${ApiConfig.apiBaseUrl}/auth/user', 
         data: {
           'email': _currentUser?.email,
           'fullName': newName,

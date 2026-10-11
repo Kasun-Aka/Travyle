@@ -21,22 +21,11 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
-// ── Base URL config ──────────────────────────────────────────────────────────
-// • Android emulator  → 10.0.2.2
-// • iOS simulator     → 127.0.0.1
-// • Web (Flutter web) → localhost
-// • Physical device   → your machine's LAN IP (e.g. 192.168.x.x)
-String _resolveBookingApiBaseUrl() {
-  const envUrl = String.fromEnvironment('API_BASE_URL');
-  if (envUrl.isNotEmpty) return envUrl;
-  const bookingEnvUrl = String.fromEnvironment('BOOKING_API_BASE_URL');
-  if (bookingEnvUrl.isNotEmpty) return bookingEnvUrl;
+import '../../../../services/api_config.dart';
 
-  if (kIsWeb) return 'http://localhost:5085';
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:5085';
-  }
-  return 'http://localhost:5085';
+// ── Base URL config ──────────────────────────────────────────────────────────
+String _resolveBookingApiBaseUrl() {
+  return ApiConfig.baseUrl;
 }
 
 final String kBookingApiBaseUrl = _resolveBookingApiBaseUrl();

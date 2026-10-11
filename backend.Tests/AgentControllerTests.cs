@@ -252,6 +252,27 @@ public class AgentControllerTests : IDisposable
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 
+    [Fact]
+    public void GeminiService_Constructor_MissingKey_DoesNotThrow()
+    {
+        var mockConfig = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        mockConfig.Setup(c => c["Gemini:ApiKey"]).Returns((string?)null);
+
+        var service = new GeminiService(new HttpClient(), mockConfig.Object);
+        Assert.NotNull(service);
+    }
+
+    [Fact]
+    public void GeminiService_Constructor_ReadsFlatEnvironmentKey()
+    {
+        var mockConfig = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        mockConfig.Setup(c => c["Gemini:ApiKey"]).Returns((string?)null);
+        mockConfig.Setup(c => c["GEMINI_API_KEY"]).Returns("flat-env-key");
+
+        var service = new GeminiService(new HttpClient(), mockConfig.Object);
+        Assert.NotNull(service);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

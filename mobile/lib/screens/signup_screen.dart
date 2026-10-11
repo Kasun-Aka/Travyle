@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
+import '../services/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_button.dart';
 import 'preference_screen.dart';
@@ -80,10 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
         // 2. Sync to PostgreSQL with Auth token before allowing the user into the app.
         try {
           final dio = Dio();
-          const String envUrl = String.fromEnvironment('API_BASE_URL');
-          final baseUrl = envUrl.isNotEmpty
-              ? envUrl
-              : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+          final baseUrl = ApiConfig.baseUrl;
           final idToken = await user.getIdToken();
 
           await dio.post(

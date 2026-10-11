@@ -84,6 +84,9 @@ export default function TravelerConcierge() {
         setError('Traveler not found or has no preferences saved yet.');
       } else if (err.response?.status === 503) {
         setError(err.response?.data || 'Google AI servers are overloaded. Please try again.');
+      } else if (err.response?.data) {
+        const data = err.response.data;
+        setError(typeof data === 'string' ? data : (data.message || 'Failed to generate recommendation.'));
       } else {
         setError('Failed to generate recommendation. Please ensure the backend is running.');
       }
