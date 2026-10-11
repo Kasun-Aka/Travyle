@@ -33,7 +33,7 @@ const GuideAssignmentMatrix = () => {
   const handleCellClick = (guide: any, slotIndex: number, currentSlot: any) => {
     const d = new Date();
     d.setDate(d.getDate() + slotIndex);
-    
+
     setModalData({
       guideId: guide.id,
       guideName: guide.name,
@@ -100,7 +100,7 @@ const GuideAssignmentMatrix = () => {
           <span className="dot"></span>
           Operations & staffing
         </div>
-        <h1 className="page-title text-2xl font-extrabold text-gray-800">Guide assignment matrix</h1>
+        <h1 className="page-title text-2xl font-extrabold text-blue-600">Guide assignment matrix</h1>
         <p className="page-subtitle text-gray-500 mb-4">
           See the whole week at once, spot double-bookings and idle capacity, and reassign guides or drivers to specific tours and slots.
         </p>
@@ -252,14 +252,14 @@ const GuideAssignmentMatrix = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-5 flex-1 max-h-[60vh] overflow-y-auto">
               {modalData.currentSlot.label !== '-' && (
                 <div className="mb-6">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">Current Assignment</h4>
                   <div className="flex items-center justify-between bg-blue-50 border border-blue-100 p-4 rounded-lg">
                     <div className="font-bold text-blue-800">{modalData.currentSlot.label}</div>
-                    <button 
+                    <button
                       onClick={() => handleUnassign(modalData.currentSlot.scheduleId)}
                       className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors"
                     >
@@ -284,7 +284,7 @@ const GuideAssignmentMatrix = () => {
                         <div className="font-bold text-gray-800">{schedule.title}</div>
                         <div className="text-xs text-gray-500 mt-0.5">{schedule.time || 'All Day'}</div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleAssign(schedule.id)}
                         className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
                       >

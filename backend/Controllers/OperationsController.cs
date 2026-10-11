@@ -213,7 +213,7 @@ public class OperationsController : ControllerBase
                     {
                         new { value = realAssignedSchedules.Count.ToString(), label = "UPCOMING TOURS" },
                         new { value = "0", label = "COMPLETED" },
-                        new { value = "4.9", label = "GUIDE RATING" }
+                        new { value = "0.0", label = "GUIDE RATING" }
                     }
                     : new[]
                     {
