@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace Travyle.Api.Services;
 
 /// <summary>
 /// Component 4 (Support &amp; Quality): storage for ticket evidence photos.
-/// Implementations: local disk (default) and, later, Supabase Storage.
+/// Implementation: Base64 Data URL (Option C - zero external services, zero filesystem wipe risk)
+/// with local disk backup.
 /// </summary>
 public interface ISupportAttachmentStorage
 {
@@ -68,33 +70,55 @@ public static class SupportAttachmentValidator
     }
 }
 
-/// <summary>Stores validated images under wwwroot/support-attachments with a server-generated file name.</summary>
+/// <summary>
+/// Stores validated images as a Base64 Data URL directly in the database.
+/// Guarantees 100% cloud resilience against Railway ephemeral disk wipes without third-party accounts,
+/// with optional local disk backup.
+/// </summary>
 public class LocalSupportAttachmentStorage : ISupportAttachmentStorage
 {
     private readonly string _rootPath;
+    private readonly IConfiguration? _config;
+    private readonly HttpClient? _httpClient;
 
-    public LocalSupportAttachmentStorage(string? rootPath = null)
+    public LocalSupportAttachmentStorage(string? rootPath = null, IConfiguration? config = null, HttpClient? httpClient = null)
     {
         _rootPath = rootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        _config = config;
+        _httpClient = httpClient;
     }
 
     public async Task<string> SaveAsync(IFormFile file, HttpRequest request, CancellationToken cancellationToken = default)
     {
         var ext = await SupportAttachmentValidator.ValidateAsync(file, cancellationToken);
 
-        var attachmentsPath = Path.Combine(_rootPath, "support-attachments");
-        Directory.CreateDirectory(attachmentsPath);
+        // Read file bytes
+        await using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream, cancellationToken);
+        var bytes = memoryStream.ToArray();
 
-        // Never use the client file name: server-generated name prevents path traversal / overwrites.
-        var fileName = $"evidence_{Guid.NewGuid()}{ext}";
-        var filePath = Path.Combine(attachmentsPath, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.CreateNew))
+        // Optional local disk backup (best-effort, non-blocking on disk failures)
+        try
         {
-            await file.CopyToAsync(stream, cancellationToken);
+            var fileName = $"evidence_{Guid.NewGuid()}{ext}";
+            var attachmentsPath = Path.Combine(_rootPath, "support-attachments");
+            Directory.CreateDirectory(attachmentsPath);
+            var filePath = Path.Combine(attachmentsPath, fileName);
+            await File.WriteAllBytesAsync(filePath, bytes, cancellationToken);
+        }
+        catch
+        {
+            // Ephemeral or permission issues do not break photo storage
         }
 
-        var baseUrl = $"{request.Scheme}://{request.Host.Value}";
-        return $"{baseUrl}/support-attachments/{fileName}";
+        var mimeType = ext switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg"
+        };
+
+        var base64 = Convert.ToBase64String(bytes);
+        return $"data:{mimeType};base64,{base64}";
     }
 }
