@@ -181,7 +181,10 @@ class _GuideDashboardScreenState extends State<GuideDashboardScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => LiveTourActivityScreen(isGuide: isGuide),
+                          builder: (context) => LiveTourActivityScreen(
+                            isGuide: isGuide,
+                            guideEmail: FirebaseAuth.instance.currentUser?.email,
+                          ),
                         ),
                       );
                     },
