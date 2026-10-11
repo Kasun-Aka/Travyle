@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -17,17 +18,38 @@ class PdfViewerScreen extends StatelessWidget {
   Future<void> _saveFile(BuildContext context) async {
     try {
       final name = 'Travel_Pass_${DateTime.now().millisecondsSinceEpoch}';
-      
-      final result = await FileSaver.instance.saveFile(
-        name: name,
-        bytes: pdfBytes,
-        fileExtension: 'pdf',
-        mimeType: MimeType.pdf,
-      );
+      String? savedLocation;
 
-      if (context.mounted && result.isNotEmpty) {
+      // 1. On Android, attempt writing directly to the public Download folder
+      if (Platform.isAndroid) {
+        final downloadDir = Directory('/storage/emulated/0/Download');
+        if (await downloadDir.exists()) {
+          try {
+            final targetFile = File('${downloadDir.path}/$name.pdf');
+            await targetFile.writeAsBytes(pdfBytes);
+            savedLocation = targetFile.path;
+          } catch (e) {
+            debugPrint('Direct write to /storage/emulated/0/Download failed: $e');
+          }
+        }
+      }
+
+      // 2. If direct write didn't succeed, prompt using system file manager (Save As)
+      if (savedLocation == null || savedLocation.isEmpty) {
+        savedLocation = await FileSaver.instance.saveAs(
+          name: name,
+          bytes: pdfBytes,
+          fileExtension: 'pdf',
+          mimeType: MimeType.pdf,
+        );
+      }
+
+      if (context.mounted && savedLocation != null && savedLocation.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Saved to: $result')),
+          SnackBar(
+            content: Text('Saved to: $savedLocation'),
+            backgroundColor: AppTheme.primaryDark,
+          ),
         );
       }
     } catch (e) {
