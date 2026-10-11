@@ -21,35 +21,32 @@ public class GeminiService
 
     private async Task<HttpResponseMessage> SendGeminiRequestAsync(object payload)
     {
-        var primaryModel = "gemini-2.5-flash";
-        var fallbackModel = "gemini-1.5-flash";
+        var models = new[] { "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash" };
+        HttpResponseMessage? lastResponse = null;
+        var jsonContent = JsonSerializer.Serialize(payload);
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{primaryModel}:generateContent?key={_apiKey}";
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        foreach (var model in models)
         {
-            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-        };
-        if (!string.IsNullOrEmpty(_apiKey))
-        {
-            request.Headers.Add("x-goog-api-key", _apiKey);
-        }
-
-        var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            var fallbackUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{fallbackModel}:generateContent?key={_apiKey}";
-            using var fallbackReq = new HttpRequestMessage(HttpMethod.Post, fallbackUrl)
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={_apiKey}";
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+                Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
             };
             if (!string.IsNullOrEmpty(_apiKey))
             {
-                fallbackReq.Headers.Add("x-goog-api-key", _apiKey);
+                request.Headers.Add("x-goog-api-key", _apiKey);
             }
-            return await _httpClient.SendAsync(fallbackReq);
+
+            var response = await _httpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                return response;
+            }
+
+            lastResponse = response;
         }
 
-        return response;
+        return lastResponse!;
     }
 
     public virtual async Task<string> GetRecommendationAsync(string preferences, string budget, string tripHistory, string destinationsJson)
