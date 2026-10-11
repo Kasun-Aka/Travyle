@@ -348,14 +348,14 @@ const LiveTourOperations = () => {
           </div>
           <p className="text-sm text-gray-500">Weather and traffic hazards with proposed route recalculations</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 border-b border-gray-100 text-gray-500">
+            <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 sticky top-0 z-10">
               <tr>
-                <th className="font-semibold p-4">Alert</th>
-                <th className="font-semibold p-4">Severity</th>
-                <th className="font-semibold p-4">Agent proposed TSP re-order</th>
-                <th className="font-semibold p-4 text-right">Decision</th>
+                <th className="font-semibold p-4 bg-gray-50">Alert</th>
+                <th className="font-semibold p-4 bg-gray-50">Severity</th>
+                <th className="font-semibold p-4 bg-gray-50">Agent Generated Instructions</th>
+                <th className="font-semibold p-4 text-right bg-gray-50">Decision</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

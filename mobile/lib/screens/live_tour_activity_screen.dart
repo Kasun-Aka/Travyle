@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -7,7 +8,8 @@ import 'package:latlong2/latlong.dart';
 
 class LiveTourActivityScreen extends StatefulWidget {
   final bool isGuide;
-  const LiveTourActivityScreen({super.key, this.isGuide = false});
+  final String? guideEmail;
+  const LiveTourActivityScreen({super.key, this.isGuide = false, this.guideEmail});
 
   @override
   State<LiveTourActivityScreen> createState() => _LiveTourActivityScreenState();
@@ -39,9 +41,20 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
   Future<void> _fetchLiveData() async {
     setState(() => _isLoadingData = true);
     try {
+      String? email = widget.guideEmail;
+      if (email == null && widget.isGuide) {
+        try {
+          email = FirebaseAuth.instance.currentUser?.email;
+        } catch (_) {}
+      }
+
+      final queryParam = (email != null && email.isNotEmpty)
+          ? '?guideEmail=${Uri.encodeComponent(email)}'
+          : '';
+
       // 1. Fetch active tours from live-operations
       final opsResponse = await http.get(
-        Uri.parse('$_baseUrl/api/admin/live-operations'),
+        Uri.parse('$_baseUrl/api/admin/live-operations$queryParam'),
       );
 
       if (opsResponse.statusCode == 200) {
@@ -70,6 +83,10 @@ class _LiveTourActivityScreenState extends State<LiveTourActivityScreen> {
         if (tours.isNotEmpty) {
           final firstTourId = tours[0]['id'] as String;
           await _fetchRouteLog(firstTourId);
+        } else {
+          setState(() {
+            _tourName = 'No active tours assigned';
+          });
         }
       }
     } catch (e) {
