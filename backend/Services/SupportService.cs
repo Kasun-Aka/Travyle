@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Travyle.Api.Data;
 using Travyle.Api.DTOs;
 using Travyle.Api.Models;
@@ -20,13 +21,14 @@ public class SupportService : ISupportService
         ISupportAiAgentService aiAgentService,
         INotificationService notificationService,
         ILogger<SupportService> logger,
-        ISupportAttachmentStorage? attachmentStorage = null)
+        ISupportAttachmentStorage? attachmentStorage = null,
+        IConfiguration? configuration = null)
     {
         _dbContext = dbContext;
         _aiAgentService = aiAgentService;
         _notificationService = notificationService;
         _logger = logger;
-        _attachmentStorage = attachmentStorage ?? new LocalSupportAttachmentStorage();
+        _attachmentStorage = attachmentStorage ?? new LocalSupportAttachmentStorage(null, configuration);
     }
 
     private async Task<User> EnsureUserAsync(Guid? userId, CancellationToken cancellationToken)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { SupportTicketItem, TicketStatus, TicketPriority } from '../../types/support';
-import { supportApi } from '../../services/supportApi';
+import { supportApi, API_BASE_URL } from '../../services/supportApi';
 import { supportApi as extraSupportApi, type UserSupportActivity } from '../../api/support';
 
 interface TicketDetailModalProps {
@@ -20,6 +20,35 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [statusSelection, setStatusSelection] = useState<TicketStatus>(ticket.status);
   const [draftReply, setDraftReply] = useState<string>(ticket.draftReplyMessage || '');
+  const [imageFailed, setImageFailed] = useState<boolean>(false);
+
+  // Normalizes local emulator/localhost attachment URLs to active backend URL on Netlify
+  const resolveAttachmentUrl = (url?: string): string => {
+    if (!url) return '';
+    if (url.startsWith('data:')) return url;
+    if (url.includes('/support-attachments/')) {
+      const relativePath = url.substring(url.indexOf('/support-attachments/'));
+      const apiHost = API_BASE_URL.replace(/\/api\/?$/, '');
+      if (url.includes('10.0.2.2') || url.includes('localhost') || (window.location.protocol === 'https:' && url.startsWith('http://'))) {
+        return `${apiHost}${relativePath}`;
+      }
+    }
+    return url;
+  };
+
+  const openAttachment = (rawUrl?: string) => {
+    if (!rawUrl) return;
+    const url = resolveAttachmentUrl(rawUrl);
+    if (url.startsWith('data:')) {
+      const win = window.open('');
+      if (win) {
+        win.document.write(`<title>Customer Evidence Preview</title><body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${url}" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.5);" /></body>`);
+        win.document.close();
+        return;
+      }
+    }
+    window.open(url, '_blank');
+  };
 
   useEffect(() => {
     if (currentTicket.draftReplyMessage) {
@@ -270,12 +299,29 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             {currentTicket.attachmentUrl && (
               <div className="mt-2.5 flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide">Attached Photo Evidence</span>
-                <img 
-                  src={currentTicket.attachmentUrl} 
-                  alt="Customer evidence" 
-                  className="max-w-[240px] h-[140px] object-cover rounded-lg border border-slate-300 cursor-pointer transition-transform hover:scale-[1.02]" 
-                  onClick={() => window.open(currentTicket.attachmentUrl, '_blank')}
-                />
+                {!imageFailed ? (
+                  <img 
+                    src={resolveAttachmentUrl(currentTicket.attachmentUrl)} 
+                    alt="Customer evidence" 
+                    className="max-w-[240px] h-[140px] object-cover rounded-lg border border-slate-300 cursor-pointer transition-transform hover:scale-[1.02]" 
+                    onError={() => setImageFailed(true)}
+                    onClick={() => openAttachment(currentTicket.attachmentUrl)}
+                  />
+                ) : (
+                  <div 
+                    onClick={() => openAttachment(currentTicket.attachmentUrl)}
+                    className="max-w-[320px] p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer flex items-center gap-2.5 text-[13px] text-slate-700 transition-colors"
+                    title="Click to open attachment"
+                  >
+                    <span className="text-[18px]">📷</span>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="font-semibold text-slate-800 text-[12px]">Photo Evidence</span>
+                      <span className="text-[11px] text-slate-500 truncate">
+                        {currentTicket.attachmentUrl.startsWith('data:') ? 'Embedded Photo Evidence' : currentTicket.attachmentUrl.split('/').pop()}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

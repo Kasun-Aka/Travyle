@@ -141,10 +141,11 @@ public class AdminController : ControllerBase
                 };
             }).ToList();
 
-            // Alerts — enriched with title, tour info, proposal text
+            // Alerts — enriched with title, tour info, proposal text (latest first)
             var alertsRaw = await _db.DisruptionAlerts
                 .Include(d => d.BookingSchedule)
                 .Where(d => d.ResolvedAt == null)
+                .OrderByDescending(d => d.TriggeredAt)
                 .ToListAsync();
 
             var alertsData = alertsRaw.Select(d => new
@@ -157,6 +158,7 @@ public class AdminController : ControllerBase
                 source = d.Type == "Weather" ? "OpenWeatherMap" : "Traffic API",
                 description = d.Description,
                 severity = d.Severity,
+                triggeredAt = d.TriggeredAt,
                 time = d.TriggeredAt.ToString("HH:mm"),
                 proposal = d.Severity == "High"
                     ? $"Re-order stops to avoid {d.Type.ToLower()} disruption. TSP solver suggests postponing affected activities."

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, RefreshCw } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 
@@ -7,7 +7,8 @@ const StaffAccessControl = () => {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchStaff = () => {
+    setLoading(true);
     fetch(`${API_BASE}/admin/staff`)
       .then(r => r.json())
       .then(data => {
@@ -18,6 +19,10 @@ const StaffAccessControl = () => {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchStaff();
   }, []);
 
   const handleEditRole = (staffMember: any) => {
@@ -32,10 +37,7 @@ const StaffAccessControl = () => {
       .then(r => {
         if (r.ok) {
           alert('Role updated successfully');
-          setLoading(true);
-          fetch(`${API_BASE}/admin/staff`)
-            .then(res => res.json())
-            .then(data => { setStaff(data); setLoading(false); });
+          fetchStaff();
         } else {
           alert('Failed to update role');
         }
@@ -77,18 +79,38 @@ const StaffAccessControl = () => {
         <p className="text-gray-500 max-w-[800px] leading-relaxed mb-4">
           Provision Guide and Operator accounts against Firebase, manage role assignments, and monitor health.
         </p>
-        <button className="inline-flex items-center justify-center gap-2 mb-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-sm">
-          <UserPlus size={16} /> <span>Provision staff account</span>
-        </button>
+        <div className="flex gap-2 mb-2">
+          <button className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-sm">
+            <UserPlus size={16} /> <span>Provision staff account</span>
+          </button>
+          <button
+            onClick={fetchStaff}
+            disabled={loading}
+            className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <Users size={20} className="text-gray-500" />
-            <h2 className="text-lg font-bold text-gray-800">Staff accounts</h2>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Users size={20} className="text-gray-500" />
+              <h2 className="text-lg font-bold text-gray-800">Staff accounts</h2>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">{staff.length} provisioned Guide and Operator accounts</p>
           </div>
-          <p className="text-sm text-gray-500 mt-1">{staff.length} provisioned Guide and Operator accounts</p>
+          <button
+            onClick={fetchStaff}
+            title="Refresh staff accounts"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors shadow-sm"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
         </div>
 
         {loading ? (
