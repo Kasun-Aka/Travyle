@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -29,9 +30,15 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
       return;
     }
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final token = await user.getIdToken();
+      final options = Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null);
+
       final response = await Dio().get(
-        'http://10.0.2.2:5085/api/auth/user/preferences',
+        '$baseUrl/api/auth/user/preferences',
         queryParameters: {'email': user.email},
+        options: options,
       );
       if (response.statusCode == 200 && mounted) {
         final List<dynamic> prefs = response.data;
@@ -120,14 +127,19 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
         .toList();
 
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+      final token = await user.getIdToken();
+
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
         ),
       );
       final response = await dio.put(
-        'http://10.0.2.2:5085/api/auth/user/preferences',
+        '$baseUrl/api/auth/user/preferences',
         data: {'email': user.email, 'preferences': selectedPrefs},
       );
 

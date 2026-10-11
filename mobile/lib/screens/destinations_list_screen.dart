@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/destinations/models/destination.dart';
 import 'package:dio/dio.dart';
@@ -33,10 +34,12 @@ class _DestinationsListScreenState extends State<DestinationsListScreen> {
   Future<void> _fetchDestinations() async {
     setState(() => _isLoading = true);
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
       final dio = Dio();
       final url = _searchQuery.isNotEmpty
-          ? 'http://10.0.2.2:5085/api/Destinations?search=$_searchQuery'
-          : 'http://10.0.2.2:5085/api/Destinations';
+          ? '$baseUrl/api/Destinations?search=$_searchQuery'
+          : '$baseUrl/api/Destinations';
       final response = await dio.get(url);
       if (response.statusCode == 200 && response.data != null) {
         if (mounted) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'pdf_viewer_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -470,15 +471,20 @@ class DestinationDetailScreen extends StatelessWidget {
     );
 
     try {
+      const String envUrl = String.fromEnvironment('API_BASE_URL');
+      final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+
+      final token = await user.getIdToken();
       final dio = Dio(
         BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
+          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
         ),
       );
 
       final response = await dio.post(
-        'http://10.0.2.2:5085/api/agent/itinerary',
+        '$baseUrl/api/agent/itinerary',
         data: {
           'email': user.email,
           'destinationId': destination.id,
@@ -490,7 +496,7 @@ class DestinationDetailScreen extends StatelessWidget {
 
       try {
         final saveResponse = await dio.post(
-          'http://10.0.2.2:5085/api/travel-plans',
+          '$baseUrl/api/travel-plans',
           data: {
             'email': user.email,
             'title': 'Trip to ${destination.name}',
@@ -566,10 +572,17 @@ class DestinationDetailScreen extends StatelessWidget {
                       tooltip: 'Download PDF',
                       onPressed: () async {
                         try {
+                          const String envUrl = String.fromEnvironment('API_BASE_URL');
+                          final baseUrl = envUrl.isNotEmpty ? envUrl : (kIsWeb ? 'http://localhost:5085' : 'http://10.0.2.2:5085');
+                          final user = FirebaseAuth.instance.currentUser;
+                          final token = await user?.getIdToken();
                           final dio = Dio();
                           final pdfResponse = await dio.get(
-                            'http://10.0.2.2:5085/api/travel-plans/$planId/pdf',
-                            options: Options(responseType: ResponseType.bytes),
+                            '$baseUrl/api/travel-plans/$planId/pdf',
+                            options: Options(
+                              responseType: ResponseType.bytes,
+                              headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+                            ),
                           );
                           if (context.mounted) {
                             Navigator.push(
@@ -580,9 +593,11 @@ class DestinationDetailScreen extends StatelessWidget {
                             );
                           }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to download PDF: $e')),
-                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to download PDF: $e')),
+                            );
+                          }
                         }
                       },
                     ),
