@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         firebaseUid: user.uid,
         email: user.email || '',
         fullName: user.displayName || user.email?.split('@')[0] || 'Admin',
-        role: dbUser.role || 'Admin'
+        role: dbUser?.role || 'Admin'
       });
       return res.data;
     } catch (error) {

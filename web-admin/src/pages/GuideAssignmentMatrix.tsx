@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Zap, Calendar, Users, X } from 'lucide-react';
+import { ChevronDown, Calendar, Users, X } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5085/api';
 

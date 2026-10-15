@@ -84,6 +84,7 @@ const LiveTourOperations = () => {
     }
   };
 
+  /*
   const handleReassignGuide = () => {
     const guideId = prompt('Enter Guide ID to assign:');
     const tourId = prompt('Enter Tour ID to reassign:');
@@ -106,6 +107,7 @@ const LiveTourOperations = () => {
         alert('Error reassigning guide');
       });
   };
+  */
 
   useEffect(() => {
     fetchData();
