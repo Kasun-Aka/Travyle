@@ -37,7 +37,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("live-operations")]
-    public async Task<IActionResult> GetLiveOperations()
+    public async Task<IActionResult> GetLiveOperations([FromQuery] string? guideEmail = null)
     {
         try
         {
@@ -79,14 +79,39 @@ public class AdminController : ControllerBase
             };
 
             // Active Tours — enriched with guide name, progress, last ping
-            var activeSchedules = await _db.BookingSchedules
+            var activeSchedulesQuery = _db.BookingSchedules
                 .Include(bs => bs.TourActivities)
                 .Include(bs => bs.RouteLogs)
                 .Include(bs => bs.DisruptionAlerts)
                 .Include(bs => bs.GuideAssignments)
                     .ThenInclude(ga => ga.Guide)
-                .Where(bs => bs.TourActivities.Any(ta => ta.Status == "InProgress"))
-                .ToListAsync();
+                .Where(bs => bs.TourActivities.Any(ta => ta.Status == "InProgress"));
+
+            if (!string.IsNullOrWhiteSpace(guideEmail))
+            {
+                var emailLower = guideEmail.Trim().ToLower();
+                var guideUser = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
+                if (guideUser != null)
+                {
+                    var assignedScheduleIds = await _db.GuideAssignments
+                        .Where(ga => ga.GuideUserId == guideUser.Id)
+                        .Select(ga => ga.BookingScheduleId)
+                        .ToListAsync();
+
+                    var fullNameLower = (guideUser.FullName ?? "").ToLower();
+
+                    activeSchedulesQuery = activeSchedulesQuery
+                        .Where(bs => assignedScheduleIds.Contains(bs.Id) || (bs.GuideName != null && bs.GuideName.ToLower() == fullNameLower));
+                }
+                else
+                {
+                    activeSchedulesQuery = activeSchedulesQuery
+                        .Where(bs => (bs.GuideName != null && bs.GuideName.ToLower() == emailLower)
+                                  || bs.GuideAssignments.Any(ga => ga.Guide != null && ga.Guide.Email != null && ga.Guide.Email.ToLower() == emailLower));
+                }
+            }
+
+            var activeSchedules = await activeSchedulesQuery.ToListAsync();
 
             var activeToursData = activeSchedules.Select(bs =>
             {
@@ -116,10 +141,11 @@ public class AdminController : ControllerBase
                 };
             }).ToList();
 
-            // Alerts — enriched with title, tour info, proposal text
+            // Alerts — enriched with title, tour info, proposal text (latest first)
             var alertsRaw = await _db.DisruptionAlerts
                 .Include(d => d.BookingSchedule)
                 .Where(d => d.ResolvedAt == null)
+                .OrderByDescending(d => d.TriggeredAt)
                 .ToListAsync();
 
             var alertsData = alertsRaw.Select(d => new
@@ -132,6 +158,7 @@ public class AdminController : ControllerBase
                 source = d.Type == "Weather" ? "OpenWeatherMap" : "Traffic API",
                 description = d.Description,
                 severity = d.Severity,
+                triggeredAt = d.TriggeredAt,
                 time = d.TriggeredAt.ToString("HH:mm"),
                 proposal = d.Severity == "High"
                     ? $"Re-order stops to avoid {d.Type.ToLower()} disruption. TSP solver suggests postponing affected activities."

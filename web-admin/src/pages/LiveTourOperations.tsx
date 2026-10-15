@@ -119,6 +119,14 @@ const LiveTourOperations = () => {
 
   const { stats, activeTours, alerts } = data || {};
 
+  // Sort disruption alerts so the latest one is always on top
+  const sortedAlerts = [...(alerts || [])].sort((a: any, b: any) => {
+    if (a.triggeredAt && b.triggeredAt) {
+      return new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime();
+    }
+    return 0;
+  });
+
   // Compute map center from active tours
   const toursWithLocation = (activeTours || []).filter((t: any) => t.currentLocation);
   const mapCenter: [number, number] = toursWithLocation.length > 0
@@ -143,8 +151,8 @@ const LiveTourOperations = () => {
           Track every tour in progress against its planned route, triage weather and traffic disruptions, and approve agent-proposed stop re-ordering.
         </p>
         <div className="flex gap-2 mb-2">
-          <button className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm" onClick={fetchData}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? 'Refreshing...' : 'Refresh pings'}
+          <button className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm" onClick={fetchData} title="Refresh live tour data">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {loading ? 'Refreshing...' : 'Refresh'}
           </button>
           <button
             className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm"
@@ -343,28 +351,38 @@ const LiveTourOperations = () => {
 
       {/* Disruption Alerts Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className="text-orange-500" size={20} />
-            <h2 className="text-lg font-bold text-gray-800">Disruption alerts</h2>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="text-orange-500" size={20} />
+              <h2 className="text-lg font-bold text-gray-800">Disruption alerts</h2>
+            </div>
+            <p className="text-sm text-gray-500">Weather and traffic hazards with proposed route recalculations</p>
           </div>
-          <p className="text-sm text-gray-500">Weather and traffic hazards with proposed route recalculations</p>
+          <button
+            onClick={fetchData}
+            title="Refresh disruption alerts"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors shadow-sm"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 border-b border-gray-100 text-gray-500">
+            <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 sticky top-0 z-10">
               <tr>
-                <th className="font-semibold p-4">Alert</th>
-                <th className="font-semibold p-4">Severity</th>
-                <th className="font-semibold p-4">Agent proposed TSP re-order</th>
-                <th className="font-semibold p-4 text-right">Decision</th>
+                <th className="font-semibold p-4 bg-gray-50">Alert</th>
+                <th className="font-semibold p-4 bg-gray-50">Severity</th>
+                <th className="font-semibold p-4 bg-gray-50">Agent Generated Instructions</th>
+                <th className="font-semibold p-4 text-right bg-gray-50">Decision</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {(alerts || []).length === 0 && (
+              {(sortedAlerts || []).length === 0 && (
                 <tr><td colSpan={4} className="p-8 text-center text-gray-400">No active disruption alerts</td></tr>
               )}
-              {(alerts || []).map((alert: any) => (
+              {(sortedAlerts || []).map((alert: any) => (
                 <tr key={alert.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="p-4">
                     <div className="font-bold text-gray-800 mb-0.5">{alert.title}</div>
@@ -398,9 +416,19 @@ const LiveTourOperations = () => {
 
       {/* Active Tour Progress Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 mb-1">Active tour progress</h2>
-          <p className="text-sm text-gray-500">All tours currently reporting GPS pings</p>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Active tour progress</h2>
+            <p className="text-sm text-gray-500">All tours currently reporting GPS pings</p>
+          </div>
+          <button
+            onClick={fetchData}
+            title="Refresh tour progress"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors shadow-sm"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">

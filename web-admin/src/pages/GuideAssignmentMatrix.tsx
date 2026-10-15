@@ -13,6 +13,7 @@ const GuideAssignmentMatrix = () => {
   const [modalLoading, setModalLoading] = useState(false);
 
   const fetchMatrix = () => {
+    setLoading(true);
     fetch(`${API_BASE}/admin/guide-matrix`)
       .then(r => r.json())
       .then(d => {
@@ -100,9 +101,17 @@ const GuideAssignmentMatrix = () => {
           Operations & staffing
         </div>
         <h1 className="page-title text-2xl font-extrabold text-gray-800">Guide assignment matrix</h1>
-        <p className="page-subtitle text-gray-500">
+        <p className="page-subtitle text-gray-500 mb-4">
           See the whole week at once, spot double-bookings and idle capacity, and reassign guides or drivers to specific tours and slots.
         </p>
+        <button
+          onClick={fetchMatrix}
+          disabled={loading}
+          className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shadow-sm"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <span>{loading ? 'Refreshing...' : 'Refresh matrix'}</span>
+        </button>
       </div>
 
       <div className="card matrix-card bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
@@ -114,8 +123,18 @@ const GuideAssignmentMatrix = () => {
             </div>
             <div className="matrix-subtitle text-sm text-gray-500 mt-1">Click any cell to assign, reassign, or clear a guide</div>
           </div>
-          <div className="matrix-badge bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold mt-4 md:mt-0">
-            {guides?.length || 0} guides - 7 days
+          <div className="flex items-center gap-2 mt-4 md:mt-0">
+            <button
+              onClick={fetchMatrix}
+              title="Refresh matrix"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors shadow-sm"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+            <div className="matrix-badge bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold">
+              {guides?.length || 0} guides - 7 days
+            </div>
           </div>
         </div>
 
